@@ -31,6 +31,13 @@ app.get('/download/:filename', (req, res) => {
     const host = req.get('host');
     const fullUrl = `${proto}://${host}`;
 
+    const iconFile = path.resolve(__dirname, '..', 'public', 'apple-touch-icon.png');
+    let iconXml = '';
+    if (fs.existsSync(iconFile)) {
+      const iconBase64 = fs.readFileSync(iconFile).toString('base64');
+      iconXml = `            <key>Icon</key>\n            <data>${iconBase64}</data>`;
+    }
+
     const configContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -47,29 +54,29 @@ app.get('/download/:filename', (req, res) => {
             <key>PayloadUUID</key>
             <string>8A7A213D-0544-42E4-A57C-DAE6114EEFB6</string>
             <key>PayloadDisplayName</key>
-            <string>حضور وانصراف المكتب</string>
+            <string>أندية وادي دجلة</string>
             <key>PayloadDescription</key>
-            <string>تطبيق تسجيل حضور وانصراف الموظفين بالـ GPS</string>
+            <string>تطبيق تسجيل حضور وانصراف موظفي أندية وادي دجلة بالـ GPS</string>
             <key>PayloadOrganization</key>
-            <string>إدارة المكتب</string>
+            <string>أندية وادي دجلة - Wadi Degla Clubs</string>
             <key>URL</key>
             <string>${fullUrl}</string>
             <key>Label</key>
-            <string>حضور المكتب</string>
+            <string>وادي دجلة</string>
             <key>IsRemovable</key>
             <true/>
             <key>FullScreen</key>
             <true/>
             <key>Precomposed</key>
             <true/>
-        </dict>
+${iconXml ? iconXml + '\n' : ''}        </dict>
     </array>
     <key>PayloadDisplayName</key>
-    <string>حضور وانصراف المكتب</string>
+    <string>أندية وادي دجلة - الحضور والانصراف</string>
     <key>PayloadIdentifier</key>
     <string>com.office.attendance.profile</string>
     <key>PayloadOrganization</key>
-    <string>إدارة المكتب</string>
+    <string>أندية وادي دجلة - Wadi Degla Clubs</string>
     <key>PayloadType</key>
     <string>Configuration</string>
     <key>PayloadUUID</key>

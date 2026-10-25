@@ -17,7 +17,10 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  Loader2
+  Loader2,
+  Download,
+  Smartphone,
+  X
 } from 'lucide-react';
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
@@ -38,6 +41,7 @@ const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) {
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const [photoCompressing, setPhotoCompressing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -199,6 +203,36 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           <p className="text-[11px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
             WADI DEGLA CLUBS • نظام الحضور والغياب
           </p>
+        </div>
+
+        {/* Quick Mobile App Download Buttons */}
+        <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 mb-4 text-center">
+          <div className="text-[11px] font-bold text-zinc-300 mb-2 flex items-center justify-center gap-1.5">
+            <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+            <span>تحميل تطبيق الهاتف للموظفين (Download App):</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href="/download/OfficeAttendance.apk"
+              download
+              className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              title="تنزيل ملف APK للأندرويد"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>📱 أندرويد (.APK)</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setShowInstallModal(true)}
+              className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              title="تثبيت التطبيق للآيفون"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>🍎 آيفون (iOS)</span>
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher (Login vs Register) */}
@@ -514,6 +548,77 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           </form>
         )}
       </div>
+
+      {/* Install App Modal */}
+      {showInstallModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in text-right">
+          <div className="bg-zinc-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-amber-500/30 max-h-[90vh] overflow-y-auto text-zinc-100">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="" className="w-7 h-9 object-contain" />
+                <h3 className="text-sm font-black text-amber-400">تنزيل تطبيق أندية وادي دجلة</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInstallModal(false)}
+                className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs leading-relaxed">
+              <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
+                <div className="font-black text-amber-400 text-sm flex items-center gap-2">
+                  <span>📱 لأجهزة الأندرويد (Android):</span>
+                </div>
+                <p className="text-zinc-300">
+                  تنزيل ملف التطبيق المباشر (APK) لتثبيته على أي هاتف أندرويد فوراً:
+                </p>
+                <a
+                  href="/download/OfficeAttendance.apk"
+                  download
+                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black rounded-xl shadow-xs transition-colors"
+                >
+                  <Download className="w-4 h-4 text-black" />
+                  <span>تنزيل تطبيق الأندرويد (WadiDeglaAttendance.apk)</span>
+                </a>
+              </div>
+
+              <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
+                <div className="font-black text-amber-400 text-sm flex items-center gap-2">
+                  <span>🍎 لأجهزة الآيفون (iPhone / iOS):</span>
+                </div>
+                <p className="text-zinc-300">
+                  ملف تثبيت الآيفون المباشر (MobileConfig) أو عبر Safari:
+                </p>
+                <a
+                  href="/download/OfficeAttendance.mobileconfig"
+                  download
+                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black rounded-xl shadow-xs transition-colors"
+                >
+                  <Download className="w-4 h-4 text-black" />
+                  <span>تنزيل ملف الآيفون (WadiDegla.mobileconfig)</span>
+                </a>
+                <div className="text-[11px] text-zinc-300 bg-zinc-900 p-3 rounded-xl border border-zinc-800 mt-2 space-y-1">
+                  <div className="font-bold text-amber-400">أو الإضافة المباشرة في 5 ثوانٍ عبر Safari:</div>
+                  <div>1. افتح الرابط في متصفح <b>Safari</b> على الآيفون.</div>
+                  <div>2. اضغط زر <b>المشاركة (Share ⬆️)</b> بالأسفل.</div>
+                  <div>3. اضغط <b>"إضافة إلى الشاشة الرئيسية (Add to Home Screen)"</b>.</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowInstallModal(false)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
