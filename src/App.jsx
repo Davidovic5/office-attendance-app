@@ -6,16 +6,15 @@ import {
   Shield, 
   Settings, 
   Building2, 
-  UserCircle2, 
-  ChevronDown, 
+  LogOut, 
   MapPin, 
   Download,
-  Share2,
   Smartphone,
   CheckCircle2,
   X
 } from 'lucide-react';
 import { api } from './api';
+import { AuthScreen } from './components/AuthScreen';
 import { CheckInTab } from './components/CheckInTab';
 import { OfficePresenceTab } from './components/OfficePresenceTab';
 import { LeavesPermissionsTab } from './components/LeavesPermissionsTab';
@@ -24,35 +23,48 @@ import { OfficeSettingsTab } from './components/OfficeSettingsTab';
 
 export default function App() {
   const [employees, setEmployees] = useState([]);
+  const [titles, setTitles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [officeSettings, setOfficeSettings] = useState(null);
-  const [activeTab, setActiveTab] = useState('check_in'); // 'check_in', 'presence', 'leaves', 'roles', 'settings'
+  const [activeTab, setActiveTab] = useState('check_in');
   const [loading, setLoading] = useState(true);
-  const [showUserModal, setShowUserModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
 
   // Load initial system data
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [settingsRes, employeesRes] = await Promise.all([
+      const [settingsRes, employeesRes, titlesRes] = await Promise.all([
         api.getSettings(),
         api.getEmployees(),
+        api.getTitles()
       ]);
 
       if (settingsRes.success) {
         setOfficeSettings(settingsRes.settings);
       }
-
+      if (titlesRes.success) {
+        setTitles(titlesRes.titles);
+      }
       if (employeesRes.success && employeesRes.employees.length > 0) {
         setEmployees(employeesRes.employees);
-        if (!currentUser) {
-          // Default to the first employee (Ahmed - Manager)
-          setCurrentUser(employeesRes.employees[0]);
+
+        // Check if there is a saved user in localStorage
+        const saved = localStorage.getItem('office_auth_user');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const fresh = employeesRes.employees.find(e => e.id === parsed.id);
+            if (fresh) {
+              setCurrentUser(fresh);
+            } else {
+              setCurrentUser(null);
+            }
+          } catch (e) {
+            setCurrentUser(null);
+          }
         } else {
-          // Keep same user but refresh permissions
-          const refreshed = employeesRes.employees.find(e => e.id === currentUser.id);
-          if (refreshed) setCurrentUser(refreshed);
+          setCurrentUser(null);
         }
       }
     } catch (err) {
@@ -66,13 +78,34 @@ export default function App() {
     loadInitialData();
   }, []);
 
-  if (loading || !officeSettings || !currentUser) {
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem('office_auth_user');
+    setCurrentUser(null);
+  };
+
+  if (loading || !officeSettings) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center font-['Cairo',sans-serif]">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <h1 className="text-base font-black">نظام الحضور والغياب الذكي</h1>
         <p className="text-xs text-slate-400 mt-1">جاري تحميل التطبيق...</p>
       </div>
+    );
+  }
+
+  // If not logged in, render the AuthScreen (Login / Registration)
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        titles={titles}
+        officeSettings={officeSettings}
+        employees={employees}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          loadInitialData();
+        }}
+      />
     );
   }
 
@@ -167,30 +200,25 @@ export default function App() {
             </div>
           </div>
 
-          {/* User Profile Button / Switcher */}
+          {/* User Controls & Download App */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowInstallModal(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-              title="تثبيت التطبيق على الهاتف"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-1 text-xs font-bold"
+              title="تنزيل التطبيق على الهاتف"
             >
               <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">تحميل</span>
             </button>
 
+            {/* Logout Button */}
             <button
-              onClick={() => setShowUserModal(true)}
-              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-2xl p-1.5 pr-2 pl-2.5 transition-all"
+              onClick={handleLogout}
+              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors flex items-center gap-1 text-xs font-bold border border-rose-200/60"
+              title="تسجيل الخروج"
             >
-              <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name} 
-                className="w-8 h-8 rounded-xl object-cover border-2 border-blue-500 shadow-xs shrink-0"
-              />
-              <div className="text-right hidden xs:block">
-                <span className="text-xs font-black text-slate-800 block leading-tight">{currentUser.name}</span>
-                <span className="text-[10px] text-blue-600 font-bold block">{currentUser.jobTitle}</span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 mr-0.5" />
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">خروج</span>
             </button>
           </div>
         </div>
@@ -200,18 +228,25 @@ export default function App() {
       <main className="flex-1 w-full max-w-lg mx-auto p-3.5 sm:p-5 flex flex-col">
         {/* Today's Context Banner */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-3xl p-4 shadow-lg shadow-blue-500/15 mb-4 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-blue-100 font-bold block">مرحباً بك،</span>
-            <h2 className="text-base font-black">{currentUser.name}</h2>
-            <span className="text-[11px] text-blue-200 block mt-0.5">
-              {currentUser.jobTitle} • رصيد إجازات: {currentUser.leaveBalance ?? 21} يوم
-            </span>
+          <div className="flex items-center gap-3">
+            <img 
+              src={currentUser.avatar} 
+              alt={currentUser.name} 
+              className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm shrink-0"
+            />
+            <div>
+              <span className="text-[11px] text-blue-100 font-bold block">مرحباً بك،</span>
+              <h2 className="text-base font-black leading-tight">{currentUser.name}</h2>
+              <span className="text-[11px] text-blue-200 block mt-0.5">
+                {currentUser.jobTitle}
+              </span>
+            </div>
           </div>
 
-          <div className="text-left bg-white/10 backdrop-blur-xs px-3 py-2 rounded-2xl border border-white/15">
+          <div className="text-left bg-white/10 backdrop-blur-xs px-3 py-2 rounded-2xl border border-white/15 shrink-0">
             <span className="text-[10px] text-blue-200 font-semibold block">اليوم</span>
             <span className="text-xs font-black whitespace-nowrap">
-              {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'short' })}
+              {new Date().toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' })}
             </span>
           </div>
         </div>
@@ -250,59 +285,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* User Switcher Modal */}
-      {showUserModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-              <h3 className="text-sm font-black text-slate-800">تبديل حساب المستخدم (لتجربة الصلاحيات)</h3>
-              <button
-                onClick={() => setShowUserModal(false)}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-              {employees.map(emp => {
-                const isSelected = emp.id === currentUser.id;
-                return (
-                  <div
-                    key={emp.id}
-                    onClick={() => {
-                      setCurrentUser(emp);
-                      setShowUserModal(false);
-                    }}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                      isSelected 
-                        ? 'bg-blue-50 border-blue-500 shadow-xs' 
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={emp.avatar} 
-                        alt={emp.name} 
-                        className="w-10 h-10 rounded-xl object-cover border"
-                      />
-                      <div>
-                        <div className="font-bold text-xs text-slate-900">{emp.name}</div>
-                        <span className="text-[11px] text-blue-600 font-semibold">{emp.jobTitle}</span>
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Install App on Phone Modal */}
       {showInstallModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
@@ -327,7 +309,7 @@ export default function App() {
                   <span>📱 لأجهزة الأندرويد (Android):</span>
                 </div>
                 <p className="text-emerald-800">
-                  يمكن تنزيل ملف التطبيق المباشر (APK) أو تثبيته فورياً:
+                  تنزيل ملف التطبيق المباشر (APK) للتثبيت على أي جهاز أندرويد:
                 </p>
                 <a
                   href="/download/OfficeAttendance.apk"
@@ -345,7 +327,7 @@ export default function App() {
                   <span>🍎 لأجهزة الآيفون (iPhone / iOS):</span>
                 </div>
                 <p className="text-blue-800">
-                  نظام iOS من آبل يتيح تثبيت ملف الإعدادات المباشر (.mobileconfig) أو إضافته من Safari للشاشة الرئيسية:
+                  ملف التثبيت المباشر للآيفون من Safari:
                 </p>
                 <a
                   href="/download/OfficeAttendance.mobileconfig"
@@ -358,7 +340,7 @@ export default function App() {
                 <div className="text-[11px] text-blue-700 bg-white/70 p-2.5 rounded-xl border border-blue-200/60 mt-2 space-y-1">
                   <div className="font-bold">أو التثبيت الفوري في 5 ثوانٍ:</div>
                   <div>1. افتح الرابط في متصفح <b>Safari</b> على الآيفون.</div>
-                  <div>2. اضغط زر <b>المشاركة (Share)</b> بالأسفل.</div>
+                  <div>2. اضغط زر <b>المشاركة (Share ⬆️)</b> بالأسفل.</div>
                   <div>3. اضغط <b>"إضافة إلى الشاشة الرئيسية (Add to Home Screen)"</b>.</div>
                 </div>
               </div>

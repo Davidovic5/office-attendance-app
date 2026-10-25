@@ -3,6 +3,25 @@
 const BASE_URL = '/api';
 
 export const api = {
+  // Auth
+  async login(phone, pin) {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, pin }),
+    });
+    return res.json();
+  },
+
+  async register(data) {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
   // Office Settings
   async getSettings() {
     const res = await fetch(`${BASE_URL}/settings`);

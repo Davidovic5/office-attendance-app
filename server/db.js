@@ -19,6 +19,16 @@ function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
+const DAY_MAP = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday'
+};
+
 function getInitialData() {
   const today = new Date().toISOString().split('T')[0];
 
@@ -121,9 +131,10 @@ function getInitialData() {
         name: "أحمد عبد الله",
         titleCode: "manager",
         jobTitle: "مدير عام المكتب",
-        email: "ahmed@office.com",
         phone: "01011112222",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 21,
         permissionsBalanceHours: 6
       },
@@ -132,9 +143,10 @@ function getInitialData() {
         name: "محمد طارق",
         titleCode: "supervisor",
         jobTitle: "رئيس قسم الحسابات",
-        email: "mohamed@office.com",
         phone: "01033334444",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 18,
         permissionsBalanceHours: 4
       },
@@ -143,9 +155,10 @@ function getInitialData() {
         name: "سارة محمود",
         titleCode: "hr",
         jobTitle: "أخصائية موارد بشرية",
-        email: "sarah@office.com",
         phone: "01055556666",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 20,
         permissionsBalanceHours: 6
       },
@@ -154,9 +167,10 @@ function getInitialData() {
         name: "عمر خالد",
         titleCode: "employee",
         jobTitle: "مهندس برمجيات",
-        email: "omar@office.com",
         phone: "01077778888",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 14,
         permissionsBalanceHours: 2
       },
@@ -165,9 +179,10 @@ function getInitialData() {
         name: "ياسمين حسن",
         titleCode: "employee",
         jobTitle: "مسؤولة علاقات عامة",
-        email: "yasmin@office.com",
         phone: "01099990000",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 17,
         permissionsBalanceHours: 6
       },
@@ -176,9 +191,10 @@ function getInitialData() {
         name: "كريم شريف",
         titleCode: "employee",
         jobTitle: "مسؤول مشتريات وتوريدات",
-        email: "karim@office.com",
         phone: "01122223333",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 12,
         permissionsBalanceHours: 4
       },
@@ -187,9 +203,10 @@ function getInitialData() {
         name: "مروة عادل",
         titleCode: "employee",
         jobTitle: "مصممة جرافيك",
-        email: "marwa@office.com",
         phone: "01144445555",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["friday", "saturday"],
         leaveBalance: 19,
         permissionsBalanceHours: 4
       },
@@ -198,14 +215,15 @@ function getInitialData() {
         name: "حسام الدين",
         titleCode: "employee",
         jobTitle: "محاسب مالي",
-        email: "hossam@office.com",
         phone: "01166667777",
+        pin: "1234",
         avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80",
+        weeklyOffDays: ["sunday", "monday"], // أيام بديلة لاختبار الإجازات
         leaveBalance: 15,
         permissionsBalanceHours: 6
       }
     ],
-    // سجلات الحضور لليوم وتاريخ سابق
+    // سجلات الحضور
     attendanceRecords: [
       {
         id: "att_1",
@@ -252,12 +270,12 @@ function getInitialData() {
       {
         id: "req_1",
         employeeId: "emp_4",
-        type: "leave", // leave | permission
-        leaveType: "sick", // weekly_off | sick | travel | annual | casual | emergency
+        type: "leave",
+        leaveType: "sick",
         startDate: today,
         endDate: today,
         reason: "نزلة معوية حادة وزيارة الطبيب",
-        status: "approved", // pending | approved | rejected
+        status: "approved",
         attachmentName: "medical_report_omar.pdf",
         requestedAt: `${today}T07:30:00.000Z`,
         reviewedBy: "emp_1",
@@ -282,8 +300,8 @@ function getInitialData() {
       {
         id: "req_3",
         employeeId: "emp_7",
-        type: "permission", // إذن ساعتين
-        permissionType: "morning", // morning (تأخير) | evening (انصراف مبكر) | midday (أثناء اليوم)
+        type: "permission",
+        permissionType: "morning",
         permissionHours: 2,
         date: today,
         startTime: "09:00",
@@ -294,36 +312,6 @@ function getInitialData() {
         reviewedBy: "emp_1",
         reviewedAt: `${today}T08:20:00.000Z`,
         reviewNote: "معتمد من 9 إلى 11 صباحاً."
-      },
-      {
-        id: "req_4",
-        employeeId: "emp_8",
-        type: "leave",
-        leaveType: "weekly_off",
-        startDate: today,
-        endDate: today,
-        reason: "يوم العطلة الأسبوعية المجدول للورديات البديلة",
-        status: "approved",
-        requestedAt: `${today}T00:00:00.000Z`,
-        reviewedBy: "system",
-        reviewedAt: `${today}T00:00:00.000Z`,
-        reviewNote: "مجدول نظامياً"
-      },
-      {
-        id: "req_5",
-        employeeId: "emp_3",
-        type: "permission",
-        permissionType: "evening",
-        permissionHours: 2,
-        date: today,
-        startTime: "15:00",
-        endTime: "17:00",
-        reason: "ظرف عائلي طارئ يتطلب انصراف مبكر ساعتين",
-        status: "pending",
-        requestedAt: `${today}T11:00:00.000Z`,
-        reviewedBy: null,
-        reviewedAt: null,
-        reviewNote: null
       }
     ]
   };
@@ -343,6 +331,12 @@ class Database {
       try {
         const raw = fs.readFileSync(DB_PATH, 'utf8');
         this.data = JSON.parse(raw);
+        // Ensure employees have weeklyOffDays and pin
+        this.data.employees.forEach(e => {
+          if (!e.weeklyOffDays) e.weeklyOffDays = ["friday", "saturday"];
+          if (!e.pin) e.pin = "1234";
+        });
+        this.save();
       } catch (err) {
         console.error("Error reading database, creating fresh one:", err);
         this.data = getInitialData();
@@ -378,7 +372,6 @@ class Database {
   }
 
   getEmployees() {
-    // Enrich employees with title details
     return this.data.employees.map(emp => {
       const titleObj = this.data.titles.find(t => t.code === emp.titleCode);
       return {
@@ -400,25 +393,47 @@ class Database {
     };
   }
 
-  addEmployee(employeeData) {
+  registerEmployee(data) {
+    const { name, phone, pin, titleCode, jobTitle, weeklyOffDays, avatar } = data;
+    
+    // Check if phone already registered
+    const existing = this.data.employees.find(e => e.phone === phone);
+    if (existing) {
+      throw new Error("رقم الهاتف مسجل بالفعل لموظف آخر.");
+    }
+
+    const titleObj = this.data.titles.find(t => t.code === titleCode) || this.data.titles.find(t => t.code === 'employee');
+
     const newEmp = {
       id: "emp_" + Date.now(),
+      name: name.trim(),
+      phone: phone.trim(),
+      pin: pin ? pin.trim() : "1234",
+      titleCode: titleObj ? titleObj.code : "employee",
+      jobTitle: jobTitle ? jobTitle.trim() : (titleObj ? titleObj.name : "موظف"),
+      weeklyOffDays: Array.isArray(weeklyOffDays) && weeklyOffDays.length > 0 ? weeklyOffDays : ["friday", "saturday"],
+      avatar: avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80`,
       leaveBalance: 21,
       permissionsBalanceHours: 6,
-      avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 1000)}?auto=format&fit=crop&w=150&q=80`,
-      ...employeeData
+      createdAt: new Date().toISOString()
     };
+
     this.data.employees.push(newEmp);
     this.save();
     return this.getEmployeeById(newEmp.id);
   }
 
-  updateEmployee(id, employeeData) {
-    const index = this.data.employees.findIndex(e => e.id === id);
-    if (index === -1) return null;
-    this.data.employees[index] = { ...this.data.employees[index], ...employeeData };
-    this.save();
-    return this.getEmployeeById(id);
+  loginEmployee(phone, pin) {
+    const emp = this.data.employees.find(e => e.phone === phone.trim());
+    if (!emp) {
+      throw new Error("رقم الهاتف غير مسجل بالنظام.");
+    }
+
+    if (emp.pin && emp.pin !== pin.trim()) {
+      throw new Error("رمز الدخول (PIN) غير صحيح.");
+    }
+
+    return this.getEmployeeById(emp.id);
   }
 
   getTodayAttendance(dateStr) {
@@ -430,13 +445,11 @@ class Database {
     const today = new Date().toISOString().split('T')[0];
     const settings = this.data.officeSettings;
 
-    // Check if already checked in today
     const existing = this.data.attendanceRecords.find(r => r.employeeId === employeeId && r.date === today);
     if (existing && !existing.checkOutTime) {
       throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
     }
 
-    // Verify GPS distance
     const distanceMeters = calculateDistanceMeters(
       latitude,
       longitude,
@@ -487,7 +500,6 @@ class Database {
 
     const requiredHours = this.data.officeSettings.shiftHours || 8;
 
-    // Check if employee has an approved 2-hour permission today
     const hasPermission = this.data.requests.some(
       req =>
         req.employeeId === employeeId &&
@@ -496,7 +508,6 @@ class Database {
         req.status === "approved"
     );
 
-    // If has 2-hour permission, effective required hours is 6
     const effectiveRequiredHours = hasPermission ? Math.max(requiredHours - 2, 0) : requiredHours;
 
     if (durationHours < effectiveRequiredHours && !forceOverride) {
@@ -526,6 +537,10 @@ class Database {
       r => r.status === "approved" && (r.date === today || (r.startDate <= today && r.endDate >= today))
     );
 
+    // Get current day of week key (e.g. 'friday', 'sunday', etc.)
+    const dateObj = new Date(today);
+    const dayKey = DAY_MAP[dateObj.getDay()];
+
     const result = {
       summary: {
         totalEmployees: employees.length,
@@ -547,7 +562,7 @@ class Database {
     };
 
     employees.forEach(emp => {
-      // Check attendance
+      // 1. Check attendance in office
       const attendance = todayAttendance.find(a => a.employeeId === emp.id && !a.checkOutTime);
       if (attendance) {
         result.summary.inOfficeCount++;
@@ -560,7 +575,7 @@ class Database {
         return;
       }
 
-      // Check approved permission for today
+      // 2. Check approved permission for today
       const permission = todayRequests.find(r => r.employeeId === emp.id && r.type === "permission");
       if (permission) {
         result.summary.onPermissionCount++;
@@ -571,30 +586,35 @@ class Database {
         return;
       }
 
-      // Check approved leave for today
+      // 3. Check approved leave for today
       const leave = todayRequests.find(r => r.employeeId === emp.id && r.type === "leave");
       if (leave) {
         result.summary.onLeaveCount++;
         const leaveCategory = leave.leaveType || 'other';
         if (result.onLeave[leaveCategory]) {
-          result.onLeave[leaveCategory].push({
-            employee: emp,
-            leave
-          });
+          result.onLeave[leaveCategory].push({ employee: emp, leave });
         } else {
-          result.onLeave.other.push({
-            employee: emp,
-            leave
-          });
+          result.onLeave.other.push({ employee: emp, leave });
         }
         return;
       }
 
-      // Else Absent
+      // 4. Auto-detect Scheduled Weekly Off for this employee!
+      if (emp.weeklyOffDays && emp.weeklyOffDays.includes(dayKey)) {
+        result.summary.onLeaveCount++;
+        result.onLeave.weekly_off.push({
+          employee: emp,
+          leave: {
+            reason: "يوم عطلة أسبوعية مجدول للموظف",
+            leaveType: "weekly_off"
+          }
+        });
+        return;
+      }
+
+      // 5. Otherwise: Absent
       result.summary.absentCount++;
-      result.absent.push({
-        employee: emp
-      });
+      result.absent.push({ employee: emp });
     });
 
     return result;
@@ -611,7 +631,6 @@ class Database {
     if (filters.status) {
       list = list.filter(r => r.status === filters.status);
     }
-    // Enrich with employee data
     return list.map(req => {
       const emp = this.getEmployeeById(req.employeeId);
       return {
@@ -641,12 +660,11 @@ class Database {
   reviewRequest(requestId, reviewerId, status, reviewNote) {
     const req = this.data.requests.find(r => r.id === requestId);
     if (!req) return null;
-    req.status = status; // approved | rejected
+    req.status = status;
     req.reviewedBy = reviewerId;
     req.reviewedAt = new Date().toISOString();
     req.reviewNote = reviewNote || (status === 'approved' ? 'تمت الموافقة' : 'تم الرفض');
 
-    // If leave approved, deduct leave balance
     if (status === 'approved' && req.type === 'leave' && req.leaveType !== 'weekly_off') {
       const emp = this.data.employees.find(e => e.id === req.employeeId);
       if (emp && emp.leaveBalance > 0) {
@@ -654,7 +672,6 @@ class Database {
       }
     }
 
-    // If permission approved, deduct permission hours
     if (status === 'approved' && req.type === 'permission') {
       const emp = this.data.employees.find(e => e.id === req.employeeId);
       if (emp && emp.permissionsBalanceHours >= (req.permissionHours || 2)) {
@@ -669,5 +686,6 @@ class Database {
 
 module.exports = {
   db: new Database(),
-  calculateDistanceMeters
+  calculateDistanceMeters,
+  DAY_MAP
 };

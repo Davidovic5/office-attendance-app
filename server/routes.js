@@ -3,6 +3,52 @@ const { db, calculateDistanceMeters } = require('./db');
 
 const router = express.Router();
 
+// 0. Authentication & Registration (تسجيل الدخول وتسجيل موظف جديد)
+router.post('/auth/register', (req, res) => {
+  try {
+    const { name, phone, pin, titleCode, jobTitle, weeklyOffDays, avatar } = req.body;
+    if (!name || !phone) {
+      return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
+    }
+
+    const employee = db.registerEmployee({
+      name,
+      phone,
+      pin: pin || "1234",
+      titleCode: titleCode || "employee",
+      jobTitle: jobTitle || "موظف",
+      weeklyOffDays: weeklyOffDays || ["friday", "saturday"],
+      avatar: avatar || null
+    });
+
+    res.json({
+      success: true,
+      message: "تم إنشاء حساب الموظف بنجاح!",
+      employee
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/auth/login', (req, res) => {
+  try {
+    const { phone, pin } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف." });
+    }
+
+    const employee = db.loginEmployee(phone, pin || "");
+    res.json({
+      success: true,
+      message: `مرحباً بك مجدداً يا ${employee.name}`,
+      employee
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // 1. Office Settings
 router.get('/settings', (req, res) => {
   try {
@@ -98,24 +144,14 @@ router.get('/employees/:id', (req, res) => {
 
 router.post('/employees', (req, res) => {
   try {
-    const newEmp = db.addEmployee(req.body);
+    const newEmp = db.registerEmployee(req.body);
     res.json({ success: true, employee: newEmp, message: "تمت إضافة الموظف بنجاح" });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
 });
 
-router.put('/employees/:id', (req, res) => {
-  try {
-    const updated = db.updateEmployee(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ success: false, error: "الموظف غير موجود" });
-    res.json({ success: true, employee: updated, message: "تم تحديث بيانات الموظف بنجاح" });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-// 4. Live Office Presence Dashboard (مين في المكتب ومين إجازة بتفاصيلها)
+// 4. Live Office Presence Dashboard
 router.get('/status/live', (req, res) => {
   try {
     const { date } = req.query;
@@ -180,7 +216,7 @@ router.post('/attendance/check-out', (req, res) => {
   }
 });
 
-// 6. Leaves & Permissions (طلبات الإجازات والأذونات)
+// 6. Leaves & Permissions
 router.get('/requests', (req, res) => {
   try {
     const { employeeId, type, status } = req.query;
