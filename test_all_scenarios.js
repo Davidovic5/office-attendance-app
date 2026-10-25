@@ -68,7 +68,19 @@ async function runTests() {
     // 4. Job Hierarchy Titles check
     const titlesRes = await request('/api/titles');
     const titleCodes = titlesRes.data.titles.map(t => t.code);
-    assert(titleCodes.includes('deputy_manager') && titleCodes.includes('section_head') && titleCodes.includes('senior_specialist') && titleCodes.includes('specialist'), "Job Hierarchy Matches Exact Structure");
+    assert(
+      titleCodes.includes('sector_manager') &&
+      titleCodes.includes('deputy_manager') &&
+      titleCodes.includes('section_head') &&
+      titleCodes.includes('senior_specialist') &&
+      titleCodes.includes('specialist'),
+      "Job Hierarchy Matches Exact Structure (Sector Manager, Deputy manager, Section head, Senior Specialist, Specialist)"
+    );
+
+    const sectorMgr = titlesRes.data.titles.find(t => t.code === 'sector_manager');
+    const deputyMgr = titlesRes.data.titles.find(t => t.code === 'deputy_manager');
+    const allPermissionsTrue = (t) => Object.values(t.permissions).every(val => val === true);
+    assert(allPermissionsTrue(sectorMgr) && allPermissionsTrue(deputyMgr), "First two roles (Sector Manager & Deputy manager) have 100% full permissions");
 
     // 5. Auth: Register New Employee in El Lotus Branch
     const testPhone = "01099991122_" + Date.now();

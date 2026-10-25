@@ -4,6 +4,7 @@ import {
   LogIn, 
   UserPlus, 
   Camera, 
+  Image as ImageIcon,
   Phone, 
   Lock, 
   User, 
@@ -308,34 +309,57 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           /* ================= REGISTER FORM ================= */
           <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-right">
             
-            {/* 1. Photo Picker with Direct Button & Compression */}
+            {/* 1. Photo Picker with Direct Gallery & Camera Buttons */}
             <div className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800 text-center">
               <label className="block text-[11px] font-bold text-zinc-300 mb-2">
                 الصورة الشخصية للموظف:
               </label>
 
-              <div className="flex items-center justify-center gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-amber-500 shadow-md bg-zinc-900 flex items-center justify-center shrink-0">
-                  {avatarPreview || regAvatar ? (
-                    <img src={avatarPreview || regAvatar} alt="معاينة الصورة" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-8 h-8 text-zinc-600" />
-                  )}
-                </div>
+              <div className="flex items-center justify-center gap-3">
+                <label className="cursor-pointer group relative">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-amber-500 shadow-md bg-zinc-900 flex items-center justify-center shrink-0">
+                    {avatarPreview || regAvatar ? (
+                      <img src={avatarPreview || regAvatar} alt="معاينة الصورة" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-8 h-8 text-zinc-600" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    disabled={photoCompressing}
+                    className="hidden"
+                  />
+                </label>
 
-                <div className="flex flex-col gap-1.5 items-start">
-                  <label className="cursor-pointer inline-flex items-center gap-2 py-2 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all">
+                <div className="flex flex-col gap-1.5 items-stretch flex-1">
+                  {/* Option 1: Gallery (No capture attribute - opens Photos / Gallery) */}
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all">
                     {photoCompressing ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
                         <span>جاري المعالجة...</span>
                       </>
                     ) : (
                       <>
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>{avatarPreview ? 'تغيير الصورة' : 'اختيار صورة أو التقاط بالكاميرا'}</span>
+                        <ImageIcon className="w-3.5 h-3.5 text-black" />
+                        <span>🖼️ رفع صورة من المعرض</span>
                       </>
                     )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      disabled={photoCompressing}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Option 2: Camera Selfie (with capture="user") */}
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/30 font-bold text-xs active:scale-95 transition-all">
+                    <Camera className="w-3.5 h-3.5 text-amber-400" />
+                    <span>📸 التقاط بالكاميرا</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -345,10 +369,6 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                       className="hidden"
                     />
                   </label>
-
-                  <span className="text-[10px] text-zinc-500 font-bold">
-                    يدعم كاميرا الآيفون والأندرويد مباشرة
-                  </span>
                 </div>
               </div>
             </div>

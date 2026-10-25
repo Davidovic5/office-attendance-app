@@ -42,12 +42,12 @@ const DEFAULT_BRANCHES = [
 
 const DEFAULT_TITLES = [
   {
-    id: "title_general_manager",
-    code: "general_manager",
-    name: "General Manager (المدير العام)",
-    englishTitle: "General Manager",
-    arabicTitle: "المدير العام",
-    description: "صلاحيات شاملة لكافة الفروع والإدارات والإعدادات",
+    id: "title_sector_manager",
+    code: "sector_manager",
+    name: "Sector Manager (مدير القطاع)",
+    englishTitle: "Sector Manager",
+    arabicTitle: "مدير القطاع",
+    description: "صلاحيات شاملة وكاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -70,7 +70,7 @@ const DEFAULT_TITLES = [
     name: "Deputy manager (نائب المدير)",
     englishTitle: "Deputy manager",
     arabicTitle: "نائب المدير",
-    description: "إدارة العمليات والاعتماد والمتابعة لكافة الأقسام والفروع",
+    description: "كامل الصلاحيات وحق تعديل وتغيير أي شيء وكافة الفروع والإدارات",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -80,8 +80,8 @@ const DEFAULT_TITLES = [
       request_permission: true,
       approve_leaves_permissions: true,
       manage_employees: true,
-      manage_titles_permissions: false,
-      manage_office_settings: false,
+      manage_titles_permissions: true,
+      manage_office_settings: true,
       view_reports: true,
       view_all_branches: true,
       override_early_checkout: true
@@ -93,7 +93,7 @@ const DEFAULT_TITLES = [
     name: "Section head (رئيس قسم)",
     englishTitle: "Section head",
     arabicTitle: "رئيس قسم",
-    description: "إدارة فريق الفرع والقسم واعتماد إجازاتهم وأذوناتهم",
+    description: "إدارة فريق القسم واعتماد إجازاتهم وأذوناتهم ومتابعة الحضور",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -116,7 +116,7 @@ const DEFAULT_TITLES = [
     name: "Senior Specialist (أخصائي أول)",
     englishTitle: "Senior Specialist",
     arabicTitle: "أخصائي أول",
-    description: "تسجيل الحضور ومتابعة فريق العمل وتقديم الطلبات",
+    description: "تسجيل الحضور ومتابعة الأعمال وتقديم طلبات الإجازات والأذونات",
     color: "zinc",
     permissions: {
       check_in_out: true,
@@ -139,7 +139,7 @@ const DEFAULT_TITLES = [
     name: "Specialist (أخصائي)",
     englishTitle: "Specialist",
     arabicTitle: "أخصائي",
-    description: "تسجيل الحضور والغياب وتقديم طلبات الإجازات والأذونات",
+    description: "تسجيل الحضور والغياب بالـ GPS وتقديم طلبات الإجازات والأذونات",
     color: "zinc",
     permissions: {
       check_in_out: true,
@@ -169,13 +169,13 @@ function getInitialData() {
     },
     branches: DEFAULT_BRANCHES,
     titles: DEFAULT_TITLES,
-    // Clean initial employees: Just one primary Admin / General Manager account for the father/owner
+    // Clean initial employees: Just one primary Admin / Sector Manager account
     employees: [
       {
         id: "emp_admin",
-        name: "مدير عام أندية وادي دجلة",
-        titleCode: "general_manager",
-        jobTitle: "General Manager",
+        name: "مدير قطاع أندية وادي دجلة",
+        titleCode: "sector_manager",
+        jobTitle: "Sector Manager",
         branchId: "branch_sheraton",
         phone: "01000000000",
         password: "admin",

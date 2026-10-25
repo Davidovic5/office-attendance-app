@@ -14,6 +14,7 @@ import {
   X,
   User,
   Camera,
+  Image as ImageIcon,
   KeyRound,
   Eye,
   EyeOff,
@@ -269,7 +270,7 @@ export default function App() {
   }
 
   const permissions = currentUser.permissions || {};
-  const isManager = currentUser.titleCode === 'general_manager' || currentUser.titleCode === 'deputy_manager' || permissions.manage_titles_permissions;
+  const isManager = currentUser.titleCode === 'sector_manager' || currentUser.titleCode === 'deputy_manager' || permissions.manage_titles_permissions;
 
   // Tabs configuration based on user permissions
   const tabs = [
@@ -507,34 +508,57 @@ export default function App() {
               </div>
             )}
 
-            {/* 1. Change Profile Picture */}
+            {/* 1. Change Profile Picture with Gallery & Camera Options */}
             <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mb-4 text-center">
               <label className="block text-xs font-bold text-zinc-300 mb-3">
                 الصورة الشخصية الحالية:
               </label>
 
-              <div className="flex items-center justify-center gap-4">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-amber-400 shadow-lg bg-zinc-900 shrink-0">
-                  <img 
-                    src={profileAvatar || currentUser.avatar} 
-                    alt={currentUser.name} 
-                    className="w-full h-full object-cover" 
+              <div className="flex items-center justify-center gap-3">
+                <label className="cursor-pointer group relative">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-amber-400 shadow-lg bg-zinc-900 shrink-0">
+                    <img 
+                      src={profileAvatar || currentUser.avatar} 
+                      alt={currentUser.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    disabled={avatarLoading}
+                    className="hidden"
                   />
-                </div>
+                </label>
 
-                <div className="flex flex-col gap-1.5 items-start">
-                  <label className="cursor-pointer inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all">
+                <div className="flex flex-col gap-2 items-stretch flex-1">
+                  {/* Option 1: Gallery / Photo Library */}
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all">
                     {avatarLoading ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
                         <span>جاري المعالجة...</span>
                       </>
                     ) : (
                       <>
-                        <Camera className="w-4 h-4" />
-                        <span>📷 تغيير الصورة الشخصية</span>
+                        <ImageIcon className="w-4 h-4 text-black" />
+                        <span>🖼️ رفع صورة من المعرض</span>
                       </>
                     )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      disabled={avatarLoading}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Option 2: Camera Selfie */}
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/30 font-bold text-xs active:scale-95 transition-all">
+                    <Camera className="w-4 h-4 text-amber-400" />
+                    <span>📸 التقاط بالكاميرا</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -544,9 +568,6 @@ export default function App() {
                       className="hidden"
                     />
                   </label>
-                  <span className="text-[10px] text-zinc-500 font-bold">
-                    التقاط بكاميرا الموبايل أو اختيار من المعرض
-                  </span>
                 </div>
               </div>
             </div>
