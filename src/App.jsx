@@ -20,7 +20,9 @@ import {
   EyeOff,
   Loader2,
   Save,
-  Calendar
+  Calendar,
+  BarChart3,
+  Trash2
 } from 'lucide-react';
 import { api } from './api';
 import { AuthScreen } from './components/AuthScreen';
@@ -29,6 +31,7 @@ import { OfficePresenceTab } from './components/OfficePresenceTab';
 import { LeavesPermissionsTab } from './components/LeavesPermissionsTab';
 import { RolesPermissionsTab } from './components/RolesPermissionsTab';
 import { OfficeSettingsTab } from './components/OfficeSettingsTab';
+import { MonthlyReportTab } from './components/MonthlyReportTab';
 import { compressImage } from './utils/imageCompressor';
 
 const DAYS_OF_WEEK = [
@@ -69,6 +72,10 @@ export default function App() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccessMsg, setPasswordSuccessMsg] = useState('');
   const [passwordErrorMsg, setPasswordErrorMsg] = useState('');
+
+  // Delete Account State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Load initial system data
   const loadInitialData = async () => {
@@ -241,6 +248,26 @@ export default function App() {
     }
   };
 
+  // Delete Account Handler
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      const res = await api.deleteAccount(currentUser.id);
+      if (res.success) {
+        localStorage.removeItem('office_auth_user');
+        setShowDeleteConfirm(false);
+        setShowProfileModal(false);
+        setCurrentUser(null);
+      } else {
+        alert(res.error || 'فشل حذف الحساب');
+      }
+    } catch (err) {
+      alert(err.message || 'فشل الاتصال بالخادم');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (loading || !officeSettings) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center font-['Cairo',sans-serif]">
@@ -293,6 +320,12 @@ export default function App() {
       enabled: permissions.request_leave !== false || permissions.request_permission !== false
     },
     {
+      id: 'reports',
+      label: 'سجل وتقارير الشهر',
+      icon: BarChart3,
+      enabled: permissions.view_reports !== false || isManager
+    },
+    {
       id: 'roles',
       label: 'الصلاحيات',
       icon: Shield,
@@ -325,6 +358,8 @@ export default function App() {
             onStatusChanged={loadInitialData}
           />
         );
+      case 'reports':
+        return <MonthlyReportTab currentUser={currentUser} />;
       case 'roles':
         return <RolesPermissionsTab onTitlesUpdated={loadInitialData} />;
       case 'settings':
@@ -697,6 +732,24 @@ export default function App() {
               </form>
             </div>
 
+            {/* 4. Delete Account Danger Section */}
+            <div className="bg-zinc-950 p-4 rounded-2xl border border-rose-950/80 mt-4 text-center">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-black text-rose-400 block text-right">منطقة الخطر: حذف الحساب</span>
+                  <span className="text-[10px] text-zinc-500 block text-right mt-0.5">مسح حسابك وبياناتك نهائياً من النظام</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="py-2 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>حذف الحساب</span>
+                </button>
+              </div>
+            </div>
+
             {/* Close Button */}
             <button
               onClick={() => setShowProfileModal(false)}
@@ -704,6 +757,47 @@ export default function App() {
             >
               إغلاق
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-zinc-900 rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-rose-800 text-zinc-100 text-right animate-scale-up">
+            <div className="w-12 h-12 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-400 flex items-center justify-center mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-sm font-black text-rose-400 mb-1.5">هل أنت متأكد من حذف حسابك نهائياً؟</h3>
+            <p className="text-xs text-zinc-300 leading-relaxed mb-4">
+              سيتم مسح حسابك <b>({currentUser.name})</b> وبياناتك بالكامل من النظام ولن تتمكن من تسجيل الدخول به مجدداً.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-xs font-bold text-zinc-300 hover:bg-zinc-800"
+              >
+                إلغاء التراجع
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={handleDeleteAccount}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-1"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>جاري الحذف...</span>
+                  </>
+                ) : (
+                  <span>تأكيد الحذف نهائياً</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

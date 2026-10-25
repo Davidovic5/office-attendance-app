@@ -55,6 +55,26 @@ export const api = {
     return res.json();
   },
 
+  async deleteAccount(employeeId) {
+    const res = await fetch(`${BASE_URL}/auth/account`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId }),
+    });
+    return res.json();
+  },
+
+  // Monthly Reports & Logs (سجل وتقارير الحضور والإجازات الشهرية)
+  async getMonthlyReport(year, month, branchId = null, employeeId = null) {
+    const params = new URLSearchParams();
+    if (year) params.append('year', year);
+    if (month) params.append('month', month);
+    if (branchId) params.append('branchId', branchId);
+    if (employeeId) params.append('employeeId', employeeId);
+    const res = await fetch(`${BASE_URL}/reports/monthly?${params.toString()}`);
+    return res.json();
+  },
+
   // Office Settings
   async getSettings() {
     const res = await fetch(`${BASE_URL}/settings`);

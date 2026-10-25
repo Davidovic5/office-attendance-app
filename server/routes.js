@@ -111,6 +111,32 @@ router.put('/auth/change-password', (req, res) => {
   }
 });
 
+// Delete Account (حذف الحساب)
+router.delete('/auth/account', (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "رقم الموظف مطلوب." });
+    }
+
+    const result = db.deleteEmployee(employeeId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Monthly Reports & Attendance History (سجل وتقارير الحضور والإجازات الشهرية)
+router.get('/reports/monthly', (req, res) => {
+  try {
+    const { year, month, branchId, employeeId } = req.query;
+    const report = db.getMonthlyReport({ year, month, branchId, employeeId });
+    res.json({ success: true, report });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 1. Office Settings
 router.get('/settings', (req, res) => {
   try {

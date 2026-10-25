@@ -651,6 +651,198 @@ class Database {
     this.save();
     return req;
   }
+
+  deleteEmployee(employeeId) {
+    const idx = this.data.employees.findIndex(e => e.id === employeeId);
+    if (idx === -1) {
+      throw new Error("الموظف غير موجود.");
+    }
+    const emp = this.data.employees[idx];
+    if (emp.id === "emp_admin") {
+      throw new Error("لا يمكن حذف حساب الإدارة الرئيسي للنظام.");
+    }
+
+    this.data.employees.splice(idx, 1);
+    this.data.attendanceRecords = this.data.attendanceRecords.filter(r => r.employeeId !== employeeId);
+    this.data.requests = this.data.requests.filter(r => r.employeeId !== employeeId);
+    this.save();
+    return { success: true, message: `تم حذف حساب "${emp.name}" نهائياً بنجاح.` };
+  }
+
+  getMonthlyReport({ year, month, branchId = null, employeeId = null }) {
+    const targetYear = parseInt(year, 10) || new Date().getFullYear();
+    const targetMonth = parseInt(month, 10) || (new Date().getMonth() + 1);
+    const monthStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+    
+    // Days in this month
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Filter employees
+    let employees = this.getEmployees(branchId);
+    if (employeeId && employeeId !== 'all') {
+      employees = employees.filter(e => e.id === employeeId);
+    }
+
+    // Filter attendance records for this month
+    let attendance = this.data.attendanceRecords.filter(r => r.date && r.date.startsWith(monthStr));
+    if (branchId && branchId !== 'all') {
+      attendance = attendance.filter(r => r.branchId === branchId);
+    }
+    if (employeeId && employeeId !== 'all') {
+      attendance = attendance.filter(r => r.employeeId === employeeId);
+    }
+
+    // Filter approved leaves & permissions for this month
+    let requests = this.data.requests.filter(r => {
+      if (r.status !== 'approved') return false;
+      const d = r.date || r.startDate || '';
+      return d.startsWith(monthStr);
+    });
+    if (employeeId && employeeId !== 'all') {
+      requests = requests.filter(r => r.employeeId === employeeId);
+    }
+
+    // Enrich attendance records with employee info
+    const enrichedAttendance = attendance.map(r => {
+      const emp = this.getEmployeeById(r.employeeId);
+      const branch = this.getBranchById(r.branchId);
+      return {
+        ...r,
+        employeeName: emp ? emp.name : 'موظف',
+        jobTitle: emp ? emp.jobTitle : '',
+        avatar: emp ? emp.avatar : '',
+        branchName: branch ? branch.name : ''
+      };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+
+    // Enrich requests with employee info
+    const enrichedRequests = requests.map(r => {
+      const emp = this.getEmployeeById(r.employeeId);
+      const branch = emp ? this.getBranchById(emp.branchId) : null;
+      return {
+        ...r,
+        employeeName: emp ? emp.name : 'موظف',
+        jobTitle: emp ? emp.jobTitle : '',
+        avatar: emp ? emp.avatar : '',
+        branchName: branch ? branch.name : ''
+      };
+    }).sort((a, b) => (b.date || b.startDate).localeCompare(a.date || a.startDate));
+
+    // Per-employee monthly summary matrix
+    const employeeSummaries = employees.map(emp => {
+      const empBranch = this.getBranchById(emp.branchId);
+      const empAtt = attendance.filter(r => r.employeeId === emp.id);
+      const empReq = requests.filter(r => r.employeeId === emp.id);
+
+      let totalMinutes = 0;
+      let presentDays = 0;
+      let leavesCount = 0;
+      let permissionsHours = 0;
+
+      empAtt.forEach(r => {
+        presentDays++;
+        totalMinutes += (r.durationMinutes || 0);
+      });
+
+      empReq.forEach(r => {
+        if (r.type === 'leave') {
+          leavesCount++;
+        } else if (r.type === 'permission') {
+          permissionsHours += (r.permissionHours || 2);
+        }
+      });
+
+      const totalHours = (totalMinutes / 60).toFixed(1);
+
+      // Daily calendar matrix for this employee
+      const dailyBreakdown = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dStr = `${monthStr}-${String(day).padStart(2, '0')}`;
+        const dayDate = new Date(`${dStr}T12:00:00Z`);
+        const dayOfWeekIndex = dayDate.getUTCDay();
+        const dayKey = DAY_MAP[dayOfWeekIndex];
+        const isFuture = dStr > todayStr;
+
+        const dayAtt = empAtt.find(r => r.date === dStr);
+        const dayLeave = empReq.find(r => r.type === 'leave' && dStr >= r.startDate && dStr <= r.endDate);
+        const dayPerm = empReq.find(r => r.type === 'permission' && r.date === dStr);
+        const isWeeklyOff = emp.weeklyOffDays && emp.weeklyOffDays.includes(dayKey);
+
+        let status = 'absent';
+        let label = 'غائب';
+        let detail = '';
+
+        if (isFuture) {
+          status = 'future';
+          label = 'قادم';
+        } else if (dayAtt) {
+          status = 'present';
+          const hrs = (dayAtt.durationMinutes ? (dayAtt.durationMinutes / 60).toFixed(1) : 0);
+          label = `حاضر (${hrs}س)`;
+          detail = `${dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : ''} - ${dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : 'في العمل'}`;
+        } else if (dayLeave) {
+          status = 'leave';
+          label = dayLeave.leaveType === 'sick' ? 'مرضي' : (dayLeave.leaveType === 'travel' ? 'سفر' : (dayLeave.leaveType === 'annual' ? 'سنوي' : 'إجازة'));
+          detail = dayLeave.reason || '';
+        } else if (dayPerm) {
+          status = 'permission';
+          label = 'إذن ساعتين';
+          detail = `${dayPerm.startTime} - ${dayPerm.endTime}`;
+        } else if (isWeeklyOff) {
+          status = 'weekly_off';
+          label = 'عطلة أسبوعية';
+        }
+
+        dailyBreakdown.push({
+          day,
+          date: dStr,
+          dayKey,
+          status,
+          label,
+          detail,
+          att: dayAtt || null,
+          leave: dayLeave || null,
+          perm: dayPerm || null
+        });
+      }
+
+      return {
+        employee: {
+          id: emp.id,
+          name: emp.name,
+          jobTitle: emp.jobTitle,
+          branchName: empBranch ? empBranch.name : '',
+          avatar: emp.avatar,
+          phone: emp.phone,
+          weeklyOffDays: emp.weeklyOffDays
+        },
+        presentDays,
+        totalMinutes,
+        totalHours,
+        leavesCount,
+        permissionsHours,
+        dailyBreakdown
+      };
+    });
+
+    const monthNamesAr = [
+      'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
+      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    const monthLabel = `${monthNamesAr[targetMonth - 1]} ${targetYear}`;
+
+    return {
+      year: targetYear,
+      month: targetMonth,
+      monthStr,
+      monthLabel,
+      daysInMonth,
+      attendance: enrichedAttendance,
+      requests: enrichedRequests,
+      employeeSummaries
+    };
+  }
 }
 
 module.exports = {

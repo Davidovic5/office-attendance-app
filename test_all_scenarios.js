@@ -4,13 +4,19 @@ const BASE_URL = 'http://localhost:3001';
 
 async function request(path, options = {}) {
   const url = new URL(path, BASE_URL);
+  const bodyData = options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : null;
   return new Promise((resolve, reject) => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+    if (bodyData) {
+      headers['Content-Length'] = Buffer.byteLength(bodyData);
+    }
+
     const req = http.request(url, {
       method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      }
+      headers
     }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -25,8 +31,8 @@ async function request(path, options = {}) {
     });
 
     req.on('error', reject);
-    if (options.body) {
-      req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+    if (bodyData) {
+      req.write(bodyData);
     }
     req.end();
   });
@@ -245,6 +251,30 @@ async function runTests() {
     // 20. Mobile Downloads: iPhone IPA 200 OK
     const ipaRes = await request('/download/OfficeAttendance.ipa');
     assert(ipaRes.status === 200, "iPhone IPA Download 200 OK");
+
+    // 21. Monthly Report: Fetch Monthly Attendance & Leaves Report
+    const reportRes = await request('/api/reports/monthly?year=2026&month=10');
+    assert(
+      reportRes.status === 200 &&
+      reportRes.data.success &&
+      reportRes.data.report.employeeSummaries.length > 0 &&
+      reportRes.data.report.monthLabel.includes('أكتوبر'),
+      "Monthly Reports API returns attendance & leaves logs"
+    );
+
+    // 22. Delete Account: Delete Employee Account
+    const deleteRes = await request('/api/auth/account', {
+      method: 'DELETE',
+      body: { employeeId: newEmpId }
+    });
+    assert(deleteRes.status === 200 && deleteRes.data.success, "Delete Employee Account API 200 OK");
+
+    // Verify employee was deleted and cannot login
+    const loginDeleted = await request('/api/auth/login', {
+      method: 'POST',
+      body: { phone: testPhone, pin: "5555" }
+    });
+    assert(loginDeleted.status === 400 && loginDeleted.data.error.includes("غير مسجل"), "Deleted Employee is removed and cannot log in");
 
     console.log("\n=================================================");
     console.log(`🏁 TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
