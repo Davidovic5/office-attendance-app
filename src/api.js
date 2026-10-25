@@ -19,11 +19,11 @@ export const api = {
   },
 
   // Auth
-  async login(phone, pin) {
+  async login(phone, password) {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, pin }),
+      body: JSON.stringify({ phone, password, pin: password }),
     });
     return res.json();
   },
@@ -33,6 +33,24 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async updateProfile(employeeId, profileData) {
+    const res = await fetch(`${BASE_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, ...profileData }),
+    });
+    return res.json();
+  },
+
+  async changePassword(employeeId, oldPassword, newPassword) {
+    const res = await fetch(`${BASE_URL}/auth/change-password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, oldPassword, newPassword }),
     });
     return res.json();
   },

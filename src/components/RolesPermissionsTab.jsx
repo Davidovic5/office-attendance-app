@@ -18,17 +18,11 @@ import { api } from '../api';
 
 export function RolesPermissionsTab({ onTitlesUpdated }) {
   const [titles, setTitles] = useState([]);
-  const [selectedTitleCode, setSelectedTitleCode] = useState('manager');
+  const [selectedTitleCode, setSelectedTitleCode] = useState('deputy_manager');
   const [permissionsState, setPermissionsState] = useState({});
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
-
-  // New Title Modal
-  const [showNewTitleModal, setShowNewTitleModal] = useState(false);
-  const [newTitleName, setNewTitleName] = useState('');
-  const [newTitleCode, setNewTitleCode] = useState('');
-  const [newTitleDesc, setNewTitleDesc] = useState('');
 
   // Dictionary of permission labels & descriptions
   const permissionDefs = [
@@ -52,14 +46,14 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
     },
     {
       key: 'view_office_presence',
-      label: 'رؤية المتواجدين في المكتب وحالة الفريق',
+      label: 'رؤية المتواجدين في النادي وحالة الفريق',
       description: 'الاطلاع على تبويب (مين حاضر، مين إجازة مرضية، أسبوعية، سفر...)',
       category: 'الرؤية والمتابعة'
     },
     {
       key: 'view_reports',
       label: 'الاطلاع على تقارير وسجلات الحضور الشاملة',
-      description: 'رؤية كشوفات حضور الموظفين بالكامل وساعات التأخير والالتزام',
+      description: 'رؤية كشوفات حضور الموظفين بالكامل وساعات الالتزام',
       category: 'الرؤية والمتابعة'
     },
     {
@@ -88,8 +82,8 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
     },
     {
       key: 'manage_office_settings',
-      label: 'تعديل إعدادات المكتب وموقع الـ GPS',
-      description: 'تغيير إحداثيات مقر المكتب ونصف القطر المسموح به وساعات الوردية',
+      label: 'تعديل إعدادات الفروع ومواقع الـ GPS',
+      description: 'تغيير إحداثيات فروع أندية وادي دجلة ونطاق القطر المسموح به',
       category: 'الإدارة والإعدادات'
     },
     {
@@ -108,7 +102,7 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
         const current = res.titles.find(t => t.code === selectedTitleCode) || res.titles[0];
         if (current) {
           setSelectedTitleCode(current.code);
-          setPermissionsState({ ...current.permissions });
+          setPermissionsState(current.permissions || {});
         }
       }
     } catch (err) {
@@ -120,13 +114,13 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
     fetchTitles();
   }, []);
 
-  const handleSelectTitle = (titleCode) => {
-    setSelectedTitleCode(titleCode);
-    const title = titles.find(t => t.code === titleCode);
-    if (title) {
-      setPermissionsState({ ...title.permissions });
-      setSaveSuccess('');
-      setSaveError('');
+  const handleSelectTitle = (code) => {
+    setSelectedTitleCode(code);
+    setSaveSuccess('');
+    setSaveError('');
+    const t = titles.find(item => item.code === code);
+    if (t) {
+      setPermissionsState(t.permissions || {});
     }
   };
 
@@ -164,52 +158,53 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
   const categories = ['الحضور والعمل', 'الرؤية والمتابعة', 'الإجازات والأذونات', 'الإدارة والإعدادات'];
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4 pb-8 text-right">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-black text-slate-800">التحكم في صلاحيات المسميات الوظيفية (RBAC)</h2>
-        <p className="text-xs text-slate-500">
-          حدد كل مسمى وظيفي (تايتل) وما يُسمح له برؤيته والوصول إليه في البرنامج بدقة.
+        <h2 className="text-lg font-black text-amber-400">التحكم في صلاحيات المسميات الوظيفية (RBAC)</h2>
+        <p className="text-xs text-zinc-400">
+          حدد كل مسمى وظيفي (تايتل) وما يُسمح له برؤيته والوصول إليه في النظام بدقة.
         </p>
       </div>
 
       {/* Success / Error Messages */}
       {saveSuccess && (
-        <div className="bg-emerald-50 border-r-4 border-emerald-500 p-3.5 rounded-xl flex items-center gap-2 text-emerald-900 text-xs font-bold shadow-xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="bg-emerald-950/70 border border-emerald-700/80 p-3.5 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-bold animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{saveSuccess}</span>
         </div>
       )}
       {saveError && (
-        <div className="bg-rose-50 border-r-4 border-rose-500 p-3.5 rounded-xl flex items-center gap-2 text-rose-800 text-xs font-bold shadow-xs">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+        <div className="bg-rose-950/70 border border-rose-700/80 p-3.5 rounded-2xl flex items-center gap-2 text-rose-300 text-xs font-bold animate-fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
           <span>{saveError}</span>
         </div>
       )}
 
       {/* Title Selector Pills */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-2">اختر المسمى الوظيفي للتعديل عليه:</label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <label className="block text-xs font-bold text-zinc-300 mb-2">اختر المسمى الوظيفي للتعديل على صلاحياته:</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {titles.map(title => (
             <button
               key={title.code}
+              type="button"
               onClick={() => handleSelectTitle(title.code)}
               className={`p-3 rounded-2xl text-right border transition-all ${
                 selectedTitleCode === title.code
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20 ring-2 ring-blue-400/30'
-                  : 'bg-white text-slate-800 border-slate-200/80 hover:border-blue-200'
+                  ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20 font-black'
+                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-black text-xs">{title.name}</span>
                 {selectedTitleCode === title.code ? (
-                  <Check className="w-3.5 h-3.5 text-white" />
+                  <Check className="w-3.5 h-3.5 text-black" />
                 ) : (
-                  <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                  <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
                 )}
               </div>
-              <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-blue-100' : 'text-slate-400'}`}>
+              <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-zinc-900' : 'text-zinc-500'}`}>
                 {title.description}
               </span>
             </button>
@@ -219,19 +214,20 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
 
       {/* Permissions Matrix Box */}
       {activeTitle && (
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div className="bg-zinc-900 rounded-3xl p-5 border border-zinc-800 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
             <div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-blue-600" />
-                <h3 className="font-black text-sm text-slate-800">
-                  صلاحيات مسمى: <span className="text-blue-600">"{activeTitle.name}"</span>
+                <ShieldCheck className="w-5 h-5 text-amber-400" />
+                <h3 className="font-black text-sm text-zinc-100">
+                  صلاحيات مسمى: <span className="text-amber-400">"{activeTitle.name}"</span>
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">{activeTitle.description}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{activeTitle.description}</p>
             </div>
 
             <button
+              type="button"
               onClick={handleSavePermissions}
               disabled={loading}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0"
@@ -249,7 +245,7 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
 
               return (
                 <div key={category} className="space-y-2">
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-wider block">
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider block">
                     {category}
                   </span>
 
@@ -263,32 +259,32 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
                           onClick={() => handleTogglePermission(def.key)}
                           className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                             isEnabled
-                              ? 'bg-blue-50/50 border-blue-200 text-slate-800'
-                              : 'bg-slate-50 border-slate-200/70 text-slate-500 opacity-75'
+                              ? 'bg-zinc-950 border-amber-500/40 text-zinc-100'
+                              : 'bg-zinc-950/50 border-zinc-800/80 text-zinc-500 opacity-60'
                           }`}
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-800">{def.label}</span>
+                              <span className="text-xs font-bold text-zinc-200">{def.label}</span>
                               <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
-                                isEnabled ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                                isEnabled ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400'
                               }`}>
                                 {isEnabled ? 'مفعل' : 'معطل'}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                            <p className="text-[11px] text-zinc-400 leading-relaxed">
                               {def.description}
                             </p>
                           </div>
 
-                          {/* iOS-style toggle */}
+                          {/* Toggle switch */}
                           <div
                             className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
-                              isEnabled ? 'bg-blue-600' : 'bg-slate-300'
+                              isEnabled ? 'bg-amber-500' : 'bg-zinc-800'
                             }`}
                           >
                             <div
-                              className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform absolute top-0.5 ${
+                              className={`w-5 h-5 rounded-full bg-zinc-950 shadow-sm transition-transform absolute top-0.5 ${
                                 isEnabled ? 'left-0.5' : 'right-0.5'
                               }`}
                             />
@@ -303,13 +299,14 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
           </div>
 
           {/* Bottom Save Action */}
-          <div className="pt-3 border-t border-slate-100 flex justify-end">
+          <div className="pt-3 border-t border-zinc-800 flex justify-end">
             <button
+              type="button"
               onClick={handleSavePermissions}
               disabled={loading}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 text-black" />
               <span>{loading ? 'جاري الحفظ...' : 'حفظ صلاحيات هذا المسمى'}</span>
             </button>
           </div>

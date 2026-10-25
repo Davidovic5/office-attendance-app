@@ -57,16 +57,54 @@ router.post('/auth/register', (req, res) => {
 
 router.post('/auth/login', (req, res) => {
   try {
-    const { phone, pin } = req.body;
+    const { phone, pin, password } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف." });
     }
 
-    const employee = db.loginEmployee(phone, pin || "");
+    const employee = db.loginEmployee(phone, password || pin || "");
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${employee.name}`,
       employee
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Update Profile (Avatar, Name, Weekly Off Days)
+router.put('/auth/profile', (req, res) => {
+  try {
+    const { employeeId, name, avatar, weeklyOffDays, jobTitle, branchId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "رقم الموظف مطلوب." });
+    }
+
+    const updated = db.updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId });
+    res.json({
+      success: true,
+      message: "تم تحديث الملف الشخصي والصورة بنجاح!",
+      employee: updated
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Change Password
+router.put('/auth/change-password', (req, res) => {
+  try {
+    const { employeeId, oldPassword, newPassword } = req.body;
+    if (!employeeId || !oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: "جميع حقول كلمة المرور مطلوبة." });
+    }
+
+    const updated = db.changePassword(employeeId, oldPassword, newPassword);
+    res.json({
+      success: true,
+      message: "تم تغيير كلمة المرور بنجاح!",
+      employee: updated
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });

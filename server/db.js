@@ -48,7 +48,7 @@ const DEFAULT_TITLES = [
     englishTitle: "General Manager",
     arabicTitle: "المدير العام",
     description: "صلاحيات شاملة لكافة الفروع والإدارات والإعدادات",
-    color: "purple",
+    color: "amber",
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -71,7 +71,7 @@ const DEFAULT_TITLES = [
     englishTitle: "Deputy manager",
     arabicTitle: "نائب المدير",
     description: "إدارة العمليات والاعتماد والمتابعة لكافة الأقسام والفروع",
-    color: "indigo",
+    color: "amber",
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -94,7 +94,7 @@ const DEFAULT_TITLES = [
     englishTitle: "Section head",
     arabicTitle: "رئيس قسم",
     description: "إدارة فريق الفرع والقسم واعتماد إجازاتهم وأذوناتهم",
-    color: "blue",
+    color: "amber",
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -117,7 +117,7 @@ const DEFAULT_TITLES = [
     englishTitle: "Senior Specialist",
     arabicTitle: "أخصائي أول",
     description: "تسجيل الحضور ومتابعة فريق العمل وتقديم الطلبات",
-    color: "teal",
+    color: "zinc",
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -140,7 +140,7 @@ const DEFAULT_TITLES = [
     englishTitle: "Specialist",
     arabicTitle: "أخصائي",
     description: "تسجيل الحضور والغياب وتقديم طلبات الإجازات والأذونات",
-    color: "emerald",
+    color: "zinc",
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -159,8 +159,6 @@ const DEFAULT_TITLES = [
 ];
 
 function getInitialData() {
-  const today = new Date().toISOString().split('T')[0];
-
   return {
     officeSettings: {
       companyName: "أندية وادي دجلة - Wadi Degla Clubs",
@@ -171,160 +169,28 @@ function getInitialData() {
     },
     branches: DEFAULT_BRANCHES,
     titles: DEFAULT_TITLES,
+    // Clean initial employees: Just one primary Admin / General Manager account for the father/owner
     employees: [
       {
-        id: "emp_1",
-        name: "أحمد عبد الله",
-        titleCode: "deputy_manager",
-        jobTitle: "Deputy manager",
+        id: "emp_admin",
+        name: "مدير عام أندية وادي دجلة",
+        titleCode: "general_manager",
+        jobTitle: "General Manager",
         branchId: "branch_sheraton",
-        phone: "01011112222",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+        phone: "01000000000",
+        password: "admin",
+        pin: "admin",
+        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=250&q=80",
         weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 21,
-        permissionsBalanceHours: 6
-      },
-      {
-        id: "emp_2",
-        name: "محمد طارق",
-        titleCode: "section_head",
-        jobTitle: "Section head - الحسابات",
-        branchId: "branch_sheraton",
-        phone: "01033334444",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 18,
-        permissionsBalanceHours: 4
-      },
-      {
-        id: "emp_3",
-        name: "سارة محمود",
-        titleCode: "section_head",
-        jobTitle: "Section head - الموارد البشرية",
-        branchId: "branch_maadi",
-        phone: "01055556666",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 20,
-        permissionsBalanceHours: 6
-      },
-      {
-        id: "emp_4",
-        name: "عمر خالد",
-        titleCode: "senior_specialist",
-        jobTitle: "Senior Specialist - تقنية المعلومات",
-        branchId: "branch_october1",
-        phone: "01077778888",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 14,
-        permissionsBalanceHours: 2
-      },
-      {
-        id: "emp_5",
-        name: "ياسمين حسن",
-        titleCode: "specialist",
-        jobTitle: "Specialist - خدمة العملاء",
-        branchId: "branch_lotus",
-        phone: "01099990000",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 17,
-        permissionsBalanceHours: 6
-      },
-      {
-        id: "emp_6",
-        name: "كريم شريف",
-        titleCode: "senior_specialist",
-        jobTitle: "Senior Specialist - المشتريات",
-        branchId: "branch_alexandria",
-        phone: "01122223333",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 12,
-        permissionsBalanceHours: 4
-      },
-      {
-        id: "emp_7",
-        name: "مروة عادل",
-        titleCode: "specialist",
-        jobTitle: "Specialist - التصميم",
-        branchId: "branch_assiut",
-        phone: "01144445555",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["friday", "saturday"],
-        leaveBalance: 19,
-        permissionsBalanceHours: 4
-      },
-      {
-        id: "emp_8",
-        name: "حسام الدين",
-        titleCode: "specialist",
-        jobTitle: "Specialist - الحسابات",
-        branchId: "branch_minya",
-        phone: "01166667777",
-        pin: "1234",
-        avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80",
-        weeklyOffDays: ["sunday", "monday"],
-        leaveBalance: 15,
-        permissionsBalanceHours: 6
+        leaveBalance: 30,
+        permissionsBalanceHours: 10,
+        createdAt: new Date().toISOString()
       }
     ],
-    attendanceRecords: [
-      {
-        id: "att_1",
-        employeeId: "emp_1",
-        branchId: "branch_sheraton",
-        date: today,
-        checkInTime: `${today}T08:50:00.000Z`,
-        checkOutTime: null,
-        status: "in_office",
-        latitude: 30.1025,
-        longitude: 31.3780,
-        distanceMeters: 10,
-        durationMinutes: 240,
-        completed8Hours: false
-      },
-      {
-        id: "att_2",
-        employeeId: "emp_2",
-        branchId: "branch_sheraton",
-        date: today,
-        checkInTime: `${today}T09:05:00.000Z`,
-        checkOutTime: null,
-        status: "in_office",
-        latitude: 30.1024,
-        longitude: 31.3781,
-        distanceMeters: 18,
-        durationMinutes: 225,
-        completed8Hours: false
-      }
-    ],
-    requests: [
-      {
-        id: "req_1",
-        employeeId: "emp_4",
-        branchId: "branch_october1",
-        type: "leave",
-        leaveType: "sick",
-        startDate: today,
-        endDate: today,
-        reason: "نزلة معوية وزيارة الطبيب",
-        status: "approved",
-        attachmentName: "medical_report.pdf",
-        requestedAt: `${today}T07:30:00.000Z`,
-        reviewedBy: "emp_1",
-        reviewedAt: `${today}T08:00:00.000Z`,
-        reviewNote: "ألف سلامة، معتمد."
-      }
-    ]
+    // Clean slate: Zero fake attendance records
+    attendanceRecords: [],
+    // Clean slate: Zero fake requests
+    requests: []
   };
 }
 
@@ -334,6 +200,7 @@ class Database {
   }
 
   init() {
+    // Always start with clean data if reset requested or if invalid
     if (!fs.existsSync(DB_PATH)) {
       const data = getInitialData();
       fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
@@ -342,21 +209,10 @@ class Database {
       try {
         const raw = fs.readFileSync(DB_PATH, 'utf8');
         this.data = JSON.parse(raw);
-
-        // Ensure branches exist
         if (!this.data.branches || this.data.branches.length === 0) {
           this.data.branches = DEFAULT_BRANCHES;
         }
-
-        // Ensure titles reflect the exact hierarchy
         this.data.titles = DEFAULT_TITLES;
-
-        // Ensure all employees have a branchId
-        this.data.employees.forEach(emp => {
-          if (!emp.branchId) emp.branchId = 'branch_sheraton';
-          if (!emp.weeklyOffDays) emp.weeklyOffDays = ['friday', 'saturday'];
-        });
-
         this.save();
       } catch (err) {
         console.error("Error reading database, creating fresh one:", err);
@@ -368,6 +224,14 @@ class Database {
 
   save() {
     fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf8');
+  }
+
+  // Force clean all dummy records
+  cleanSampleData() {
+    const data = getInitialData();
+    this.data = data;
+    this.save();
+    return this.data;
   }
 
   getOfficeSettings() {
@@ -444,9 +308,9 @@ class Database {
   }
 
   registerEmployee(data) {
-    const { name, phone, pin, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = data;
+    const { name, phone, password, pin, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = data;
     
-    const existing = this.data.employees.find(e => e.phone === phone);
+    const existing = this.data.employees.find(e => e.phone === phone.trim());
     if (existing) {
       throw new Error("رقم الهاتف مسجل بالفعل لموظف آخر.");
     }
@@ -454,16 +318,19 @@ class Database {
     const titleObj = this.data.titles.find(t => t.code === titleCode) || this.data.titles[this.data.titles.length - 1];
     const branchObj = this.data.branches.find(b => b.id === branchId || b.code === branchId) || this.data.branches[0];
 
+    const pass = (password || pin || '1234').trim();
+
     const newEmp = {
       id: "emp_" + Date.now(),
       name: name.trim(),
       phone: phone.trim(),
-      pin: pin ? pin.trim() : "1234",
+      password: pass,
+      pin: pass,
       titleCode: titleObj ? titleObj.code : "specialist",
       jobTitle: jobTitle ? jobTitle.trim() : (titleObj ? titleObj.englishTitle : "Specialist"),
       branchId: branchObj ? branchObj.id : "branch_sheraton",
       weeklyOffDays: Array.isArray(weeklyOffDays) && weeklyOffDays.length > 0 ? weeklyOffDays : ["friday", "saturday"],
-      avatar: avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80`,
+      avatar: avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80`,
       leaveBalance: 21,
       permissionsBalanceHours: 6,
       createdAt: new Date().toISOString()
@@ -474,17 +341,51 @@ class Database {
     return this.getEmployeeById(newEmp.id);
   }
 
-  loginEmployee(phone, pin) {
+  loginEmployee(phone, password) {
     const emp = this.data.employees.find(e => e.phone === phone.trim());
     if (!emp) {
       throw new Error("رقم الهاتف غير مسجل بالنظام.");
     }
 
-    if (emp.pin && emp.pin !== pin.trim()) {
-      throw new Error("رمز الدخول (PIN) غير صحيح.");
+    const expectedPass = emp.password || emp.pin || "";
+    if (expectedPass && expectedPass !== password.trim()) {
+      throw new Error("كلمة المرور غير صحيحة.");
     }
 
     return this.getEmployeeById(emp.id);
+  }
+
+  changePassword(employeeId, oldPassword, newPassword) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+
+    const currentPass = emp.password || emp.pin || "";
+    if (currentPass && currentPass !== oldPassword.trim()) {
+      throw new Error("كلمة المرور الحالية غير صحيحة.");
+    }
+
+    if (!newPassword || newPassword.trim().length < 3) {
+      throw new Error("كلمة المرور الجديدة يجب أن تكون 3 خانات على الأقل.");
+    }
+
+    emp.password = newPassword.trim();
+    emp.pin = newPassword.trim();
+    this.save();
+    return this.getEmployeeById(employeeId);
+  }
+
+  updateProfile(employeeId, profileData) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+
+    if (profileData.name) emp.name = profileData.name.trim();
+    if (profileData.avatar) emp.avatar = profileData.avatar;
+    if (profileData.weeklyOffDays) emp.weeklyOffDays = profileData.weeklyOffDays;
+    if (profileData.jobTitle) emp.jobTitle = profileData.jobTitle.trim();
+    if (profileData.branchId) emp.branchId = profileData.branchId;
+
+    this.save();
+    return this.getEmployeeById(employeeId);
   }
 
   getTodayAttendance(dateStr, branchId = null) {
@@ -508,7 +409,6 @@ class Database {
       throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
     }
 
-    // Verify GPS distance against the employee's assigned branch coordinates!
     const distanceMeters = calculateDistanceMeters(
       latitude,
       longitude,
@@ -589,12 +489,10 @@ class Database {
     return record;
   }
 
-  // Branch-Filtered Live Presence
   getLiveOfficeStatus(dateStr, branchId = null) {
     const today = dateStr || new Date().toISOString().split('T')[0];
     let employees = this.getEmployees();
     
-    // Filter employees by branch if branchId specified
     if (branchId && branchId !== 'all') {
       employees = employees.filter(e => e.branchId === branchId);
     }

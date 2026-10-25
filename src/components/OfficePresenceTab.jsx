@@ -67,49 +67,50 @@ export function OfficePresenceTab({ currentUser }) {
   const getLeaveBadge = (type) => {
     switch (type) {
       case 'weekly_off':
-        return { label: 'إجازة أسبوعية', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: Palmtree };
+        return { label: 'إجازة أسبوعية', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: Palmtree };
       case 'sick':
-        return { label: 'إجازة مرضي', bg: 'bg-rose-50 text-rose-700 border-rose-200', icon: Stethoscope };
+        return { label: 'إجازة مرضي', bg: 'bg-rose-950/70 text-rose-300 border-rose-800/60', icon: Stethoscope };
       case 'travel':
-        return { label: 'سفر / مأمورية', bg: 'bg-sky-50 text-sky-700 border-sky-200', icon: Plane };
+        return { label: 'سفر / مأمورية', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: Plane };
       case 'annual':
-        return { label: 'إجازة اعتيادية', bg: 'bg-amber-50 text-amber-700 border-amber-200', icon: CalendarOff };
+        return { label: 'إجازة سنوية', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30', icon: CalendarOff };
       default:
-        return { label: 'إجازة رسمية', bg: 'bg-slate-50 text-slate-700 border-slate-200', icon: CalendarOff };
+        return { label: 'إجازة رسمية', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: CalendarOff };
     }
   };
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4 pb-8 text-right">
       {/* Branch Selector Header */}
-      <div className="bg-white p-3.5 rounded-3xl border border-slate-200/80 shadow-xs space-y-2">
+      <div className="bg-zinc-900 p-4 rounded-3xl border border-zinc-800 shadow-xl space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Building2 className="w-4 h-4 text-blue-600" />
-            <span>تصفية وعرض الفرع:</span>
+          <div className="flex items-center gap-1.5 text-xs font-black text-amber-400">
+            <Building2 className="w-4 h-4 text-amber-400" />
+            <span>عرض المتواجدين حسب الفرع:</span>
           </div>
           <button
+            type="button"
             onClick={fetchStatus}
-            className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-xl border border-blue-200 transition-colors flex items-center gap-1"
+            className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-500/30 transition-colors flex items-center gap-1"
           >
             <Sparkles className="w-3 h-3" />
             <span>تحديث</span>
           </button>
         </div>
 
-        {/* Branch Selector Dropdown & Pills */}
+        {/* Branch Selector Dropdown */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <MapPin className="w-4 h-4 text-blue-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <MapPin className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={selectedBranchId}
               onChange={e => setSelectedBranchId(e.target.value)}
-              className="w-full pr-9 pl-3 py-2 text-xs font-black rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="w-full pr-9 pl-3 py-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 cursor-pointer"
             >
-              <option value="all">🌐 جميع الفروع (إجمالي الشركة)</option>
+              <option value="all" className="bg-zinc-900 text-zinc-100">🌐 جميع الفروع (إجمالي أندية وادي دجلة)</option>
               {branches.map(b => (
-                <option key={b.id} value={b.id}>
-                  📍 فرع {b.name} ({b.city})
+                <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                  📍 نادي وادي دجلة - فرع {b.name} ({b.city})
                 </option>
               ))}
             </select>
@@ -117,13 +118,14 @@ export function OfficePresenceTab({ currentUser }) {
         </div>
 
         {/* Quick Branch Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none pt-1 border-t border-slate-100">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none pt-1 border-t border-zinc-800">
           <button
+            type="button"
             onClick={() => setSelectedBranchId('all')}
-            className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+            className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
               selectedBranchId === 'all'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-amber-500 text-black border-amber-500 font-black'
+                : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
             }`}
           >
             الكل
@@ -131,11 +133,12 @@ export function OfficePresenceTab({ currentUser }) {
           {branches.map(b => (
             <button
               key={b.id}
+              type="button"
               onClick={() => setSelectedBranchId(b.id)}
-              className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all ${
+              className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
                 selectedBranchId === b.id
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-amber-500 text-black border-amber-500 font-black'
+                  : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
               }`}
             >
               {b.name}
@@ -150,89 +153,81 @@ export function OfficePresenceTab({ currentUser }) {
           onClick={() => setSelectedFilter(selectedFilter === 'in_office' ? 'all' : 'in_office')}
           className={`p-3 rounded-2xl border cursor-pointer transition-all ${
             selectedFilter === 'in_office'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-              : 'bg-white text-slate-800 border-slate-200/80 hover:border-emerald-300'
+              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-600 shadow-md ring-1 ring-emerald-500/50'
+              : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-emerald-600/50'
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[11px] font-bold ${selectedFilter === 'in_office' ? 'text-emerald-100' : 'text-slate-500'}`}>
-              في الفرع الآن
-            </span>
-            <UserCheck className={`w-3.5 h-3.5 ${selectedFilter === 'in_office' ? 'text-white' : 'text-emerald-600'}`} />
+            <span className="text-[11px] font-bold text-zinc-400">في الفرع الآن</span>
+            <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="text-xl font-black">{summary.inOfficeCount}</div>
+          <div className="text-xl font-black text-emerald-400">{summary.inOfficeCount}</div>
         </div>
 
         <div 
           onClick={() => setSelectedFilter(selectedFilter === 'on_leave' ? 'all' : 'on_leave')}
           className={`p-3 rounded-2xl border cursor-pointer transition-all ${
             selectedFilter === 'on_leave'
-              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-              : 'bg-white text-slate-800 border-slate-200/80 hover:border-blue-300'
+              ? 'bg-amber-950/90 text-amber-300 border-amber-600 shadow-md ring-1 ring-amber-500/50'
+              : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-amber-600/50'
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[11px] font-bold ${selectedFilter === 'on_leave' ? 'text-blue-100' : 'text-slate-500'}`}>
-              في إجازة
-            </span>
-            <CalendarOff className={`w-3.5 h-3.5 ${selectedFilter === 'on_leave' ? 'text-white' : 'text-blue-600'}`} />
+            <span className="text-[11px] font-bold text-zinc-400">في إجازة</span>
+            <CalendarOff className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="text-xl font-black">{summary.onLeaveCount}</div>
+          <div className="text-xl font-black text-amber-400">{summary.onLeaveCount}</div>
         </div>
 
         <div 
           onClick={() => setSelectedFilter(selectedFilter === 'on_permission' ? 'all' : 'on_permission')}
           className={`p-3 rounded-2xl border cursor-pointer transition-all ${
             selectedFilter === 'on_permission'
-              ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-              : 'bg-white text-slate-800 border-slate-200/80 hover:border-amber-300'
+              ? 'bg-amber-950/90 text-amber-300 border-amber-500 shadow-md ring-1 ring-amber-400/50'
+              : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-amber-500/50'
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[11px] font-bold ${selectedFilter === 'on_permission' ? 'text-amber-100' : 'text-slate-500'}`}>
-              إذن ساعتين
-            </span>
-            <Clock className={`w-3.5 h-3.5 ${selectedFilter === 'on_permission' ? 'text-white' : 'text-amber-600'}`} />
+            <span className="text-[11px] font-bold text-zinc-400">إذن ساعتين</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="text-xl font-black">{summary.onPermissionCount}</div>
+          <div className="text-xl font-black text-amber-400">{summary.onPermissionCount}</div>
         </div>
 
         <div 
           onClick={() => setSelectedFilter(selectedFilter === 'absent' ? 'all' : 'absent')}
           className={`p-3 rounded-2xl border cursor-pointer transition-all ${
             selectedFilter === 'absent'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-              : 'bg-white text-slate-800 border-slate-200/80 hover:border-rose-300'
+              ? 'bg-rose-950/90 text-rose-300 border-rose-600 shadow-md ring-1 ring-rose-500/50'
+              : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-rose-600/50'
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className={`text-[11px] font-bold ${selectedFilter === 'absent' ? 'text-rose-100' : 'text-slate-500'}`}>
-              لم يحضروا بعد
-            </span>
-            <UserX className={`w-3.5 h-3.5 ${selectedFilter === 'absent' ? 'text-white' : 'text-rose-600'}`} />
+            <span className="text-[11px] font-bold text-zinc-400">لم يحضروا بعد</span>
+            <UserX className="w-3.5 h-3.5 text-rose-400" />
           </div>
-          <div className="text-xl font-black">{summary.absentCount}</div>
+          <div className="text-xl font-black text-rose-400">{summary.absentCount}</div>
         </div>
       </div>
 
       {/* Search Input */}
       <div className="relative">
-        <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+        <Search className="w-3.5 h-3.5 text-zinc-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
         <input
           type="text"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={`بحث بالاسم في ${currentBranchObj ? 'فرع ' + currentBranchObj.name : 'جميع الفروع'}...`}
-          className="w-full pr-8 pl-3 py-2 text-xs rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pr-9 pl-3 py-2.5 text-xs rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-bold"
         />
       </div>
 
       {/* 1. In Branch Now */}
       {(selectedFilter === 'all' || selectedFilter === 'in_office') && inOffice.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-black text-emerald-700 px-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-            <span>حاضرون بالعمل الآن ({inOffice.length})</span>
+          <div className="flex items-center gap-1.5 text-xs font-black text-emerald-400 px-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>حاضرون بالنادي الآن ({inOffice.length})</span>
           </div>
 
           <div className="grid gap-2">
@@ -243,31 +238,31 @@ export function OfficePresenceTab({ currentUser }) {
                 item.employee.jobTitle.includes(searchQuery)
               )
               .map(item => (
-                <div key={item.employee.id} className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
+                <div key={item.employee.id} className="bg-zinc-900 p-3.5 rounded-2xl border border-zinc-800 shadow-md flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <img 
                       src={item.employee.avatar} 
                       alt={item.employee.name} 
-                      className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-400"
+                      className="w-11 h-11 rounded-xl object-cover border-2 border-emerald-500"
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-800">{item.employee.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-emerald-100 text-emerald-700">
+                        <span className="font-black text-xs text-zinc-100">{item.employee.name}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/80">
                           متواجد
                         </span>
                       </div>
-                      <span className="text-[11px] text-blue-600 font-bold block">
+                      <span className="text-[11px] text-amber-400 font-bold block mt-0.5">
                         {item.employee.jobTitle} • {item.employee.branchName}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-left text-xs">
-                    <span className="font-bold text-slate-700 block">
-                      حضر {new Date(item.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                    <span className="font-bold text-zinc-200 block font-mono">
+                      {new Date(item.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-zinc-500">
                       المسافة: {item.attendance.distanceMeters || 12} م
                     </span>
                   </div>
@@ -280,9 +275,9 @@ export function OfficePresenceTab({ currentUser }) {
       {/* 2. On Leave Breakdown */}
       {(selectedFilter === 'all' || selectedFilter === 'on_leave') && summary.onLeaveCount > 0 && (
         <div className="space-y-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-black text-blue-700 px-1 pt-1">
-            <CalendarOff className="w-3.5 h-3.5 text-blue-600" />
-            <span>في إجازة رسمية اليوم ({summary.onLeaveCount})</span>
+          <div className="flex items-center gap-1.5 text-xs font-black text-amber-400 px-1 pt-1">
+            <CalendarOff className="w-3.5 h-3.5 text-amber-400" />
+            <span>في إجازة اليوم ({summary.onLeaveCount})</span>
           </div>
 
           {Object.entries(onLeave).map(([typeKey, list]) => {
@@ -292,8 +287,8 @@ export function OfficePresenceTab({ currentUser }) {
 
             return (
               <div key={typeKey} className="space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1 pr-1">
-                  <Icon className="w-3 h-3 text-slate-600" />
+                <div className="text-[11px] font-bold text-zinc-400 flex items-center gap-1 pr-1">
+                  <Icon className="w-3 h-3 text-amber-400" />
                   <span>{badge.label} ({list.length})</span>
                 </div>
 
@@ -305,28 +300,28 @@ export function OfficePresenceTab({ currentUser }) {
                       item.employee.jobTitle.includes(searchQuery)
                     )
                     .map(item => (
-                      <div key={item.employee.id} className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+                      <div key={item.employee.id} className="bg-zinc-900 p-3 rounded-2xl border border-zinc-800 shadow-md flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <img 
                             src={item.employee.avatar} 
                             alt={item.employee.name} 
-                            className="w-10 h-10 rounded-xl object-cover border border-slate-200 opacity-80"
+                            className="w-10 h-10 rounded-xl object-cover border border-zinc-700 opacity-80"
                           />
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-xs text-slate-800">{item.employee.name}</span>
+                              <span className="font-bold text-xs text-zinc-200">{item.employee.name}</span>
                               <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold border ${badge.bg}`}>
                                 {badge.label}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-[11px] text-zinc-400 mt-0.5 block">
                               {item.employee.jobTitle} • {item.employee.branchName}
                             </span>
                           </div>
                         </div>
 
                         <div className="text-left text-xs max-w-[40%]">
-                          <p className="text-[10px] font-medium text-slate-600 truncate" title={item.leave.reason}>
+                          <p className="text-[10px] font-medium text-zinc-400 truncate" title={item.leave.reason}>
                             {item.leave.reason}
                           </p>
                         </div>
@@ -342,8 +337,8 @@ export function OfficePresenceTab({ currentUser }) {
       {/* 3. On Permission */}
       {(selectedFilter === 'all' || selectedFilter === 'on_permission') && onPermission.length > 0 && (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-black text-amber-700 px-1 pt-1">
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
+          <div className="flex items-center gap-1.5 text-xs font-black text-amber-400 px-1 pt-1">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
             <span>في إذن ساعتين معتمد ({onPermission.length})</span>
           </div>
 
@@ -355,28 +350,71 @@ export function OfficePresenceTab({ currentUser }) {
                 item.employee.jobTitle.includes(searchQuery)
               )
               .map(item => (
-                <div key={item.employee.id} className="bg-white p-3 rounded-2xl border border-amber-200/70 shadow-xs flex items-center justify-between">
+                <div key={item.employee.id} className="bg-zinc-900 p-3 rounded-2xl border border-zinc-800 shadow-md flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <img 
                       src={item.employee.avatar} 
                       alt={item.employee.name} 
-                      className="w-10 h-10 rounded-xl object-cover border-2 border-amber-400"
+                      className="w-10 h-10 rounded-xl object-cover border border-amber-500/40"
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-800">{item.employee.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-amber-100 text-amber-800">
-                          إذن ساعتين ({item.permission.startTime} - {item.permission.endTime})
+                        <span className="font-bold text-xs text-zinc-200">{item.employee.name}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          إذن ساعتين
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-zinc-400 mt-0.5 block">
                         {item.employee.jobTitle} • {item.employee.branchName}
                       </span>
                     </div>
                   </div>
 
-                  <span className="text-[10px] text-amber-700 font-bold">
-                    {item.permission.permissionType === 'morning' ? 'إذن تأخير' : 'انصراف مبكر'}
+                  <div className="text-left text-xs">
+                    <span className="font-mono font-bold text-amber-400 block">
+                      {item.permission.startTime} - {item.permission.endTime}
+                    </span>
+                    <span className="text-[10px] text-zinc-500">{item.permission.reason}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Absent / Not checked in */}
+      {(selectedFilter === 'all' || selectedFilter === 'absent') && absent.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-black text-rose-400 px-1 pt-1">
+            <UserX className="w-3.5 h-3.5 text-rose-400" />
+            <span>لم يسجلوا حضورهم اليوم ({absent.length})</span>
+          </div>
+
+          <div className="grid gap-1.5">
+            {absent
+              .filter(emp => 
+                !searchQuery || 
+                emp.name.includes(searchQuery) || 
+                emp.jobTitle.includes(searchQuery)
+              )
+              .map(emp => (
+                <div key={emp.id} className="bg-zinc-900/80 p-3 rounded-2xl border border-zinc-800 shadow-xs flex items-center justify-between opacity-80">
+                  <div className="flex items-center gap-2.5">
+                    <img 
+                      src={emp.avatar} 
+                      alt={emp.name} 
+                      className="w-9 h-9 rounded-xl object-cover border border-zinc-700 grayscale"
+                    />
+                    <div>
+                      <span className="font-bold text-xs text-zinc-300 block">{emp.name}</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {emp.jobTitle} • {emp.branchName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-rose-400 bg-rose-950/70 border border-rose-800/60 px-2 py-0.5 rounded-lg">
+                    غائب / لم يسجل
                   </span>
                 </div>
               ))}
@@ -384,52 +422,11 @@ export function OfficePresenceTab({ currentUser }) {
         </div>
       )}
 
-      {/* 4. Absent */}
-      {(selectedFilter === 'all' || selectedFilter === 'absent') && absent.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-black text-rose-700 px-1 pt-1">
-            <UserX className="w-3.5 h-3.5 text-rose-600" />
-            <span>لم يسجلوا حضور بعد ({absent.length})</span>
-          </div>
-
-          <div className="grid gap-1.5">
-            {absent
-              .filter(item => 
-                !searchQuery || 
-                item.employee.name.includes(searchQuery) || 
-                item.employee.jobTitle.includes(searchQuery)
-              )
-              .map(item => (
-                <div key={item.employee.id} className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between opacity-85">
-                  <div className="flex items-center gap-2.5">
-                    <img 
-                      src={item.employee.avatar} 
-                      alt={item.employee.name} 
-                      className="w-10 h-10 rounded-xl object-cover border border-rose-300 grayscale"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-800">{item.employee.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-rose-100 text-rose-700">
-                          غائب
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-500">
-                        {item.employee.jobTitle} • {item.employee.branchName}
-                      </span>
-                    </div>
-                  </div>
-
-                  <a
-                    href={`tel:${item.employee.phone}`}
-                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs flex items-center gap-1 font-bold"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>اتصال</span>
-                  </a>
-                </div>
-              ))}
-          </div>
+      {/* Empty State */}
+      {summary.totalEmployees === 0 && (
+        <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl text-center text-zinc-400">
+          <Users className="w-10 h-10 mx-auto text-zinc-600 mb-2" />
+          <p className="text-xs font-bold">لا يوجد موظفون مسجلون في هذا الفرع حتى الآن.</p>
         </div>
       )}
     </div>
