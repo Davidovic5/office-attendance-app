@@ -163,7 +163,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           onClick={() => setActiveSubTab('new_request')}
           className={`flex-1 py-2 text-xs font-black rounded-xl transition-all ${
             activeSubTab === 'new_request'
-              ? 'bg-blue-600 text-white shadow-xs'
+              ? 'bg-amber-500 text-black shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -483,9 +483,9 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm shadow-lg shadow-blue-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
-            <Send className="w-4 h-4 ml-1" />
+            <Send className="w-4 h-4 ml-1 text-black" />
             <span>{loading ? 'جاري إرسال الطلب...' : 'إرسال الطلب للاعتماد'}</span>
           </button>
         </form>

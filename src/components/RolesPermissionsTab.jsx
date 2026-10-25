@@ -234,9 +234,9 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
             <button
               onClick={handleSavePermissions}
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 text-black" />
               <span>{loading ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
             </button>
           </div>

@@ -163,7 +163,7 @@ function getInitialData() {
 
   return {
     officeSettings: {
-      companyName: "إدارة المكاتب والشركات المتعددة الفروع",
+      companyName: "أندية وادي دجلة - Wadi Degla Clubs",
       shiftHours: 8,
       graceMinutes: 15,
       workStartTime: "09:00",

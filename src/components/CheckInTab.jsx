@@ -315,16 +315,17 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               اضغط الزر لتسجيل حضورك في <b>فرع {branch.name}</b> وبدء احتساب وردية الـ {shiftHours} ساعات.
             </p>
 
+            {/* Check-In Button */}
             <button
               onClick={handleCheckIn}
               disabled={loading || !distanceInfo.isWithinOffice}
               className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 ${
                 distanceInfo.isWithinOffice
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25 active:scale-[0.98]'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-amber-500/20 active:scale-[0.98]'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
               }`}
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-4 h-4 text-black" />
               <span>{loading ? 'جاري التحقق...' : `تسجيل الحضور الآن في فرع ${branch.name}`}</span>
             </button>
 

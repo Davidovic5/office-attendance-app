@@ -7,7 +7,8 @@
     "shiftHours": 8,
     "graceMinutes": 15,
     "workStartTime": "09:00",
-    "workEndTime": "17:00"
+    "workEndTime": "17:00",
+    "companyName": "أندية وادي دجلة - Wadi Degla Clubs"
   },
   "titles": [
     {
@@ -279,6 +280,23 @@
       "permissionsBalanceHours": 6,
       "createdAt": "2026-10-25T17:50:41.448Z",
       "branchId": "branch_sheraton"
+    },
+    {
+      "id": "emp_1792953970073",
+      "name": "كريم سامي",
+      "phone": "01099991122_1792953970064",
+      "pin": "5555",
+      "titleCode": "senior_specialist",
+      "jobTitle": "Senior Specialist - التسويق",
+      "branchId": "branch_lotus",
+      "weeklyOffDays": [
+        "friday",
+        "saturday"
+      ],
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 20,
+      "permissionsBalanceHours": 6,
+      "createdAt": "2026-10-25T18:46:10.073Z"
     }
   ],
   "attendanceRecords": [
@@ -335,9 +353,39 @@
       "durationMinutes": 0,
       "completed8Hours": false,
       "checkOutNotes": "انصراف استثنائي / مبكر: Jejje"
+    },
+    {
+      "id": "att_1792953970078",
+      "employeeId": "emp_1792953970073",
+      "branchId": "branch_lotus",
+      "date": "2026-10-25",
+      "checkInTime": "2026-10-25T18:46:10.078Z",
+      "checkOutTime": "2026-10-25T18:46:10.080Z",
+      "status": "checked_out",
+      "latitude": 30.03841,
+      "longitude": 31.48802,
+      "distanceMeters": 2,
+      "durationMinutes": 0,
+      "completed8Hours": false,
+      "checkOutNotes": "انصراف استثنائي / مبكر: ظرف صحي طارئ وموافقة رئيس القسم"
     }
   ],
   "requests": [
+    {
+      "id": "req_1792953970082",
+      "status": "approved",
+      "requestedAt": "2026-10-25T18:46:10.082Z",
+      "reviewedBy": "emp_1",
+      "reviewedAt": "2026-10-25T18:46:10.083Z",
+      "reviewNote": "ألف سلامة، معتمد.",
+      "employeeId": "emp_1792953970073",
+      "type": "leave",
+      "leaveType": "sick",
+      "startDate": "2026-10-26",
+      "endDate": "2026-10-26",
+      "reason": "نزلة برد شديدة واستراحة طبية",
+      "attachmentName": "medical_cert.pdf"
+    },
     {
       "id": "req_1",
       "employeeId": "emp_4",
