@@ -1,0 +1,318 @@
+{
+  "officeSettings": {
+    "officeName": "المكتب الرئيسي - المقر العام",
+    "latitude": 30.0444,
+    "longitude": 31.2357,
+    "radiusMeters": 100,
+    "shiftHours": 8,
+    "graceMinutes": 15,
+    "workStartTime": "09:00",
+    "workEndTime": "17:00"
+  },
+  "titles": [
+    {
+      "id": "title_manager",
+      "code": "manager",
+      "name": "مدير المكتب / المدير العام",
+      "description": "صلاحيات كاملة لإدارة المكتب والموظفين والإعدادات",
+      "color": "indigo",
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "manage_employees": true,
+        "manage_titles_permissions": true,
+        "manage_office_settings": true,
+        "view_reports": true,
+        "override_early_checkout": true
+      }
+    },
+    {
+      "id": "title_supervisor",
+      "code": "supervisor",
+      "name": "رئيس قسم / مشرف",
+      "description": "إدارة ومتابعة حضور فريق العمل واعتماد طلباتهم",
+      "color": "blue",
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "override_early_checkout": false
+      }
+    },
+    {
+      "id": "title_hr",
+      "code": "hr",
+      "name": "مسؤول موارد بشرية (HR)",
+      "description": "متابعة الحضور والأرصدة والإجازات وكشوفات الحضور",
+      "color": "amber",
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "manage_employees": true,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "override_early_checkout": false
+      }
+    },
+    {
+      "id": "title_employee",
+      "code": "employee",
+      "name": "موظف",
+      "description": "تسجيل الحضور وتقديم طلبات الإجازات والأذونات",
+      "color": "emerald",
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": false,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": false,
+        "override_early_checkout": false
+      }
+    }
+  ],
+  "employees": [
+    {
+      "id": "emp_1",
+      "name": "أحمد عبد الله",
+      "titleCode": "manager",
+      "jobTitle": "مدير عام المكتب",
+      "email": "ahmed@office.com",
+      "phone": "01011112222",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 21,
+      "permissionsBalanceHours": 6
+    },
+    {
+      "id": "emp_2",
+      "name": "محمد طارق",
+      "titleCode": "supervisor",
+      "jobTitle": "رئيس قسم الحسابات",
+      "email": "mohamed@office.com",
+      "phone": "01033334444",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 18,
+      "permissionsBalanceHours": 4
+    },
+    {
+      "id": "emp_3",
+      "name": "سارة محمود",
+      "titleCode": "hr",
+      "jobTitle": "أخصائية موارد بشرية",
+      "email": "sarah@office.com",
+      "phone": "01055556666",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 20,
+      "permissionsBalanceHours": 6
+    },
+    {
+      "id": "emp_4",
+      "name": "عمر خالد",
+      "titleCode": "employee",
+      "jobTitle": "مهندس برمجيات",
+      "email": "omar@office.com",
+      "phone": "01077778888",
+      "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 14,
+      "permissionsBalanceHours": 2
+    },
+    {
+      "id": "emp_5",
+      "name": "ياسمين حسن",
+      "titleCode": "employee",
+      "jobTitle": "مسؤولة علاقات عامة",
+      "email": "yasmin@office.com",
+      "phone": "01099990000",
+      "avatar": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 17,
+      "permissionsBalanceHours": 6
+    },
+    {
+      "id": "emp_6",
+      "name": "كريم شريف",
+      "titleCode": "employee",
+      "jobTitle": "مسؤول مشتريات وتوريدات",
+      "email": "karim@office.com",
+      "phone": "01122223333",
+      "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 12,
+      "permissionsBalanceHours": 4
+    },
+    {
+      "id": "emp_7",
+      "name": "مروة عادل",
+      "titleCode": "employee",
+      "jobTitle": "مصممة جرافيك",
+      "email": "marwa@office.com",
+      "phone": "01144445555",
+      "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 19,
+      "permissionsBalanceHours": 4
+    },
+    {
+      "id": "emp_8",
+      "name": "حسام الدين",
+      "titleCode": "employee",
+      "jobTitle": "محاسب مالي",
+      "email": "hossam@office.com",
+      "phone": "01166667777",
+      "avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80",
+      "leaveBalance": 15,
+      "permissionsBalanceHours": 6
+    }
+  ],
+  "attendanceRecords": [
+    {
+      "id": "att_1",
+      "employeeId": "emp_1",
+      "date": "2026-10-25",
+      "checkInTime": "2026-10-25T08:50:00.000Z",
+      "checkOutTime": "2026-10-25T17:24:46.448Z",
+      "status": "checked_out",
+      "latitude": 30.0444,
+      "longitude": 31.2357,
+      "distanceMeters": 12,
+      "durationMinutes": 514,
+      "completed8Hours": true,
+      "checkOutNotes": "انصراف نظامي بعد إتمام ساعات العمل"
+    },
+    {
+      "id": "att_2",
+      "employeeId": "emp_2",
+      "date": "2026-10-25",
+      "checkInTime": "2026-10-25T09:05:00.000Z",
+      "checkOutTime": null,
+      "status": "in_office",
+      "latitude": 30.0443,
+      "longitude": 31.2356,
+      "distanceMeters": 25,
+      "durationMinutes": 225,
+      "completed8Hours": false
+    },
+    {
+      "id": "att_3",
+      "employeeId": "emp_5",
+      "date": "2026-10-25",
+      "checkInTime": "2026-10-25T09:00:00.000Z",
+      "checkOutTime": null,
+      "status": "in_office",
+      "latitude": 30.0445,
+      "longitude": 31.2358,
+      "distanceMeters": 18,
+      "durationMinutes": 230,
+      "completed8Hours": false
+    },
+    {
+      "id": "att_1792949118142",
+      "employeeId": "emp_7",
+      "date": "2026-10-25",
+      "checkInTime": "2026-10-25T17:25:18.142Z",
+      "checkOutTime": "2026-10-25T17:25:38.308Z",
+      "status": "checked_out",
+      "latitude": 30.0445,
+      "longitude": 31.2358,
+      "distanceMeters": 15,
+      "durationMinutes": 0,
+      "completed8Hours": false,
+      "checkOutNotes": "انصراف استثنائي / مبكر: Jejje"
+    }
+  ],
+  "requests": [
+    {
+      "id": "req_1",
+      "employeeId": "emp_4",
+      "type": "leave",
+      "leaveType": "sick",
+      "startDate": "2026-10-25",
+      "endDate": "2026-10-25",
+      "reason": "نزلة معوية حادة وزيارة الطبيب",
+      "status": "approved",
+      "attachmentName": "medical_report_omar.pdf",
+      "requestedAt": "2026-10-25T07:30:00.000Z",
+      "reviewedBy": "emp_1",
+      "reviewedAt": "2026-10-25T08:00:00.000Z",
+      "reviewNote": "ألف سلامة، معتمد مع الرعاية."
+    },
+    {
+      "id": "req_2",
+      "employeeId": "emp_6",
+      "type": "leave",
+      "leaveType": "travel",
+      "startDate": "2026-10-25",
+      "endDate": "2026-10-25",
+      "reason": "مأمورية عمل وسفر لفرع الإسكندرية لاستلام شحنة التوريدات",
+      "status": "approved",
+      "attachmentName": "mission_order.pdf",
+      "requestedAt": "2026-10-25T08:00:00.000Z",
+      "reviewedBy": "emp_1",
+      "reviewedAt": "2026-10-25T08:15:00.000Z",
+      "reviewNote": "بالتوفيق في المأمورية."
+    },
+    {
+      "id": "req_3",
+      "employeeId": "emp_7",
+      "type": "permission",
+      "permissionType": "morning",
+      "permissionHours": 2,
+      "date": "2026-10-25",
+      "startTime": "09:00",
+      "endTime": "11:00",
+      "reason": "تجديد بطاقة الرقم القومي في السجل المدني",
+      "status": "approved",
+      "requestedAt": "2026-10-25T08:10:00.000Z",
+      "reviewedBy": "emp_1",
+      "reviewedAt": "2026-10-25T08:20:00.000Z",
+      "reviewNote": "معتمد من 9 إلى 11 صباحاً."
+    },
+    {
+      "id": "req_4",
+      "employeeId": "emp_8",
+      "type": "leave",
+      "leaveType": "weekly_off",
+      "startDate": "2026-10-25",
+      "endDate": "2026-10-25",
+      "reason": "يوم العطلة الأسبوعية المجدول للورديات البديلة",
+      "status": "approved",
+      "requestedAt": "2026-10-25T00:00:00.000Z",
+      "reviewedBy": "system",
+      "reviewedAt": "2026-10-25T00:00:00.000Z",
+      "reviewNote": "مجدول نظامياً"
+    },
+    {
+      "id": "req_5",
+      "employeeId": "emp_3",
+      "type": "permission",
+      "permissionType": "evening",
+      "permissionHours": 2,
+      "date": "2026-10-25",
+      "startTime": "15:00",
+      "endTime": "17:00",
+      "reason": "ظرف عائلي طارئ يتطلب انصراف مبكر ساعتين",
+      "status": "pending",
+      "requestedAt": "2026-10-25T11:00:00.000Z",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewNote": null
+    }
+  ]
+}
