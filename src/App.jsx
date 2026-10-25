@@ -24,6 +24,7 @@ import { OfficeSettingsTab } from './components/OfficeSettingsTab';
 export default function App() {
   const [employees, setEmployees] = useState([]);
   const [titles, setTitles] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [officeSettings, setOfficeSettings] = useState(null);
   const [activeTab, setActiveTab] = useState('check_in');
@@ -34,10 +35,11 @@ export default function App() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [settingsRes, employeesRes, titlesRes] = await Promise.all([
+      const [settingsRes, employeesRes, titlesRes, branchesRes] = await Promise.all([
         api.getSettings(),
         api.getEmployees(),
-        api.getTitles()
+        api.getTitles(),
+        api.getBranches()
       ]);
 
       if (settingsRes.success) {
@@ -46,10 +48,12 @@ export default function App() {
       if (titlesRes.success) {
         setTitles(titlesRes.titles);
       }
+      if (branchesRes.success) {
+        setBranches(branchesRes.branches);
+      }
       if (employeesRes.success && employeesRes.employees.length > 0) {
         setEmployees(employeesRes.employees);
 
-        // Check if there is a saved user in localStorage
         const saved = localStorage.getItem('office_auth_user');
         if (saved) {
           try {
@@ -78,7 +82,6 @@ export default function App() {
     loadInitialData();
   }, []);
 
-  // Logout handler
   const handleLogout = () => {
     localStorage.removeItem('office_auth_user');
     setCurrentUser(null);
@@ -89,7 +92,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center font-['Cairo',sans-serif]">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <h1 className="text-base font-black">نظام الحضور والغياب الذكي</h1>
-        <p className="text-xs text-slate-400 mt-1">جاري تحميل التطبيق...</p>
+        <p className="text-xs text-slate-400 mt-1">جاري تحميل الفروع والإعدادات...</p>
       </div>
     );
   }
@@ -99,6 +102,7 @@ export default function App() {
     return (
       <AuthScreen
         titles={titles}
+        branches={branches}
         officeSettings={officeSettings}
         employees={employees}
         onAuthSuccess={(user) => {
@@ -109,9 +113,8 @@ export default function App() {
     );
   }
 
-  // Determine permissions of active user
   const permissions = currentUser.permissions || {};
-  const isManager = currentUser.titleCode === 'manager' || permissions.manage_titles_permissions;
+  const isManager = currentUser.titleCode === 'general_manager' || currentUser.titleCode === 'deputy_manager' || permissions.manage_titles_permissions;
 
   // Tabs configuration based on user permissions
   const tabs = [
@@ -141,13 +144,12 @@ export default function App() {
     },
     {
       id: 'settings',
-      label: 'إعدادات المقر',
+      label: 'إعدادات الفروع',
       icon: Settings,
       enabled: permissions.manage_office_settings || isManager
     }
   ].filter(t => t.enabled);
 
-  // Content Renderer
   const renderTabContent = () => {
     switch (activeTab) {
       case 'check_in':
@@ -159,7 +161,7 @@ export default function App() {
           />
         );
       case 'presence':
-        return <OfficePresenceTab />;
+        return <OfficePresenceTab currentUser={currentUser} />;
       case 'leaves':
         return (
           <LeavesPermissionsTab 
@@ -172,7 +174,6 @@ export default function App() {
       case 'settings':
         return (
           <OfficeSettingsTab 
-            officeSettings={officeSettings} 
             onSettingsUpdated={loadInitialData}
           />
         );
@@ -186,16 +187,16 @@ export default function App() {
       {/* Native App Top Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 shadow-xs">
         <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
-          {/* Brand & Office Badge */}
+          {/* Brand & Branch Badge */}
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-sm font-black text-slate-900 leading-tight">حضور وانصراف المكتب</h1>
+              <h1 className="text-xs font-black text-slate-900 leading-tight">حضور وانصراف الشركة</h1>
               <span className="text-[11px] text-blue-600 font-bold flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-blue-500" />
-                <span className="truncate max-w-[130px] sm:max-w-[200px]">{officeSettings.officeName}</span>
+                <MapPin className="w-3 h-3 text-blue-500 shrink-0" />
+                <span className="truncate max-w-[150px]">فرع {currentUser.branchName || 'شيراتون'}</span>
               </span>
             </div>
           </div>
@@ -211,7 +212,6 @@ export default function App() {
               <span className="hidden sm:inline">تحميل</span>
             </button>
 
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors flex items-center gap-1 text-xs font-bold border border-rose-200/60"
@@ -238,7 +238,7 @@ export default function App() {
               <span className="text-[11px] text-blue-100 font-bold block">مرحباً بك،</span>
               <h2 className="text-base font-black leading-tight">{currentUser.name}</h2>
               <span className="text-[11px] text-blue-200 block mt-0.5">
-                {currentUser.jobTitle}
+                {currentUser.jobTitle} • <b>فرع {currentUser.branchName}</b>
               </span>
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Install App on Phone Modal */}
+      {/* Install App Modal */}
       {showInstallModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
@@ -303,7 +303,6 @@ export default function App() {
             </div>
 
             <div className="space-y-4 text-xs text-slate-700 leading-relaxed">
-              {/* Android Card */}
               <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-2">
                 <div className="font-black text-emerald-900 text-sm flex items-center gap-2">
                   <span>📱 لأجهزة الأندرويد (Android):</span>
@@ -321,7 +320,6 @@ export default function App() {
                 </a>
               </div>
 
-              {/* iPhone Card */}
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl space-y-2">
                 <div className="font-black text-blue-900 text-sm flex items-center gap-2">
                   <span>🍎 لأجهزة الآيفون (iPhone / iOS):</span>

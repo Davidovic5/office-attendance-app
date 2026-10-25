@@ -3,10 +3,33 @@ const { db, calculateDistanceMeters } = require('./db');
 
 const router = express.Router();
 
-// 0. Authentication & Registration (تسجيل الدخول وتسجيل موظف جديد)
+// 0. Branches (الفروع)
+router.get('/branches', (req, res) => {
+  try {
+    const branches = db.getBranches();
+    res.json({ success: true, branches });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/branches/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = db.updateBranch(id, req.body);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: "الفرع غير موجود" });
+    }
+    res.json({ success: true, branch: updated, message: `تم تحديث بيانات فرع "${updated.name}" بنجاح` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Authentication & Registration
 router.post('/auth/register', (req, res) => {
   try {
-    const { name, phone, pin, titleCode, jobTitle, weeklyOffDays, avatar } = req.body;
+    const { name, phone, pin, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
     }
@@ -15,8 +38,9 @@ router.post('/auth/register', (req, res) => {
       name,
       phone,
       pin: pin || "1234",
-      titleCode: titleCode || "employee",
-      jobTitle: jobTitle || "موظف",
+      titleCode: titleCode || "specialist",
+      jobTitle: jobTitle || "Specialist",
+      branchId: branchId || "branch_sheraton",
       weeklyOffDays: weeklyOffDays || ["friday", "saturday"],
       avatar: avatar || null
     });
@@ -53,7 +77,8 @@ router.post('/auth/login', (req, res) => {
 router.get('/settings', (req, res) => {
   try {
     const settings = db.getOfficeSettings();
-    res.json({ success: true, settings });
+    const branches = db.getBranches();
+    res.json({ success: true, settings, branches });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -62,32 +87,33 @@ router.get('/settings', (req, res) => {
 router.post('/settings', (req, res) => {
   try {
     const updated = db.updateOfficeSettings(req.body);
-    res.json({ success: true, settings: updated, message: "تم تحديث إعدادات المكتب بنجاح" });
+    res.json({ success: true, settings: updated, message: "تم تحديث إعدادات الشركة بنجاح" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Distance calculation test helper
+// Distance calculation test helper for a specific branch
 router.post('/settings/verify-distance', (req, res) => {
   try {
-    const { latitude, longitude } = req.body;
-    const settings = db.getOfficeSettings();
+    const { latitude, longitude, branchId } = req.body;
+    const branch = db.getBranchById(branchId || 'branch_sheraton');
     const distanceMeters = calculateDistanceMeters(
       parseFloat(latitude),
       parseFloat(longitude),
-      settings.latitude,
-      settings.longitude
+      branch.latitude,
+      branch.longitude
     );
-    const isWithinOffice = distanceMeters <= settings.radiusMeters;
+    const isWithinOffice = distanceMeters <= branch.radiusMeters;
     res.json({
       success: true,
+      branch,
       distanceMeters,
-      allowedRadius: settings.radiusMeters,
+      allowedRadius: branch.radiusMeters,
       isWithinOffice,
       message: isWithinOffice
-        ? `أنت داخل نطاق المكتب (المسافة: ${distanceMeters} م)`
-        : `أنت خارج نطاق المكتب (المسافة: ${distanceMeters} م - المسموح به ${settings.radiusMeters} م)`
+        ? `أنت داخل نطاق فرع (${branch.name}) - المسافة: ${distanceMeters} م`
+        : `أنت خارج نطاق فرع (${branch.name}) - المسافة: ${distanceMeters} م (المسموح به ${branch.radiusMeters} م)`
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -125,7 +151,8 @@ router.put('/titles/:code/permissions', (req, res) => {
 // 3. Employees
 router.get('/employees', (req, res) => {
   try {
-    const employees = db.getEmployees();
+    const { branchId } = req.query;
+    const employees = db.getEmployees(branchId);
     res.json({ success: true, employees });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -151,22 +178,22 @@ router.post('/employees', (req, res) => {
   }
 });
 
-// 4. Live Office Presence Dashboard
+// 4. Live Office Presence Dashboard (Filtered by Branch)
 router.get('/status/live', (req, res) => {
   try {
-    const { date } = req.query;
-    const status = db.getLiveOfficeStatus(date);
+    const { date, branchId } = req.query;
+    const status = db.getLiveOfficeStatus(date, branchId);
     res.json({ success: true, status });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// 5. Attendance (Check-in & Check-out with GPS & 8-hour rule)
+// 5. Attendance (Check-in & Check-out with Branch GPS & 8-hour rule)
 router.get('/attendance/today', (req, res) => {
   try {
-    const { date } = req.query;
-    const records = db.getTodayAttendance(date);
+    const { date, branchId } = req.query;
+    const records = db.getTodayAttendance(date, branchId);
     res.json({ success: true, records });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -219,8 +246,8 @@ router.post('/attendance/check-out', (req, res) => {
 // 6. Leaves & Permissions
 router.get('/requests', (req, res) => {
   try {
-    const { employeeId, type, status } = req.query;
-    const requests = db.getRequests({ employeeId, type, status });
+    const { employeeId, branchId, type, status } = req.query;
+    const requests = db.getRequests({ employeeId, branchId, type, status });
     res.json({ success: true, requests });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -3,6 +3,21 @@
 const BASE_URL = '/api';
 
 export const api = {
+  // Branches
+  async getBranches() {
+    const res = await fetch(`${BASE_URL}/branches`);
+    return res.json();
+  },
+
+  async updateBranch(id, data) {
+    const res = await fetch(`${BASE_URL}/branches/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
   // Auth
   async login(phone, pin) {
     const res = await fetch(`${BASE_URL}/auth/login`, {
@@ -37,11 +52,11 @@ export const api = {
     return res.json();
   },
 
-  async verifyDistance(latitude, longitude) {
+  async verifyDistance(latitude, longitude, branchId) {
     const res = await fetch(`${BASE_URL}/settings/verify-distance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ latitude, longitude }),
+      body: JSON.stringify({ latitude, longitude, branchId }),
     });
     return res.json();
   },
@@ -62,8 +77,9 @@ export const api = {
   },
 
   // Employees
-  async getEmployees() {
-    const res = await fetch(`${BASE_URL}/employees`);
+  async getEmployees(branchId = null) {
+    const url = branchId ? `${BASE_URL}/employees?branchId=${branchId}` : `${BASE_URL}/employees`;
+    const res = await fetch(url);
     return res.json();
   },
 
@@ -76,16 +92,19 @@ export const api = {
     return res.json();
   },
 
-  // Live Presence
-  async getLiveStatus(date) {
-    const url = date ? `${BASE_URL}/status/live?date=${date}` : `${BASE_URL}/status/live`;
-    const res = await fetch(url);
+  // Live Presence with Branch Filter
+  async getLiveStatus(date, branchId = null) {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (branchId) params.append('branchId', branchId);
+    const res = await fetch(`${BASE_URL}/status/live?${params.toString()}`);
     return res.json();
   },
 
   // Attendance
-  async getTodayAttendance() {
-    const res = await fetch(`${BASE_URL}/attendance/today`);
+  async getTodayAttendance(branchId = null) {
+    const url = branchId ? `${BASE_URL}/attendance/today?branchId=${branchId}` : `${BASE_URL}/attendance/today`;
+    const res = await fetch(url);
     return res.json();
   },
 
@@ -111,6 +130,7 @@ export const api = {
   async getRequests(filters = {}) {
     const params = new URLSearchParams();
     if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.branchId) params.append('branchId', filters.branchId);
     if (filters.type) params.append('type', filters.type);
     if (filters.status) params.append('status', filters.status);
     const res = await fetch(`${BASE_URL}/requests?${params.toString()}`);

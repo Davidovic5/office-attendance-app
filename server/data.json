@@ -11,11 +11,13 @@
   },
   "titles": [
     {
-      "id": "title_manager",
-      "code": "manager",
-      "name": "مدير المكتب / المدير العام",
-      "description": "صلاحيات كاملة لإدارة المكتب والموظفين والإعدادات",
-      "color": "indigo",
+      "id": "title_general_manager",
+      "code": "general_manager",
+      "name": "General Manager (المدير العام)",
+      "englishTitle": "General Manager",
+      "arabicTitle": "المدير العام",
+      "description": "صلاحيات شاملة لكافة الفروع والإدارات والإعدادات",
+      "color": "purple",
       "permissions": {
         "check_in_out": true,
         "view_own_attendance": true,
@@ -27,14 +29,40 @@
         "manage_titles_permissions": true,
         "manage_office_settings": true,
         "view_reports": true,
+        "view_all_branches": true,
         "override_early_checkout": true
       }
     },
     {
-      "id": "title_supervisor",
-      "code": "supervisor",
-      "name": "رئيس قسم / مشرف",
-      "description": "إدارة ومتابعة حضور فريق العمل واعتماد طلباتهم",
+      "id": "title_deputy_manager",
+      "code": "deputy_manager",
+      "name": "Deputy manager (نائب المدير)",
+      "englishTitle": "Deputy manager",
+      "arabicTitle": "نائب المدير",
+      "description": "إدارة العمليات والاعتماد والمتابعة لكافة الأقسام والفروع",
+      "color": "indigo",
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "manage_employees": true,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "view_all_branches": true,
+        "override_early_checkout": true
+      }
+    },
+    {
+      "id": "title_section_head",
+      "code": "section_head",
+      "name": "Section head (رئيس قسم)",
+      "englishTitle": "Section head",
+      "arabicTitle": "رئيس قسم",
+      "description": "إدارة فريق الفرع والقسم واعتماد إجازاتهم وأذوناتهم",
       "color": "blue",
       "permissions": {
         "check_in_out": true,
@@ -47,34 +75,40 @@
         "manage_titles_permissions": false,
         "manage_office_settings": false,
         "view_reports": true,
+        "view_all_branches": false,
         "override_early_checkout": false
       }
     },
     {
-      "id": "title_hr",
-      "code": "hr",
-      "name": "مسؤول موارد بشرية (HR)",
-      "description": "متابعة الحضور والأرصدة والإجازات وكشوفات الحضور",
-      "color": "amber",
+      "id": "title_senior_specialist",
+      "code": "senior_specialist",
+      "name": "Senior Specialist (أخصائي أول)",
+      "englishTitle": "Senior Specialist",
+      "arabicTitle": "أخصائي أول",
+      "description": "تسجيل الحضور ومتابعة فريق العمل وتقديم الطلبات",
+      "color": "teal",
       "permissions": {
         "check_in_out": true,
         "view_own_attendance": true,
         "view_office_presence": true,
         "request_leave": true,
         "request_permission": true,
-        "approve_leaves_permissions": true,
-        "manage_employees": true,
+        "approve_leaves_permissions": false,
+        "manage_employees": false,
         "manage_titles_permissions": false,
         "manage_office_settings": false,
-        "view_reports": true,
+        "view_reports": false,
+        "view_all_branches": false,
         "override_early_checkout": false
       }
     },
     {
-      "id": "title_employee",
-      "code": "employee",
-      "name": "موظف",
-      "description": "تسجيل الحضور وتقديم طلبات الإجازات والأذونات",
+      "id": "title_specialist",
+      "code": "specialist",
+      "name": "Specialist (أخصائي)",
+      "englishTitle": "Specialist",
+      "arabicTitle": "أخصائي",
+      "description": "تسجيل الحضور والغياب وتقديم طلبات الإجازات والأذونات",
       "color": "emerald",
       "permissions": {
         "check_in_out": true,
@@ -87,6 +121,7 @@
         "manage_titles_permissions": false,
         "manage_office_settings": false,
         "view_reports": false,
+        "view_all_branches": false,
         "override_early_checkout": false
       }
     }
@@ -106,7 +141,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_2",
@@ -122,7 +158,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_3",
@@ -138,7 +175,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_4",
@@ -154,7 +192,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_5",
@@ -170,7 +209,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_6",
@@ -186,7 +226,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_7",
@@ -202,7 +243,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_8",
@@ -218,7 +260,8 @@
         "friday",
         "saturday"
       ],
-      "pin": "1234"
+      "pin": "1234",
+      "branchId": "branch_sheraton"
     },
     {
       "id": "emp_1792950641448",
@@ -234,7 +277,8 @@
       "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
       "leaveBalance": 21,
       "permissionsBalanceHours": 6,
-      "createdAt": "2026-10-25T17:50:41.448Z"
+      "createdAt": "2026-10-25T17:50:41.448Z",
+      "branchId": "branch_sheraton"
     }
   ],
   "attendanceRecords": [
@@ -369,6 +413,80 @@
       "reviewedBy": null,
       "reviewedAt": null,
       "reviewNote": null
+    }
+  ],
+  "branches": [
+    {
+      "id": "branch_sheraton",
+      "code": "sheraton",
+      "name": "شيراتون",
+      "city": "القاهرة",
+      "latitude": 30.1025,
+      "longitude": 31.378,
+      "radiusMeters": 100
+    },
+    {
+      "id": "branch_maadi",
+      "code": "maadi",
+      "name": "المعادي",
+      "city": "القاهرة",
+      "latitude": 29.9602,
+      "longitude": 31.2568,
+      "radiusMeters": 100
+    },
+    {
+      "id": "branch_october1",
+      "code": "october1",
+      "name": "اكتوبر ١",
+      "city": "الجيزة",
+      "latitude": 29.9723,
+      "longitude": 30.9421,
+      "radiusMeters": 100
+    },
+    {
+      "id": "branch_october2",
+      "code": "october2",
+      "name": "اكتوبر ٢",
+      "city": "الجيزة",
+      "latitude": 29.951,
+      "longitude": 30.915,
+      "radiusMeters": 100
+    },
+    {
+      "id": "branch_lotus",
+      "code": "lotus",
+      "name": "اللوتس",
+      "city": "القاهرة الجديدة",
+      "latitude": 30.0384,
+      "longitude": 31.488,
+      "radiusMeters": 100
+    },
+    {
+      "id": "branch_assiut",
+      "code": "assiut",
+      "name": "اسيوط",
+      "city": "أسيوط",
+      "latitude": 27.1809,
+      "longitude": 31.1837,
+      "radiusMeters": 120
+    },
+    {
+      "id": "branch_minya",
+      "code": "minya",
+      "name": "المنيا",
+      "city": "المنيا",
+      "latitude": 28.0871,
+      "longitude": 30.7618,
+      "radiusMeters": 120
+    },
+    {
+      "id": "branch_alexandria",
+      "code": "alexandria",
+      "name": "اسكندرية",
+      "city": "الإسكندرية",
+      "latitude": 31.2001,
+      "longitude": 29.9187,
+      "radiusMeters": 100
     }
   ]
 }
