@@ -215,6 +215,24 @@
       "leaveBalance": 30,
       "permissionsBalanceHours": 10,
       "createdAt": "2026-10-25T18:56:25.905Z"
+    },
+    {
+      "id": "emp_1792955351678",
+      "name": "ديفيد جان",
+      "phone": "01010046078",
+      "password": "1111",
+      "pin": "1111",
+      "titleCode": "sector_manager",
+      "jobTitle": "Sector Manager",
+      "branchId": "branch_october2",
+      "weeklyOffDays": [
+        "sunday",
+        "thursday"
+      ],
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
+      "leaveBalance": 21,
+      "permissionsBalanceHours": 6,
+      "createdAt": "2026-10-25T19:09:11.678Z"
     }
   ],
   "attendanceRecords": [],
