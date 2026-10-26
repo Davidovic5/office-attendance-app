@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'data.json');
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const ORIGINAL_DB_PATH = path.join(__dirname, 'data.json');
+const DB_PATH = IS_SERVERLESS ? path.join('/tmp', 'data.json') : ORIGINAL_DB_PATH;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'Davidovic5/office-attendance-app';
 
 // Haversine formula to compute distance between 2 GPS coordinates in meters
 function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -200,6 +204,17 @@ class Database {
   }
 
   init() {
+    // If running on Vercel / serverless, copy bundled data.json to /tmp if not present
+    if (IS_SERVERLESS && !fs.existsSync(DB_PATH)) {
+      if (fs.existsSync(ORIGINAL_DB_PATH)) {
+        try {
+          fs.copyFileSync(ORIGINAL_DB_PATH, DB_PATH);
+        } catch (e) {
+          console.warn("Could not copy initial data.json to /tmp:", e);
+        }
+      }
+    }
+
     // Always start with clean data if reset requested or if invalid
     if (!fs.existsSync(DB_PATH)) {
       const data = getInitialData();
@@ -223,7 +238,48 @@ class Database {
   }
 
   save() {
-    fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf8');
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf8');
+    } catch (err) {
+      console.warn("Could not write local DB file:", err.message);
+    }
+    // Async background sync to GitHub repo
+    this.syncToGitHub();
+  }
+
+  async syncToGitHub() {
+    if (!GITHUB_TOKEN || !GITHUB_REPO) return;
+    try {
+      const contentBase64 = Buffer.from(JSON.stringify(this.data, null, 2), 'utf8').toString('base64');
+      const getRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/server/data.json`, {
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'OfficeAttendanceApp'
+        }
+      });
+      let sha = '';
+      if (getRes.ok) {
+        const json = await getRes.json();
+        sha = json.sha;
+      }
+      await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/server/data.json`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'OfficeAttendanceApp'
+        },
+        body: JSON.stringify({
+          message: 'chore(db): auto-sync attendance records [skip ci]',
+          content: contentBase64,
+          sha: sha || undefined
+        })
+      });
+    } catch (e) {
+      // Background sync errors do not block API responses
+    }
   }
 
   // Force clean all dummy records
