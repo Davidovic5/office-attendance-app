@@ -4,19 +4,19 @@ const { db, calculateDistanceMeters } = require('./db');
 const router = express.Router();
 
 // 0. Branches (الفروع)
-router.get('/branches', (req, res) => {
+router.get('/branches', async (req, res) => {
   try {
-    const branches = db.getBranches();
+    const branches = await db.getBranches();
     res.json({ success: true, branches });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.put('/branches/:id', (req, res) => {
+router.put('/branches/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = db.updateBranch(id, req.body);
+    const updated = await db.updateBranch(id, req.body);
     if (!updated) {
       return res.status(404).json({ success: false, error: "الفرع غير موجود" });
     }
@@ -27,17 +27,18 @@ router.put('/branches/:id', (req, res) => {
 });
 
 // Authentication & Registration
-router.post('/auth/register', (req, res) => {
+router.post('/auth/register', async (req, res) => {
   try {
-    const { name, phone, pin, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = req.body;
+    const { name, phone, pin, password, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
     }
 
-    const employee = db.registerEmployee({
+    const employee = await db.registerEmployee({
       name,
       phone,
-      pin: pin || "1234",
+      password: password || pin || "1234",
+      pin: pin || password || "1234",
       titleCode: titleCode || "specialist",
       jobTitle: jobTitle || "Specialist",
       branchId: branchId || "branch_sheraton",
@@ -55,14 +56,14 @@ router.post('/auth/register', (req, res) => {
   }
 });
 
-router.post('/auth/login', (req, res) => {
+router.post('/auth/login', async (req, res) => {
   try {
     const { phone, pin, password } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف." });
     }
 
-    const employee = db.loginEmployee(phone, password || pin || "");
+    const employee = await db.loginEmployee(phone, password || pin || "");
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${employee.name}`,
@@ -74,14 +75,14 @@ router.post('/auth/login', (req, res) => {
 });
 
 // Update Profile (Avatar, Name, Weekly Off Days)
-router.put('/auth/profile', (req, res) => {
+router.put('/auth/profile', async (req, res) => {
   try {
     const { employeeId, name, avatar, weeklyOffDays, jobTitle, branchId } = req.body;
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب." });
     }
 
-    const updated = db.updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId });
+    const updated = await db.updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId });
     res.json({
       success: true,
       message: "تم تحديث الملف الشخصي والصورة بنجاح!",
@@ -93,14 +94,14 @@ router.put('/auth/profile', (req, res) => {
 });
 
 // Change Password
-router.put('/auth/change-password', (req, res) => {
+router.put('/auth/change-password', async (req, res) => {
   try {
     const { employeeId, oldPassword, newPassword } = req.body;
     if (!employeeId || !oldPassword || !newPassword) {
       return res.status(400).json({ success: false, error: "جميع حقول كلمة المرور مطلوبة." });
     }
 
-    const updated = db.changePassword(employeeId, oldPassword, newPassword);
+    const updated = await db.changePassword(employeeId, oldPassword, newPassword);
     res.json({
       success: true,
       message: "تم تغيير كلمة المرور بنجاح!",
@@ -112,14 +113,14 @@ router.put('/auth/change-password', (req, res) => {
 });
 
 // Delete Account (حذف الحساب)
-router.delete('/auth/account', (req, res) => {
+router.delete('/auth/account', async (req, res) => {
   try {
     const { employeeId } = req.body;
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب." });
     }
 
-    const result = db.deleteEmployee(employeeId);
+    const result = await db.deleteEmployee(employeeId);
     res.json(result);
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -127,10 +128,10 @@ router.delete('/auth/account', (req, res) => {
 });
 
 // Monthly Reports & Attendance History (سجل وتقارير الحضور والإجازات الشهرية)
-router.get('/reports/monthly', (req, res) => {
+router.get('/reports/monthly', async (req, res) => {
   try {
     const { year, month, branchId, employeeId } = req.query;
-    const report = db.getMonthlyReport({ year, month, branchId, employeeId });
+    const report = await db.getMonthlyReport({ year, month, branchId, employeeId });
     res.json({ success: true, report });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -138,30 +139,38 @@ router.get('/reports/monthly', (req, res) => {
 });
 
 // 1. Office Settings
-router.get('/settings', (req, res) => {
+router.get('/settings', async (req, res) => {
   try {
-    const settings = db.getOfficeSettings();
-    const branches = db.getBranches();
+    const settings = await db.getOfficeSettings();
+    const branches = await db.getBranches();
     res.json({ success: true, settings, branches });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/settings', (req, res) => {
+router.post('/settings', async (req, res) => {
   try {
-    const updated = db.updateOfficeSettings(req.body);
-    res.json({ success: true, settings: updated, message: "تم تحديث إعدادات الشركة بنجاح" });
+    const updated = await db.updateOfficeSettings(req.body);
+    res.json({ success: true, settings: updated, message: "تم تحديث إعدادات المكتب بنجاح" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Distance calculation test helper for a specific branch
-router.post('/settings/verify-distance', (req, res) => {
+// Verify Distance to Assigned Branch
+router.post('/settings/verify-distance', async (req, res) => {
   try {
     const { latitude, longitude, branchId } = req.body;
-    const branch = db.getBranchById(branchId || 'branch_sheraton');
+    if (latitude == null || longitude == null) {
+      return res.status(400).json({ success: false, error: "إحداثيات الموقع مطلوبة" });
+    }
+
+    const branch = await db.getBranchById(branchId);
+    if (!branch) {
+      return res.status(404).json({ success: false, error: "الفرع المحدد غير موجود" });
+    }
+
     const distanceMeters = calculateDistanceMeters(
       parseFloat(latitude),
       parseFloat(longitude),
@@ -185,20 +194,20 @@ router.post('/settings/verify-distance', (req, res) => {
 });
 
 // 2. Titles & Permissions
-router.get('/titles', (req, res) => {
+router.get('/titles', async (req, res) => {
   try {
-    const titles = db.getTitles();
+    const titles = await db.getTitles();
     res.json({ success: true, titles });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.put('/titles/:code/permissions', (req, res) => {
+router.put('/titles/:code/permissions', async (req, res) => {
   try {
     const { code } = req.params;
     const { permissions } = req.body;
-    const updated = db.updateTitlePermissions(code, permissions);
+    const updated = await db.updateTitlePermissions(code, permissions);
     if (!updated) {
       return res.status(404).json({ success: false, error: "المسمى الوظيفي غير موجود" });
     }
@@ -213,19 +222,19 @@ router.put('/titles/:code/permissions', (req, res) => {
 });
 
 // 3. Employees
-router.get('/employees', (req, res) => {
+router.get('/employees', async (req, res) => {
   try {
     const { branchId } = req.query;
-    const employees = db.getEmployees(branchId);
+    const employees = await db.getEmployees(branchId);
     res.json({ success: true, employees });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.get('/employees/:id', (req, res) => {
+router.get('/employees/:id', async (req, res) => {
   try {
-    const emp = db.getEmployeeById(req.params.id);
+    const emp = await db.getEmployeeById(req.params.id);
     if (!emp) return res.status(404).json({ success: false, error: "الموظف غير موجود" });
     res.json({ success: true, employee: emp });
   } catch (err) {
@@ -233,9 +242,9 @@ router.get('/employees/:id', (req, res) => {
   }
 });
 
-router.post('/employees', (req, res) => {
+router.post('/employees', async (req, res) => {
   try {
-    const newEmp = db.registerEmployee(req.body);
+    const newEmp = await db.registerEmployee(req.body);
     res.json({ success: true, employee: newEmp, message: "تمت إضافة الموظف بنجاح" });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -243,10 +252,10 @@ router.post('/employees', (req, res) => {
 });
 
 // 4. Live Office Presence Dashboard (Filtered by Branch)
-router.get('/status/live', (req, res) => {
+router.get('/status/live', async (req, res) => {
   try {
     const { date, branchId } = req.query;
-    const status = db.getLiveOfficeStatus(date, branchId);
+    const status = await db.getLiveOfficeStatus(date, branchId);
     res.json({ success: true, status });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -254,24 +263,24 @@ router.get('/status/live', (req, res) => {
 });
 
 // 5. Attendance (Check-in & Check-out with Branch GPS & 8-hour rule)
-router.get('/attendance/today', (req, res) => {
+router.get('/attendance/today', async (req, res) => {
   try {
     const { date, branchId } = req.query;
-    const records = db.getTodayAttendance(date, branchId);
+    const records = await db.getTodayAttendance(date, branchId);
     res.json({ success: true, records });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/attendance/check-in', (req, res) => {
+router.post('/attendance/check-in', async (req, res) => {
   try {
     const { employeeId, latitude, longitude } = req.body;
     if (!employeeId || latitude == null || longitude == null) {
       return res.status(400).json({ success: false, error: "بيانات الموقع ورقم الموظف مطلوبة" });
     }
 
-    const record = db.checkIn(employeeId, parseFloat(latitude), parseFloat(longitude));
+    const record = await db.checkIn(employeeId, parseFloat(latitude), parseFloat(longitude));
     res.json({
       success: true,
       message: "تمام كدا انت دلوقتي في العمل! تم بدء وردية الـ 8 ساعات بنجاح.",
@@ -282,14 +291,14 @@ router.post('/attendance/check-in', (req, res) => {
   }
 });
 
-router.post('/attendance/check-out', (req, res) => {
+router.post('/attendance/check-out', async (req, res) => {
   try {
     const { employeeId, latitude, longitude, forceOverride, reason } = req.body;
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب" });
     }
 
-    const record = db.checkOut(
+    const record = await db.checkOut(
       employeeId,
       latitude != null ? parseFloat(latitude) : null,
       longitude != null ? parseFloat(longitude) : null,
@@ -308,24 +317,24 @@ router.post('/attendance/check-out', (req, res) => {
 });
 
 // 6. Leaves & Permissions
-router.get('/requests', (req, res) => {
+router.get('/requests', async (req, res) => {
   try {
     const { employeeId, branchId, type, status } = req.query;
-    const requests = db.getRequests({ employeeId, branchId, type, status });
+    const requests = await db.getRequests({ employeeId, branchId, type, status });
     res.json({ success: true, requests });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/requests', (req, res) => {
+router.post('/requests', async (req, res) => {
   try {
     const { employeeId, type, leaveType, startDate, endDate, reason, permissionType, permissionHours, startTime, endTime } = req.body;
     if (!employeeId || !type || !reason) {
       return res.status(400).json({ success: false, error: "جميع الحقول الإلزامية يجب تعبئتها" });
     }
 
-    const newReq = db.createRequest(req.body);
+    const newReq = await db.createRequest(req.body);
     res.json({
       success: true,
       message: type === 'leave' ? "تم إرسال طلب الإجازة بنجاح بانتظار الاعتماد" : "تم إرسال طلب إذن الساعتين بنجاح بانتظار الاعتماد",
@@ -336,7 +345,7 @@ router.post('/requests', (req, res) => {
   }
 });
 
-router.post('/requests/:id/review', (req, res) => {
+router.post('/requests/:id/review', async (req, res) => {
   try {
     const { id } = req.params;
     const { reviewerId, status, reviewNote } = req.body;
@@ -344,7 +353,7 @@ router.post('/requests/:id/review', (req, res) => {
       return res.status(400).json({ success: false, error: "حالة الاعتماد غير صالحة" });
     }
 
-    const reviewed = db.reviewRequest(id, reviewerId || 'manager', status, reviewNote);
+    const reviewed = await db.reviewRequest(id, reviewerId || 'manager', status, reviewNote);
     if (!reviewed) {
       return res.status(404).json({ success: false, error: "الطلب غير موجود" });
     }

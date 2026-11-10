@@ -901,10 +901,24 @@ class Database {
   }
 }
 
+const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || '';
+const { MongoDatabaseAdapter } = require('./mongoAdapter');
+
+let activeDb;
+if (MONGODB_URI) {
+  console.log('⚡ Active Database: MongoDB Atlas Cloud Database');
+  activeDb = new MongoDatabaseAdapter(MONGODB_URI);
+} else {
+  console.log('ℹ️ Active Database: Local Storage (Set MONGODB_URI to activate MongoDB Atlas)');
+  activeDb = new Database();
+}
+
 module.exports = {
-  db: new Database(),
+  db: activeDb,
+  Database,
   calculateDistanceMeters,
   DAY_MAP,
   DEFAULT_BRANCHES,
   DEFAULT_TITLES
 };
+
