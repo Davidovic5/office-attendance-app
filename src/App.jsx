@@ -48,10 +48,17 @@ export default function App() {
   const [employees, setEmployees] = useState([]);
   const [titles, setTitles] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('office_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [officeSettings, setOfficeSettings] = useState(null);
   const [activeTab, setActiveTab] = useState('check_in');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!officeSettings);
   
   // Modals
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -77,10 +84,12 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Load initial system data
-  const loadInitialData = async () => {
+  // Load initial system data (with silent background refresh support)
+  const loadInitialData = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground && !officeSettings) {
+        setLoading(true);
+      }
       const [settingsRes, employeesRes, titlesRes, branchesRes] = await Promise.all([
         api.getSettings(),
         api.getEmployees(),
@@ -97,26 +106,27 @@ export default function App() {
       if (branchesRes.success) {
         setBranches(branchesRes.branches);
       }
-      if (employeesRes.success && employeesRes.employees.length > 0) {
+      if (employeesRes.success && employeesRes.employees && employeesRes.employees.length > 0) {
         setEmployees(employeesRes.employees);
 
         const saved = localStorage.getItem('office_auth_user');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            const fresh = employeesRes.employees.find(e => e.id === parsed.id);
+            const fresh = employeesRes.employees.find(e => e.id === parsed.id || e.phone === parsed.phone);
             if (fresh) {
               setCurrentUser(fresh);
               setProfileAvatar(fresh.avatar);
               setProfileOffDays(fresh.weeklyOffDays || ['friday', 'saturday']);
+              localStorage.setItem('office_auth_user', JSON.stringify(fresh));
             } else {
-              setCurrentUser(null);
+              // Crucial fix: NEVER log out user if they are not in the current container's list
+              // Keep the authenticated user session active!
+              setCurrentUser(prev => prev || parsed);
             }
           } catch (e) {
-            setCurrentUser(null);
+            // Keep existing user if parse fails
           }
-        } else {
-          setCurrentUser(null);
         }
       }
     } catch (err) {
@@ -290,7 +300,7 @@ export default function App() {
           setCurrentUser(user);
           setProfileAvatar(user.avatar);
           setProfileOffDays(user.weeklyOffDays || ['friday', 'saturday']);
-          loadInitialData();
+          loadInitialData(true);
         }}
       />
     );
@@ -346,7 +356,7 @@ export default function App() {
           <CheckInTab 
             currentUser={currentUser} 
             officeSettings={officeSettings} 
-            onAttendanceUpdated={loadInitialData}
+            onAttendanceUpdated={() => loadInitialData(true)}
           />
         );
       case 'presence':
@@ -355,17 +365,17 @@ export default function App() {
         return (
           <LeavesPermissionsTab 
             currentUser={currentUser} 
-            onStatusChanged={loadInitialData}
+            onStatusChanged={() => loadInitialData(true)}
           />
         );
       case 'reports':
         return <MonthlyReportTab currentUser={currentUser} />;
       case 'roles':
-        return <RolesPermissionsTab onTitlesUpdated={loadInitialData} />;
+        return <RolesPermissionsTab onTitlesUpdated={() => loadInitialData(true)} />;
       case 'settings':
         return (
           <OfficeSettingsTab 
-            onSettingsUpdated={loadInitialData}
+            onSettingsUpdated={() => loadInitialData(true)}
           />
         );
       default:
