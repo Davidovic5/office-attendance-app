@@ -16,7 +16,8 @@ import {
   Building2,
   Sparkles,
   Send,
-  Hourglass
+  Hourglass,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -46,15 +47,12 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     radiusMeters: 150
   };
   
-  // GPS State
-  const [gpsMode, setGpsMode] = useState('simulated_in');
-  const [userCoords, setUserCoords] = useState({
-    lat: branch.latitude,
-    lng: branch.longitude
-  });
+  // Real Phone GPS State (No Simulation)
+  const [userCoords, setUserCoords] = useState(null);
   const [distanceInfo, setDistanceInfo] = useState({
-    distanceMeters: 0,
-    isWithinOffice: true
+    distanceMeters: null,
+    isWithinOffice: false,
+    checkedAt: null
   });
   const [gpsLoading, setGpsLoading] = useState(false);
 
@@ -64,6 +62,68 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
   const shiftHours = officeSettings?.shiftHours || 8;
   const shiftSeconds = shiftHours * 3600;
+
+  // Real GPS reader using phone hardware
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        return reject(new Error('المتصفح أو الهاتف لا يدعم تحديد الموقع الجغرافي (GPS).'));
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          });
+        },
+        err => {
+          let msg = 'تعذر الوصول إلى موقع الـ GPS للهاتف.';
+          if (err.code === 1) {
+            msg = 'تم رفض إذن تحديد الموقع. يرجى تفعيل خدمة الـ GPS في الهاتف والسماح للمتصفح بالوصول لموقعك لتسجيل الحضور.';
+          } else if (err.code === 2) {
+            msg = 'إشارة الـ GPS غير متوفرة حالياً، يرجى تشغيل الموقع والتأكد من وضوح الإشارة.';
+          } else if (err.code === 3) {
+            msg = 'انتهت مهلة قراءة إشارة الـ GPS. يرجى إعادة المحاولة.';
+          }
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    });
+  };
+
+  // Refresh live distance
+  const refreshLocation = async (silent = false) => {
+    setGpsLoading(true);
+    if (!silent) setErrorMsg('');
+
+    try {
+      const coords = await getCurrentLocation();
+      setUserCoords(coords);
+
+      const res = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      if (res.success) {
+        setDistanceInfo({
+          distanceMeters: res.distanceMeters,
+          isWithinOffice: res.isWithinOffice,
+          checkedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+        });
+      }
+      return coords;
+    } catch (err) {
+      if (!silent) setErrorMsg(err.message);
+      return null;
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  // Auto-ping live location on initial mount quietly
+  useEffect(() => {
+    refreshLocation(true);
+  }, [branch.id]);
 
   // Fetch today's attendance & early checkout requests
   const fetchAttendance = async () => {
@@ -131,70 +191,47 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     return () => clearInterval(interval);
   }, [currentAttendance]);
 
-  // Calculate distance against current employee's branch
-  useEffect(() => {
-    if (userCoords.lat && userCoords.lng) {
-      api.verifyDistance(userCoords.lat, userCoords.lng, branch.id)
-        .then(res => {
-          if (res.success) {
-            setDistanceInfo({
-              distanceMeters: res.distanceMeters,
-              isWithinOffice: res.isWithinOffice
-            });
-          }
-        })
-        .catch(console.error);
-    }
-  }, [userCoords, branch]);
-
-  // GPS Simulation or Real GPS Handler
-  const handleGpsModeChange = (mode) => {
-    setGpsMode(mode);
-    setErrorMsg('');
-    if (mode === 'simulated_in') {
-      setUserCoords({
-        lat: branch.latitude + 0.0001,
-        lng: branch.longitude + 0.0001
-      });
-    } else if (mode === 'simulated_out') {
-      setUserCoords({
-        lat: branch.latitude + 0.0050, // ~500 meters away
-        lng: branch.longitude + 0.0050
-      });
-    } else if (mode === 'real') {
-      setGpsLoading(true);
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            setUserCoords({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude
-            });
-            setGpsLoading(false);
-          },
-          err => {
-            setErrorMsg('تعذر الوصول إلى موقع الـ GPS الفعلي للهاتف: ' + err.message);
-            setGpsLoading(false);
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      } else {
-        setErrorMsg('المتصفح لا يدعم تحديد الموقع الجغرافي.');
-        setGpsLoading(false);
-      }
-    }
-  };
-
-  // Perform Check In
+  // Perform Live Check In (Always clickable: checks real GPS, verifies distance, blocks if outside)
   const handleCheckIn = async () => {
     setLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
 
     try {
-      const res = await api.checkIn(currentUser.id, userCoords.lat, userCoords.lng);
+      // 1. Read fresh real GPS from phone hardware
+      let coords = null;
+      try {
+        coords = await getCurrentLocation();
+        setUserCoords(coords);
+      } catch (gpsErr) {
+        setErrorMsg(gpsErr.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Verify live distance against branch coordinates
+      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      if (distRes.success) {
+        setDistanceInfo({
+          distanceMeters: distRes.distanceMeters,
+          isWithinOffice: distRes.isWithinOffice,
+          checkedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+        });
+
+        // 3. Block if outside the 150m radius and clearly tell the employee their distance!
+        if (!distRes.isWithinOffice) {
+          setErrorMsg(
+            `عذراً، لا يمكنك تسجيل الحضور لأنك بعيد عن مقر نادي وادي دجلة - فرع (${branch.name}) بمسافة ${distRes.distanceMeters} متر! (النطاق المسموح به ${branch.radiusMeters} متر فقط). يرجى التواجد داخل النادي والضغط مجدداً.`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 4. Send check-in request with verified real coordinates
+      const res = await api.checkIn(currentUser.id, coords.lat, coords.lng);
       if (res.success) {
-        setSuccessMsg(res.message);
+        setSuccessMsg(res.message || `تم تسجيل حضورك بنجاح في فرع ${branch.name}`);
         setCurrentAttendance(res.record);
         if (onAttendanceUpdated) onAttendanceUpdated();
         fetchAttendance();
@@ -215,10 +252,22 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     setSuccessMsg('');
 
     try {
+      let lat = userCoords?.lat || branch.latitude;
+      let lng = userCoords?.lng || branch.longitude;
+
+      try {
+        const liveCoords = await getCurrentLocation();
+        lat = liveCoords.lat;
+        lng = liveCoords.lng;
+        setUserCoords(liveCoords);
+      } catch (e) {
+        console.warn('Checkout GPS fallback:', e.message);
+      }
+
       const res = await api.checkOut(
         currentUser.id,
-        userCoords.lat,
-        userCoords.lng,
+        lat,
+        lng,
         forceOverride,
         reason
       );
@@ -293,37 +342,45 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     <div className="space-y-4 pb-8 text-right">
       {/* Notifications */}
       {errorMsg && (
-        <div className="bg-rose-950/70 border border-rose-700/80 p-3.5 rounded-2xl flex items-start gap-2.5 text-rose-300 text-xs shadow-xs animate-fade-in">
+        <div className="bg-rose-950/80 border border-rose-700 p-4 rounded-2xl flex items-start gap-2.5 text-rose-200 text-xs shadow-lg animate-fade-in leading-relaxed">
           <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-          <div className="flex-1 font-bold leading-relaxed">{errorMsg}</div>
+          <div className="flex-1 font-bold">{errorMsg}</div>
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-950/70 border border-emerald-700/80 p-3.5 rounded-2xl flex items-start gap-2.5 text-emerald-300 text-xs shadow-xs animate-fade-in">
+        <div className="bg-emerald-950/80 border border-emerald-700 p-4 rounded-2xl flex items-start gap-2.5 text-emerald-200 text-xs shadow-lg animate-fade-in leading-relaxed">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="flex-1 font-black leading-relaxed">{successMsg}</div>
+          <div className="flex-1 font-black">{successMsg}</div>
         </div>
       )}
 
-      {/* GPS Location & Branch Card */}
+      {/* GPS Location & Branch Card (Clean Production View - Real Phone GPS) */}
       <div className="bg-zinc-900 rounded-3xl p-4 shadow-xl border border-zinc-800">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-zinc-100 font-black text-xs">
             <Compass className="w-4 h-4 text-amber-400" />
-            <span>نطاق فرعك الجغرافي (GPS)</span>
+            <span>نطاق فرعك الجغرافي (GPS الفعلي)</span>
           </div>
-          <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 ${
-            distanceInfo.isWithinOffice 
-              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-700/60' 
-              : 'bg-rose-950/80 text-rose-400 border border-rose-700/60'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${distanceInfo.isWithinOffice ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'}`}></span>
-            {distanceInfo.isWithinOffice ? 'داخل نطاق النادي' : 'خارج نطاق النادي'}
-          </span>
+
+          {distanceInfo.distanceMeters !== null ? (
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 ${
+              distanceInfo.isWithinOffice 
+                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-700/60' 
+                : 'bg-rose-950/80 text-rose-400 border border-rose-700/60'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${distanceInfo.isWithinOffice ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'}`}></span>
+              {distanceInfo.isWithinOffice ? 'داخل نطاق النادي' : 'خارج نطاق النادي'}
+            </span>
+          ) : (
+            <span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+              {gpsLoading ? 'جاري قراءة الـ GPS...' : 'اضغط للتحديد'}
+            </span>
+          )}
         </div>
 
-        <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 mb-3 text-xs text-zinc-300 space-y-2">
+        <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 text-xs text-zinc-300 space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-zinc-400 font-bold">فرعك المعتمد:</span>
             <span className="font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
@@ -331,57 +388,42 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               <span>فرع {branch.name}</span>
             </span>
           </div>
+
           <div className="flex justify-between items-center">
             <span className="text-zinc-400 font-bold">المسافة الحالية عن المقر:</span>
-            <span className={`font-mono font-black text-sm ${distanceInfo.isWithinOffice ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {distanceInfo.distanceMeters} متر
+            <span className={`font-mono font-black text-sm ${
+              distanceInfo.distanceMeters === null 
+                ? 'text-zinc-400' 
+                : distanceInfo.isWithinOffice 
+                  ? 'text-emerald-400' 
+                  : 'text-rose-400'
+            }`}>
+              {distanceInfo.distanceMeters !== null 
+                ? `${distanceInfo.distanceMeters} متر` 
+                : (gpsLoading ? 'جاري القياس...' : 'اضغط تسجيل الحضور للقياس')}
             </span>
           </div>
+
           <div className="flex justify-between items-center">
             <span className="text-zinc-400">النطاق المسموح به:</span>
             <span className="font-semibold text-zinc-200">{branch.radiusMeters} متر</span>
           </div>
         </div>
 
-        {/* GPS Simulation / Real Toggle */}
-        <div className="pt-2 border-t border-zinc-800">
-          <div className="text-[11px] text-zinc-400 font-bold mb-2">محاكاة الموقع لاختبار النظام:</div>
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleGpsModeChange('simulated_in')}
-              className={`text-[11px] py-1.5 px-2 rounded-xl font-bold border transition-all ${
-                gpsMode === 'simulated_in'
-                  ? 'bg-amber-500 text-black border-amber-500 shadow-xs font-black'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
-            >
-              📍 داخل النادي
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGpsModeChange('simulated_out')}
-              className={`text-[11px] py-1.5 px-2 rounded-xl font-bold border transition-all ${
-                gpsMode === 'simulated_out'
-                  ? 'bg-rose-900/90 text-rose-200 border-rose-700 shadow-xs font-black'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
-            >
-              🚶 خارج النادي
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGpsModeChange('real')}
-              disabled={gpsLoading}
-              className={`text-[11px] py-1.5 px-2 rounded-xl font-bold border transition-all ${
-                gpsMode === 'real'
-                  ? 'bg-amber-500 text-black border-amber-500 shadow-xs font-black'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
-            >
-              {gpsLoading ? 'جاري...' : '📡 GPS الفعلي'}
-            </button>
-          </div>
+        {/* Quick Location Refresh Bar */}
+        <div className="pt-2.5 mt-2.5 border-t border-zinc-800 flex items-center justify-between text-[11px]">
+          <span className="text-zinc-400">
+            {distanceInfo.checkedAt ? `آخر فحص: ${distanceInfo.checkedAt}` : 'يتم الفحص تلقائياً عبر GPS الهاتف'}
+          </span>
+          <button
+            type="button"
+            onClick={() => refreshLocation(false)}
+            disabled={gpsLoading}
+            className="py-1 px-2.5 rounded-lg font-bold bg-zinc-950 hover:bg-zinc-800 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3 h-3 ${gpsLoading ? 'animate-spin' : ''}`} />
+            <span>{gpsLoading ? 'جاري الفحص...' : 'فحص الموقع الآن'}</span>
+          </button>
         </div>
       </div>
 
@@ -421,30 +463,19 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
             </div>
             <h2 className="text-lg font-black text-amber-300 mb-1">تسجيل الحضور اليومي</h2>
             <p className="text-xs text-zinc-400 mb-5 max-w-xs mx-auto leading-relaxed">
-              اضغط الزر لتسجيل حضورك في <b>فرع {branch.name}</b> وبدء احتساب وردية الـ {shiftHours} ساعات.
+              اضغط الزر للتحقق من موقعك الحالي وتسجيل حضورك في <b>فرع {branch.name}</b> وبدء احتساب وردية الـ {shiftHours} ساعات.
             </p>
 
-            {/* Check-In Button */}
+            {/* Check-In Button: ALWAYS CLICKABLE (Calculates real GPS on click, checks range, blocks if outside) */}
             <button
               type="button"
               onClick={handleCheckIn}
-              disabled={loading || !distanceInfo.isWithinOffice}
-              className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 ${
-                distanceInfo.isWithinOffice
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-amber-500/25 active:scale-[0.98]'
-                  : 'bg-zinc-800 text-zinc-500 cursor-not-allowed shadow-none'
-              }`}
+              disabled={loading}
+              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-amber-500/25 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
             >
               <LogIn className="w-4 h-4 text-black" />
-              <span>{loading ? 'جاري التحقق...' : `تسجيل الحضور الآن في فرع ${branch.name}`}</span>
+              <span>{loading ? 'جاري التحقق من موقعك وتسجيل الحضور...' : `تسجيل الحضور الآن في فرع ${branch.name}`}</span>
             </button>
-
-            {!distanceInfo.isWithinOffice && (
-              <p className="text-xs text-rose-400 mt-2.5 font-bold flex items-center justify-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>يجب التواجد داخل نطاق نادي وادي دجلة - فرع ({branch.name})</span>
-              </p>
-            )}
           </div>
         ) : (
           <div>
@@ -558,7 +589,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
                 <button
                   type="button"
                   onClick={() => setShowEarlyModal(true)}
-                  className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-amber-400 bg-zinc-950 hover:bg-zinc-800 border border-amber-500/30 transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-amber-400 bg-zinc-950 hover:bg-zinc-800 border border-amber-500/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <AlertTriangle className="w-4 h-4 text-amber-400" />
                   <span>
