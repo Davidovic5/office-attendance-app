@@ -334,7 +334,8 @@ export default function App() {
   }
 
   const permissions = currentUser.permissions || {};
-  const isManager = currentUser.titleCode === 'sector_manager' || currentUser.titleCode === 'deputy_manager' || permissions.manage_titles_permissions;
+  const isExecutive = currentUser.titleCode === 'memberships_executive_director' || currentUser.titleCode === 'memberships_area_manager';
+  const isManager = isExecutive || currentUser.titleCode === 'memberships_manager' || permissions.manage_titles_permissions;
 
   // Tabs configuration based on user permissions
   const tabs = [

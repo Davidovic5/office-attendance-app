@@ -335,9 +335,18 @@ router.post('/requests', async (req, res) => {
     }
 
     const newReq = await db.createRequest(req.body);
+    let message = "تم إرسال الطلب بنجاح";
+    if (type === 'leave') {
+      message = "تم إرسال طلب الإجازة بنجاح بانتظار الاعتماد";
+    } else if (type === 'permission') {
+      message = "تم إرسال طلب إذن الساعتين بنجاح بانتظار الاعتماد";
+    } else if (type === 'early_checkout') {
+      message = "تم إرسال طلب الانصراف الطارئ بنجاح بانتظار موافقة مدير العضويات (Memberships Manager)";
+    }
+
     res.json({
       success: true,
-      message: type === 'leave' ? "تم إرسال طلب الإجازة بنجاح بانتظار الاعتماد" : "تم إرسال طلب إذن الساعتين بنجاح بانتظار الاعتماد",
+      message,
       request: newReq
     });
   } catch (err) {

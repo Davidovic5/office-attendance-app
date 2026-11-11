@@ -31,7 +31,7 @@ const DEFAULT_BRANCHES = [
   { id: 'branch_sheraton', code: 'sheraton', name: 'شيراتون', city: 'القاهرة', latitude: 30.1025, longitude: 31.3780, radiusMeters: 100 },
   { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100 },
   { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100 },
-  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9510, longitude: 30.9150, radiusMeters: 100 },
+  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150 },
   { id: 'branch_lotus', code: 'lotus', name: 'اللوتس', city: 'القاهرة الجديدة', latitude: 30.0384, longitude: 31.4880, radiusMeters: 100 },
   { id: 'branch_assiut', code: 'assiut', name: 'اسيوط', city: 'أسيوط', latitude: 27.1809, longitude: 31.1837, radiusMeters: 120 },
   { id: 'branch_minya', code: 'minya', name: 'المنيا', city: 'المنيا', latitude: 28.0871, longitude: 30.7618, radiusMeters: 120 },
@@ -40,12 +40,12 @@ const DEFAULT_BRANCHES = [
 
 const DEFAULT_TITLES = [
   {
-    id: "title_sector_manager",
-    code: "sector_manager",
-    name: "Sector Manager (مدير القطاع)",
-    englishTitle: "Sector Manager",
-    arabicTitle: "مدير القطاع",
-    description: "صلاحيات شاملة وكاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
+    id: "title_memberships_executive_director",
+    code: "memberships_executive_director",
+    name: "Memberships Executive Director (المدير التنفيذي للعضويات)",
+    englishTitle: "Memberships Executive Director",
+    arabicTitle: "المدير التنفيذي للعضويات",
+    description: "صلاحيات تنفيذية عليا وشاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -54,6 +54,7 @@ const DEFAULT_TITLES = [
       request_leave: true,
       request_permission: true,
       approve_leaves_permissions: true,
+      approve_early_checkout: true,
       manage_employees: true,
       manage_titles_permissions: true,
       manage_office_settings: true,
@@ -63,12 +64,12 @@ const DEFAULT_TITLES = [
     }
   },
   {
-    id: "title_deputy_manager",
-    code: "deputy_manager",
-    name: "Deputy manager (نائب المدير)",
-    englishTitle: "Deputy manager",
-    arabicTitle: "نائب المدير",
-    description: "كامل الصلاحيات وحق تعديل وتغيير أي شيء وكافة الفروع والإدارات",
+    id: "title_memberships_area_manager",
+    code: "memberships_area_manager",
+    name: "Memberships Area Manager (مدير منطقة العضويات)",
+    englishTitle: "Memberships Area Manager",
+    arabicTitle: "مدير منطقة العضويات",
+    description: "إدارة ومتابعة فروع المنطقة واعتماد كافة طلبات الإجازات والأذونات والانصراف الطارئ والتقارير",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -77,6 +78,7 @@ const DEFAULT_TITLES = [
       request_leave: true,
       request_permission: true,
       approve_leaves_permissions: true,
+      approve_early_checkout: true,
       manage_employees: true,
       manage_titles_permissions: true,
       manage_office_settings: true,
@@ -86,12 +88,12 @@ const DEFAULT_TITLES = [
     }
   },
   {
-    id: "title_section_head",
-    code: "section_head",
-    name: "Section head (رئيس قسم)",
-    englishTitle: "Section head",
-    arabicTitle: "رئيس قسم",
-    description: "إدارة فريق القسم واعتماد إجازاتهم وأذوناتهم ومتابعة الحضور",
+    id: "title_memberships_manager",
+    code: "memberships_manager",
+    name: "Memberships Manager (مدير العضويات)",
+    englishTitle: "Memberships Manager",
+    arabicTitle: "مدير العضويات",
+    description: "الجهة المخولة حصرياً باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -100,6 +102,55 @@ const DEFAULT_TITLES = [
       request_leave: true,
       request_permission: true,
       approve_leaves_permissions: true,
+      approve_early_checkout: true,
+      manage_employees: true,
+      manage_titles_permissions: false,
+      manage_office_settings: true,
+      view_reports: true,
+      view_all_branches: true,
+      override_early_checkout: true
+    }
+  },
+  {
+    id: "title_memberships_deputy_manager",
+    code: "memberships_deputy_manager",
+    name: "Memberships Deputy Manager (نائب مدير العضويات)",
+    englishTitle: "Memberships Deputy Manager",
+    arabicTitle: "نائب مدير العضويات",
+    description: "متابعة الفريق ومراجعة الطلبات والتقارير - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    color: "amber",
+    permissions: {
+      check_in_out: true,
+      view_own_attendance: true,
+      view_office_presence: true,
+      request_leave: true,
+      request_permission: true,
+      approve_leaves_permissions: true,
+      approve_early_checkout: false,
+      manage_employees: false,
+      manage_titles_permissions: false,
+      manage_office_settings: false,
+      view_reports: true,
+      view_all_branches: true,
+      override_early_checkout: false
+    }
+  },
+  {
+    id: "title_memberships_section_head",
+    code: "memberships_section_head",
+    name: "Memberships Section Head (رئيس قسم العضويات)",
+    englishTitle: "Memberships Section Head",
+    arabicTitle: "رئيس قسم العضويات",
+    description: "إدارة فريق القسم واعتماد إجازاتهم وأذوناتهم ومتابعة الحضور - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    color: "zinc",
+    permissions: {
+      check_in_out: true,
+      view_own_attendance: true,
+      view_office_presence: true,
+      request_leave: true,
+      request_permission: true,
+      approve_leaves_permissions: true,
+      approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
       manage_office_settings: false,
@@ -109,12 +160,12 @@ const DEFAULT_TITLES = [
     }
   },
   {
-    id: "title_senior_specialist",
-    code: "senior_specialist",
-    name: "Senior Specialist (أخصائي أول)",
-    englishTitle: "Senior Specialist",
-    arabicTitle: "أخصائي أول",
-    description: "تسجيل الحضور والغياب بالـ GPS وتقديم طلبات الإجازات والأذونات ومتابعة تقارير فرعه",
+    id: "title_memberships_senior_specialist",
+    code: "memberships_senior_specialist",
+    name: "Memberships Senior Specialist (أخصائي أول عضويات)",
+    englishTitle: "Memberships Senior Specialist",
+    arabicTitle: "أخصائي أول عضويات",
+    description: "تسجيل الحضور والغياب بالـ GPS ومتابعة تقارير فرعه - الانصراف الطارئ يتطلب موافقة مدير العضويات",
     color: "zinc",
     permissions: {
       check_in_out: true,
@@ -123,6 +174,7 @@ const DEFAULT_TITLES = [
       request_leave: true,
       request_permission: true,
       approve_leaves_permissions: false,
+      approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
       manage_office_settings: false,
@@ -132,12 +184,12 @@ const DEFAULT_TITLES = [
     }
   },
   {
-    id: "title_specialist",
-    code: "specialist",
-    name: "Specialist (أخصائي)",
-    englishTitle: "Specialist",
-    arabicTitle: "أخصائي",
-    description: "تسجيل الحضور والغياب بالـ GPS وتقديم طلبات الإجازات والأذونات",
+    id: "title_memberships_specialist",
+    code: "memberships_specialist",
+    name: "Memberships Specialist (أخصائي عضويات)",
+    englishTitle: "Memberships Specialist",
+    arabicTitle: "أخصائي عضويات",
+    description: "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات والانصراف الطارئ",
     color: "zinc",
     permissions: {
       check_in_out: true,
@@ -146,6 +198,7 @@ const DEFAULT_TITLES = [
       request_leave: true,
       request_permission: true,
       approve_leaves_permissions: false,
+      approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
       manage_office_settings: false,
@@ -194,39 +247,26 @@ async function seedMongoData() {
   }
 
   // 3. Titles
+  const validCodes = DEFAULT_TITLES.map(t => t.code);
+  await Title.deleteMany({ code: { $nin: validCodes } });
   for (const t of DEFAULT_TITLES) {
     await Title.updateOne({ code: t.code }, { $set: t }, { upsert: true });
   }
 
-  // 4. Default Seed Employees if none exist
+  // 4. Default Master Seed Employee if none exist
   const empCount = await Employee.countDocuments();
   if (empCount === 0) {
     await Employee.create([
-      {
-        id: "emp_admin",
-        name: "مدير قطاع أندية وادي دجلة",
-        phone: "01000000000",
-        password: "admin",
-        pin: "admin",
-        titleCode: "sector_manager",
-        jobTitle: "Sector Manager",
-        branchId: "branch_sheraton",
-        weeklyOffDays: ["friday", "saturday"],
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=250&q=80",
-        leaveBalance: 30,
-        permissionsBalanceHours: 10,
-        createdAt: new Date().toISOString()
-      },
       {
         id: "emp_1792955351678",
         name: "ديفيد جان",
         phone: "01010046078",
         password: "1111",
         pin: "1111",
-        titleCode: "sector_manager",
-        jobTitle: "Sector Manager",
+        titleCode: "memberships_executive_director",
+        jobTitle: "Memberships Executive Director",
         branchId: "branch_october2",
-        weeklyOffDays: ["sunday", "thursday"],
+        weeklyOffDays: ["friday", "saturday"],
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
         leaveBalance: 21,
         permissionsBalanceHours: 6,
@@ -510,13 +550,31 @@ class MongoDatabaseAdapter {
 
     const effectiveRequiredHours = hasPermission ? Math.max(requiredHours - 2, 0) : requiredHours;
 
-    if (durationHours < effectiveRequiredHours && !forceOverride) {
-      const remainingMinutes = Math.ceil(effectiveRequiredHours * 60 - durationMinutes);
-      const remHours = Math.floor(remainingMinutes / 60);
-      const remMins = remainingMinutes % 60;
-      throw new Error(
-        `لا يمكنك تسجيل الانصراف قبل إتمام ${effectiveRequiredHours} ساعات عمل! متبقي لديك: ${remHours} ساعة و ${remMins} دقيقة.`
-      );
+    if (durationHours < effectiveRequiredHours) {
+      const emp = await Employee.findOne({ id: employeeId }).lean();
+      const isExecutiveOrManager = ['memberships_executive_director', 'memberships_area_manager', 'memberships_manager'].includes(emp?.titleCode);
+
+      // Check if employee has an approved early checkout request from Memberships Manager
+      const approvedEarlyReq = await Request.findOne({
+        employeeId,
+        type: "early_checkout",
+        date: today,
+        status: "approved"
+      });
+
+      if (!isExecutiveOrManager && !approvedEarlyReq) {
+        const remainingMinutes = Math.ceil(effectiveRequiredHours * 60 - durationMinutes);
+        const remHours = Math.floor(remainingMinutes / 60);
+        const remMins = remainingMinutes % 60;
+        throw new Error(
+          `لا يمكن تسجيل الانصراف قبل إتمام ${effectiveRequiredHours} ساعات عمل (متبقي لديك: ${remHours} ساعة و ${remMins} دقيقة). يتطلب الانصراف المبكر تقديم طلب انصراف طارئ واعتماده من مدير العضويات (Memberships Manager).`
+        );
+      }
+
+      if (approvedEarlyReq) {
+        reason = approvedEarlyReq.reason || reason || "انصراف طارئ معتمد من مدير العضويات";
+        forceOverride = true;
+      }
     }
 
     record.checkOutTime = now.toISOString();
@@ -654,6 +712,30 @@ class MongoDatabaseAdapter {
 
   async createRequest(requestData) {
     await this.ensureConnected();
+    if (requestData.type === 'early_checkout') {
+      const today = requestData.date || new Date().toISOString().split('T')[0];
+      requestData.date = today;
+
+      const activeRecord = await AttendanceRecord.findOne({
+        employeeId: requestData.employeeId,
+        date: today,
+        checkOutTime: null
+      });
+      if (!activeRecord) {
+        throw new Error("لا يمكن تقديم طلب انصراف طارئ لعدم وجود تسجيل حضور نشط اليوم.");
+      }
+
+      const existingPending = await Request.findOne({
+        employeeId: requestData.employeeId,
+        type: 'early_checkout',
+        date: today,
+        status: 'pending'
+      });
+      if (existingPending) {
+        throw new Error("لديك بالفعل طلب انصراف طارئ قيد المراجعة حالياً من مدير العضويات.");
+      }
+    }
+
     const newReq = new Request({
       id: "req_" + Date.now(),
       status: "pending",
@@ -698,6 +780,36 @@ class MongoDatabaseAdapter {
       if (emp && emp.permissionsBalanceHours >= (req.permissionHours || 2)) {
         emp.permissionsBalanceHours = Math.max(0, emp.permissionsBalanceHours - (req.permissionHours || 2));
         await emp.save();
+      }
+    }
+
+    if (req.type === 'early_checkout') {
+      const reviewer = await Employee.findOne({ id: reviewerId }).lean();
+      const canApproveEarly = ['memberships_manager', 'memberships_area_manager', 'memberships_executive_director'].includes(reviewer?.titleCode);
+      if (!canApproveEarly) {
+        throw new Error("عفواً، اعتماد طلبات الانصراف الطارئ صلاحية حصرية لمدير العضويات (Memberships Manager) والإدارة العليا.");
+      }
+
+      if (status === 'approved') {
+        const today = req.date || new Date().toISOString().split('T')[0];
+        const activeRecord = await AttendanceRecord.findOne({
+          employeeId: req.employeeId,
+          date: today,
+          checkOutTime: null
+        });
+
+        if (activeRecord) {
+          const now = new Date();
+          const checkInTime = new Date(activeRecord.checkInTime);
+          const durationMinutes = Math.max(0, Math.floor((now - checkInTime) / 60000));
+          activeRecord.checkOutTime = now.toISOString();
+          activeRecord.durationMinutes = durationMinutes;
+          activeRecord.completed8Hours = false;
+          activeRecord.status = "checked_out";
+          activeRecord.checkOutNotes = `انصراف طارئ معتمد من مدير العضويات: ${req.reason}`;
+          activeRecord.earlyCheckoutReason = req.reason;
+          await activeRecord.save();
+        }
       }
     }
 

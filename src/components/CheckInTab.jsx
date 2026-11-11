@@ -14,24 +14,36 @@ import {
   FileText,
   AlertTriangle,
   Building2,
-  Sparkles
+  Sparkles,
+  Send,
+  Hourglass
 } from 'lucide-react';
 import { api } from '../api';
 
 export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated }) {
   const [currentAttendance, setCurrentAttendance] = useState(null);
+  const [completedRecord, setCompletedRecord] = useState(null);
+  const [todayEarlyRequest, setTodayEarlyRequest] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [earlySubmitting, setEarlySubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // High-level authority: Executive Director, Area Manager, Memberships Manager
+  const isExecutiveOrManager = [
+    'memberships_executive_director',
+    'memberships_area_manager',
+    'memberships_manager'
+  ].includes(currentUser.titleCode);
+
   // Employee's branch
   const branch = currentUser.branchDetails || {
-    id: 'branch_sheraton',
-    name: 'شيراتون',
-    latitude: 30.1025,
-    longitude: 31.3780,
-    radiusMeters: 100
+    id: 'branch_october2',
+    name: 'اكتوبر ٢',
+    latitude: 29.9652734,
+    longitude: 30.9634410,
+    radiusMeters: 150
   };
   
   // GPS State
@@ -53,30 +65,55 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const shiftHours = officeSettings?.shiftHours || 8;
   const shiftSeconds = shiftHours * 3600;
 
-  // Fetch today's attendance for current user
+  // Fetch today's attendance & early checkout requests
   const fetchAttendance = async () => {
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
       const data = await api.getTodayAttendance();
       if (data.success) {
-        const myRecord = data.records.find(
+        const myActive = data.records.find(
           r => r.employeeId === currentUser.id && !r.checkOutTime
         );
-        setCurrentAttendance(myRecord || null);
+        setCurrentAttendance(myActive || null);
 
-        if (myRecord) {
-          const checkInTime = new Date(myRecord.checkInTime).getTime();
+        const myCompleted = data.records
+          .filter(r => r.employeeId === currentUser.id && r.checkOutTime)
+          .sort((a, b) => new Date(b.checkOutTime) - new Date(a.checkOutTime))[0];
+        setCompletedRecord(myCompleted || null);
+
+        if (myActive) {
+          const checkInTime = new Date(myActive.checkInTime).getTime();
           const now = Date.now();
           setElapsedSeconds(Math.max(0, Math.floor((now - checkInTime) / 1000)));
         }
       }
+
+      // Fetch early checkout requests for current user today
+      const reqRes = await api.getRequests({ employeeId: currentUser.id, type: 'early_checkout' });
+      if (reqRes.success && reqRes.requests) {
+        const todayReq = reqRes.requests.find(
+          r => r.date === todayStr || (r.requestedAt && r.requestedAt.startsWith(todayStr))
+        );
+        setTodayEarlyRequest(todayReq || null);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('fetchAttendance error:', err);
     }
   };
 
   useEffect(() => {
     fetchAttendance();
   }, [currentUser]);
+
+  // Reactive poll if pending early checkout request exists
+  useEffect(() => {
+    if (todayEarlyRequest && todayEarlyRequest.status === 'pending') {
+      const pollTimer = setInterval(() => {
+        fetchAttendance();
+      }, 5000);
+      return () => clearInterval(pollTimer);
+    }
+  }, [todayEarlyRequest]);
 
   // Live timer tick every second if checked in
   useEffect(() => {
@@ -160,6 +197,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         setSuccessMsg(res.message);
         setCurrentAttendance(res.record);
         if (onAttendanceUpdated) onAttendanceUpdated();
+        fetchAttendance();
       } else {
         setErrorMsg(res.error || 'حدث خطأ أثناء تسجيل الحضور');
       }
@@ -170,7 +208,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     }
   };
 
-  // Perform Check Out
+  // Perform Direct Check Out (for regular checkout or executive override)
   const handleCheckOut = async (forceOverride = false, reason = '') => {
     setLoading(true);
     setErrorMsg('');
@@ -190,6 +228,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         setShowEarlyModal(false);
         setEarlyReason('');
         if (onAttendanceUpdated) onAttendanceUpdated();
+        fetchAttendance();
       } else {
         setErrorMsg(res.error || 'حدث خطأ أثناء تسجيل الانصراف');
       }
@@ -197,6 +236,41 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
       setErrorMsg(err.message || 'فشل الاتصال بالخادم');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Submit Emergency Early Checkout Request (for subordinate titles)
+  const handleEarlyCheckoutRequest = async () => {
+    if (!earlyReason.trim()) {
+      setErrorMsg('يرجى كتابة سبب الانصراف الطارئ بالتفصيل.');
+      return;
+    }
+
+    setEarlySubmitting(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const res = await api.createRequest({
+        employeeId: currentUser.id,
+        type: 'early_checkout',
+        date: todayStr,
+        reason: earlyReason.trim()
+      });
+
+      if (res.success) {
+        setSuccessMsg('تم إرسال طلب الانصراف الطارئ بنجاح لمدير العضويات (Memberships Manager). سيتم تسجيل انصرافك تلقائياً عند اعتماده.');
+        setShowEarlyModal(false);
+        setEarlyReason('');
+        await fetchAttendance();
+      } else {
+        setErrorMsg(res.error || 'فشل إرسال طلب الانصراف الطارئ');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'فشل الاتصال بالخادم');
+    } finally {
+      setEarlySubmitting(false);
     }
   };
 
@@ -210,6 +284,10 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const remainingSeconds = Math.max(0, shiftSeconds - elapsedSeconds);
   const progressPercent = Math.min(100, (elapsedSeconds / shiftSeconds) * 100);
   const canCheckOutRegular = elapsedSeconds >= shiftSeconds;
+
+  const isEarlyPending = todayEarlyRequest && todayEarlyRequest.status === 'pending';
+  const isEarlyApproved = todayEarlyRequest && todayEarlyRequest.status === 'approved';
+  const isEarlyRejected = todayEarlyRequest && todayEarlyRequest.status === 'rejected';
 
   return (
     <div className="space-y-4 pb-8 text-right">
@@ -307,6 +385,33 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         </div>
       </div>
 
+      {/* Completed Checkout Today Banner */}
+      {!currentAttendance && completedRecord && (
+        <div className="bg-emerald-950/70 border border-emerald-600/70 p-4 rounded-3xl text-right space-y-2 shadow-lg animate-fade-in">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              تم تسجيل انصرافك لهذا اليوم بنجاح
+            </span>
+            <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded-lg border border-emerald-700/50">
+              {new Date(completedRecord.checkOutTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <div className="text-xs text-zinc-300 bg-zinc-950/80 p-2.5 rounded-2xl border border-zinc-800 flex justify-between items-center">
+            <span className="text-zinc-400 font-bold">إجمالي ساعات العمل المسجلة:</span>
+            <span className="font-mono font-black text-amber-400">
+              {Math.floor(completedRecord.durationMinutes / 60)} س و {completedRecord.durationMinutes % 60} د
+            </span>
+          </div>
+          {completedRecord.checkOutNotes && (
+            <div className="text-[11px] text-zinc-300 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/80">
+              <span className="font-bold text-amber-400">بيان الانصراف: </span>
+              {completedRecord.checkOutNotes}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main Attendance Card */}
       <div className="bg-zinc-900 rounded-3xl p-5 sm:p-6 shadow-xl border border-amber-500/30 text-center relative overflow-hidden">
         {!currentAttendance ? (
@@ -383,7 +488,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
             </div>
 
             {/* Countdown Badge */}
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-3 mb-5 text-xs flex items-center justify-between text-zinc-300">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-3 mb-4 text-xs flex items-center justify-between text-zinc-300">
               <div className="flex items-center gap-1.5 text-zinc-400 font-bold">
                 <Timer className="w-4 h-4 text-amber-400" />
                 <span>المتبقي لانتهاء الـ {shiftHours} ساعات:</span>
@@ -392,6 +497,41 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
                 {canCheckOutRegular ? 'اكتملت ساعات العمل 🎉' : formatTime(remainingSeconds)}
               </span>
             </div>
+
+            {/* Pending Early Checkout Notice Card */}
+            {isEarlyPending && (
+              <div className="bg-amber-950/80 border border-amber-500/60 p-4 rounded-2xl text-right mb-4 animate-pulse space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-400 font-black text-xs">
+                    <Hourglass className="w-4 h-4 text-amber-400 animate-spin" />
+                    <span>طلب انصراف طارئ قيد المراجعة</span>
+                  </div>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold">
+                    بانتظار موافقة مدير العضويات
+                  </span>
+                </div>
+                <div className="text-xs text-zinc-300 bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800">
+                  <span className="text-zinc-500 font-bold">السبب المرفوع: </span>
+                  <span className="text-zinc-200 font-semibold">{todayEarlyRequest.reason}</span>
+                </div>
+                <p className="text-[11px] text-amber-300 font-bold">
+                  ⚡ سيتم تسجيل انصرافك وإنهاء ورديتك تلقائياً فور موافقة مدير العضويات (Memberships Manager).
+                </p>
+              </div>
+            )}
+
+            {/* Rejected Early Checkout Notice Card */}
+            {isEarlyRejected && (
+              <div className="bg-rose-950/80 border border-rose-700/80 p-3.5 rounded-2xl text-right mb-4 space-y-1">
+                <div className="flex items-center gap-2 text-rose-300 font-black text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-400" />
+                  <span>تم رفض طلب الانصراف الطارئ</span>
+                </div>
+                <p className="text-xs text-rose-200">
+                  ملاحظة الإدارة: {todayEarlyRequest.reviewNote || 'يرجى استكمال ساعات الوردية كاملة'}
+                </p>
+              </div>
+            )}
 
             {/* Check-Out Button */}
             <div className="space-y-2">
@@ -413,14 +553,19 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
                 </span>
               </button>
 
-              {!canCheckOutRegular && (
+              {/* Early Checkout Trigger Button */}
+              {!canCheckOutRegular && !isEarlyPending && (
                 <button
                   type="button"
                   onClick={() => setShowEarlyModal(true)}
-                  className="w-full py-2 px-3 rounded-xl text-[11px] font-bold text-amber-400 bg-zinc-950 hover:bg-zinc-800 border border-amber-500/30 transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-amber-400 bg-zinc-950 hover:bg-zinc-800 border border-amber-500/30 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <span>طلب انصراف طارئ / إذن استثنائي قبل الـ 8 ساعات</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>
+                    {isExecutiveOrManager 
+                      ? 'تسجيل انصراف مبكر مباشر (صلاحية إدارية)' 
+                      : 'طلب انصراف طارئ (يتطلب موافقة مدير العضويات Memberships Manager)'}
+                  </span>
                 </button>
               )}
             </div>
@@ -436,16 +581,30 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               <AlertTriangle className="w-5 h-5" />
             </div>
 
-            <h3 className="text-base font-black text-amber-400 mb-1">طلب انصراف مبكر طارئ</h3>
+            <h3 className="text-base font-black text-amber-400 mb-1">
+              {isExecutiveOrManager 
+                ? 'تسجيل انصراف مبكر (صلاحية إدارية)' 
+                : 'تقديم طلب انصراف مبكر طارئ'}
+            </h3>
+            
             <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
-              يرجى كتابة سبب الانصراف قبل اكتمال الـ 8 ساعات لاعتماده في سجل الحضور.
+              {isExecutiveOrManager 
+                ? `بصفتك (${currentUser.jobTitle})، يحق لك إنهاء ورديتك مبكراً مع كتابة سبب الانصراف.`
+                : 'وفقاً للائحة أندية وادي دجلة، يتطلب الانصراف قبل إتمام الـ 8 ساعات تقديم طلب طارئ وموافقة مدير العضويات (Memberships Manager).'}
             </p>
 
+            {!isExecutiveOrManager && (
+              <div className="bg-amber-950/60 border border-amber-500/40 p-2.5 rounded-xl text-[11px] text-amber-300 font-bold mb-3 leading-relaxed">
+                ⚠️ تنبيه: لن يتم تسجيل الانصراف فوراً، بل سيصل إشعار لمدير العضويات لاعتماده. فور الموافقة سيتم إنهاء الوردية تلقائياً.
+              </div>
+            )}
+
             <div className="mb-4">
+              <label className="block text-[11px] font-bold text-zinc-300 mb-1">سبب الانصراف الطارئ:</label>
               <textarea
                 value={earlyReason}
                 onChange={e => setEarlyReason(e.target.value)}
-                placeholder="اكتب السبب بالتفصيل..."
+                placeholder="اكتب سبب الانصراف بالتفصيل..."
                 rows={3}
                 className="w-full p-2.5 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 resize-none font-bold"
               />
@@ -454,19 +613,35 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowEarlyModal(false)}
+                onClick={() => {
+                  setShowEarlyModal(false);
+                  setEarlyReason('');
+                }}
                 className="flex-1 py-2.5 rounded-xl border border-zinc-800 text-xs font-bold text-zinc-300 hover:bg-zinc-800"
               >
                 إلغاء
               </button>
-              <button
-                type="button"
-                disabled={!earlyReason.trim() || loading}
-                onClick={() => handleCheckOut(true, earlyReason)}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black shadow-md shadow-amber-500/20 disabled:opacity-50"
-              >
-                {loading ? 'جاري التأكيد...' : 'تأكيد الانصراف'}
-              </button>
+
+              {isExecutiveOrManager ? (
+                <button
+                  type="button"
+                  disabled={!earlyReason.trim() || loading}
+                  onClick={() => handleCheckOut(true, earlyReason)}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black shadow-md shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {loading ? 'جاري التأكيد...' : 'تأكيد الانصراف الفوري'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!earlyReason.trim() || earlySubmitting}
+                  onClick={handleEarlyCheckoutRequest}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black shadow-md shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{earlySubmitting ? 'جاري الإرسال...' : 'إرسال لمدير العضويات'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

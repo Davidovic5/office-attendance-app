@@ -79,7 +79,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regTitleCode, setRegTitleCode] = useState(titles && titles[titles.length - 1] ? titles[titles.length - 1].code : 'specialist');
+  const [regTitleCode, setRegTitleCode] = useState(titles && titles[titles.length - 1] ? titles[titles.length - 1].code : 'memberships_specialist');
   const [regBranchId, setRegBranchId] = useState(branches && branches[0] ? branches[0].id : 'branch_sheraton');
   const [regWeeklyOff, setRegWeeklyOff] = useState(['friday', 'saturday']);
   const [regAvatar, setRegAvatar] = useState('');

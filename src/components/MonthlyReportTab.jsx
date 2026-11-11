@@ -426,6 +426,7 @@ export function MonthlyReportTab({ currentUser }) {
               )
               .map(req => {
                 const isLeave = req.type === 'leave';
+                const isEarlyCheckout = req.type === 'early_checkout';
 
                 return (
                   <div 
@@ -442,13 +443,17 @@ export function MonthlyReportTab({ currentUser }) {
                         <div className="flex items-center gap-1.5">
                           <span className="font-black text-sm text-zinc-100">{req.employeeName}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
-                            isLeave 
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
-                              : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                            isEarlyCheckout
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : isLeave 
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
+                                : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
                           }`}>
-                            {isLeave 
-                              ? (req.leaveType === 'sick' ? 'إجازة مرضي 🏥' : (req.leaveType === 'travel' ? 'سفر / مأمورية ✈️' : (req.leaveType === 'annual' ? 'إجازة سنوية 🏖️' : 'إجازة'))) 
-                              : 'إذن ساعتين 🕒'}
+                            {isEarlyCheckout
+                              ? 'انصراف طارئ 🚨'
+                              : isLeave 
+                                ? (req.leaveType === 'sick' ? 'إجازة مرضي 🏥' : (req.leaveType === 'travel' ? 'سفر / مأمورية ✈️' : (req.leaveType === 'annual' ? 'إجازة سنوية 🏖️' : 'إجازة'))) 
+                                : 'إذن ساعتين 🕒'}
                           </span>
                         </div>
                         <span className="text-[11px] text-zinc-400 block mt-0.5">
@@ -461,7 +466,9 @@ export function MonthlyReportTab({ currentUser }) {
                       <span className="font-mono font-bold text-amber-400 block">
                         {isLeave 
                           ? `من ${req.startDate} إلى ${req.endDate}`
-                          : `يوم ${req.date} (${req.startTime} - ${req.endTime})`}
+                          : isEarlyCheckout
+                            ? `يوم ${req.date || req.requestedAt?.split('T')[0]}`
+                            : `يوم ${req.date} (${req.startTime} - ${req.endTime})`}
                       </span>
                       <p className="text-[11px] text-zinc-300 mt-0.5 truncate" title={req.reason}>
                         السبب: {req.reason}

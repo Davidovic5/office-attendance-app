@@ -12,7 +12,8 @@ import {
   HelpCircle,
   ThumbsUp,
   ThumbsDown,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -25,7 +26,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Form state
-  const [requestType, setRequestType] = useState('leave'); // 'leave' | 'permission'
+  const [requestType, setRequestType] = useState('leave'); // 'leave' | 'permission' | 'early_checkout'
   const [leaveType, setLeaveType] = useState('sick'); // 'sick' | 'travel' | 'annual' | 'casual' | 'weekly_off'
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -37,8 +38,15 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
 
-  // Can current user approve?
-  const canApprove = currentUser.permissions && currentUser.permissions.approve_leaves_permissions;
+  // General approval permission for leaves & permissions
+  const canApproveLeaves = currentUser.permissions && currentUser.permissions.approve_leaves_permissions;
+
+  // Strict authority for early checkout: Memberships Manager and above
+  const canApproveEarlyCheckout = [
+    'memberships_manager',
+    'memberships_area_manager',
+    'memberships_executive_director'
+  ].includes(currentUser.titleCode);
 
   const fetchRequests = async () => {
     try {
@@ -81,12 +89,14 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
         payload.leaveType = leaveType;
         payload.startDate = startDate;
         payload.endDate = endDate;
-      } else {
+      } else if (requestType === 'permission') {
         payload.permissionType = permissionType;
         payload.permissionHours = 2; // ثابت ساعتين كما طلب
         payload.date = startDate;
         payload.startTime = startTime;
         payload.endTime = endTime;
+      } else if (requestType === 'early_checkout') {
+        payload.date = startDate;
       }
 
       const res = await api.createRequest(payload);
@@ -109,6 +119,8 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
 
   const handleReview = async (requestId, status, defaultNote) => {
     setActionLoading(requestId);
+    setErrorMsg('');
+    setSuccessMsg('');
     try {
       const res = await api.reviewRequest(
         requestId,
@@ -117,11 +129,14 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
         defaultNote || (status === 'approved' ? 'معتمد' : 'مرفوض')
       );
       if (res.success) {
+        setSuccessMsg(status === 'approved' ? 'تم اعتماد الطلب بنجاح!' : 'تم رفض الطلب');
         fetchRequests();
         if (onStatusChanged) onStatusChanged();
+      } else {
+        setErrorMsg(res.error || 'فشل تنفيذ الإجراء');
       }
     } catch (err) {
-      console.error(err);
+      setErrorMsg(err.message || 'فشل الاتصال بالخادم');
     } finally {
       setActionLoading(null);
     }
@@ -132,7 +147,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
       {/* Top Banner and Navigation Switcher */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-black text-amber-400">الإجازات وأذونات الساعتين</h2>
+          <h2 className="text-lg font-black text-amber-400">الإجازات والأذونات والانصراف الطارئ</h2>
           <p className="text-xs text-zinc-400">تقديم الطلبات ومتابعتها واعتمادها من الإدارة</p>
         </div>
 
@@ -199,6 +214,9 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           ) : (
             requests.map(req => {
               const isLeave = req.type === 'leave';
+              const isPermission = req.type === 'permission';
+              const isEarlyCheckout = req.type === 'early_checkout';
+
               const isApproved = req.status === 'approved';
               const isPending = req.status === 'pending';
               const isRejected = req.status === 'rejected';
@@ -221,14 +239,18 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                         <div className="flex items-center gap-2">
                           <span className="font-black text-sm text-zinc-100">{req.employeeName}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
-                            isLeave 
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
-                              : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                            isEarlyCheckout
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                              : isLeave 
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' 
+                                : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
                           }`}>
-                            {isLeave ? 'طلب إجازة' : 'إذن ساعتين'}
+                            {isEarlyCheckout ? '🚨 طلب انصراف طارئ' : isLeave ? 'طلب إجازة' : 'إذن ساعتين'}
                           </span>
                         </div>
-                        <span className="text-[11px] text-zinc-400">{req.employeeJobTitle}</span>
+                        <span className="text-[11px] text-zinc-400">
+                          {req.employeeJobTitle} • فرع {req.employeeBranch || 'اكتوبر ٢'}
+                        </span>
                       </div>
                     </div>
 
@@ -249,7 +271,14 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
 
                   {/* Details Box */}
                   <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 text-xs text-zinc-300 space-y-1.5 mb-2.5">
-                    {isLeave ? (
+                    {isEarlyCheckout ? (
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="font-semibold">نوع الطلب واليوم:</span>
+                        <span className="font-bold text-amber-400">
+                          🚨 انصراف طارئ قبل إتمام الـ 8 ساعات • {req.date || req.requestedAt?.split('T')[0]}
+                        </span>
+                      </div>
+                    ) : isLeave ? (
                       <div className="flex justify-between items-center text-zinc-400">
                         <span className="font-semibold">نوع الإجازة والتاريخ:</span>
                         <span className="font-bold text-amber-400">
@@ -281,6 +310,13 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                         <span>مرفق: {req.attachmentName}</span>
                       </div>
                     )}
+
+                    {isEarlyCheckout && isApproved && (
+                      <div className="pt-1 text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>تم اعتماد الانصراف وإنهاء الوردية رسمياً في سجل الحضور.</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Review Notes */}
@@ -291,27 +327,59 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                   )}
 
                   {/* Manager Approval Actions */}
-                  {canApprove && isPending && (
-                    <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-                      <span className="text-[11px] font-bold text-zinc-400 ml-auto">إجراء المدير:</span>
-                      <button
-                        type="button"
-                        onClick={() => handleReview(req.id, 'approved', 'تمت الموافقة والاعتماد')}
-                        disabled={actionLoading === req.id}
-                        className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-xl text-xs font-black flex items-center gap-1 shadow-xs"
-                      >
-                        <ThumbsUp className="w-3.5 h-3.5 text-black" />
-                        <span>اعتماد وموافقة</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleReview(req.id, 'rejected', 'عذراً، يتعذر في هذا الوقت')}
-                        disabled={actionLoading === req.id}
-                        className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-bold flex items-center gap-1"
-                      >
-                        <ThumbsDown className="w-3.5 h-3.5 text-rose-400" />
-                        <span>رفض</span>
-                      </button>
+                  {isPending && (
+                    <div className="pt-2 border-t border-zinc-800">
+                      {isEarlyCheckout ? (
+                        canApproveEarlyCheckout ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-zinc-400 ml-auto">قرار مدير العضويات:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleReview(req.id, 'approved', 'تم اعتماد الانصراف الطارئ وإنهاء الوردية')}
+                              disabled={actionLoading === req.id}
+                              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-xl text-xs font-black flex items-center gap-1 shadow-xs"
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5 text-black" />
+                              <span>اعتماد الانصراف وإنهاء الوردية</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReview(req.id, 'rejected', 'مرفوض: استكمال ساعات العمل')}
+                              disabled={actionLoading === req.id}
+                              className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-bold flex items-center gap-1"
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5 text-rose-400" />
+                              <span>رفض</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-amber-400/90 font-bold bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 text-center">
+                            ⏳ اعتماد الانصراف الطارئ صلاحية حصرية لمدير العضويات (Memberships Manager)
+                          </div>
+                        )
+                      ) : canApproveLeaves ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-zinc-400 ml-auto">إجراء المدير:</span>
+                          <button
+                            type="button"
+                            onClick={() => handleReview(req.id, 'approved', 'تمت الموافقة والاعتماد')}
+                            disabled={actionLoading === req.id}
+                            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black rounded-xl text-xs font-black flex items-center gap-1 shadow-xs"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5 text-black" />
+                            <span>اعتماد وموافقة</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReview(req.id, 'rejected', 'عذراً، يتعذر في هذا الوقت')}
+                            disabled={actionLoading === req.id}
+                            className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-bold flex items-center gap-1"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5 text-rose-400" />
+                            <span>رفض</span>
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -327,36 +395,48 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           {/* Choose Request Type */}
           <div>
             <label className="block text-xs font-bold text-zinc-300 mb-1.5">حدد نوع الطلب:</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setRequestType('leave')}
-                className={`py-3 px-4 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${
+                className={`py-3 px-2 rounded-2xl font-black text-xs border transition-all flex flex-col items-center justify-center gap-1.5 ${
                   requestType === 'leave'
                     ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
                     : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
                 }`}
               >
                 <Calendar className="w-4 h-4" />
-                <span>طلب إجازة (بأنواعها)</span>
+                <span>طلب إجازة</span>
               </button>
               <button
                 type="button"
                 onClick={() => setRequestType('permission')}
-                className={`py-3 px-4 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${
+                className={`py-3 px-2 rounded-2xl font-black text-xs border transition-all flex flex-col items-center justify-center gap-1.5 ${
                   requestType === 'permission'
                     ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
                     : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
                 }`}
               >
                 <Clock className="w-4 h-4" />
-                <span>طلب إذن ساعتين</span>
+                <span>إذن ساعتين</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRequestType('early_checkout')}
+                className={`py-3 px-2 rounded-2xl font-black text-xs border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                  requestType === 'early_checkout'
+                    ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20'
+                    : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                }`}
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>انصراف طارئ</span>
               </button>
             </div>
           </div>
 
           {/* If Leave Request */}
-          {requestType === 'leave' ? (
+          {requestType === 'leave' && (
             <>
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">نوع الإجازة:</label>
@@ -394,8 +474,10 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                 </div>
               </div>
             </>
-          ) : (
-            /* If 2-Hour Permission */
+          )}
+
+          {/* If 2-Hour Permission */}
+          {requestType === 'permission' && (
             <>
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">نوع إذن الساعتين:</label>
@@ -451,13 +533,35 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
             </>
           )}
 
+          {/* If Early Checkout Request */}
+          {requestType === 'early_checkout' && (
+            <>
+              <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-2xl flex items-start gap-2.5 text-xs text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="leading-relaxed font-semibold">
+                  طلب الانصراف الطارئ مخصص للموظفين الذين لم يكملوا الـ 8 ساعات. لا يتم تفعيله إلا بعد موافقة مدير العضويات (Memberships Manager)، وبمجرد اعتماده يتم تسجيل الانصراف تلقائياً.
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">تاريخ الانصراف:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full p-2.5 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-bold"
+                />
+              </div>
+            </>
+          )}
+
           {/* Reason */}
           <div>
             <label className="block text-xs font-bold text-zinc-300 mb-1.5">سبب الطلب والتفاصيل:</label>
             <textarea
               value={reason}
               onChange={e => setReason(e.target.value)}
-              placeholder="اكتب سبب طلب الإجازة أو الإذن بالتفصيل..."
+              placeholder="اكتب سبب الطلب بالتفصيل..."
               rows={3}
               className="w-full p-3 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 resize-none font-medium"
             />

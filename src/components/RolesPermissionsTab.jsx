@@ -18,7 +18,7 @@ import { api } from '../api';
 
 export function RolesPermissionsTab({ onTitlesUpdated }) {
   const [titles, setTitles] = useState([]);
-  const [selectedTitleCode, setSelectedTitleCode] = useState('sector_manager');
+  const [selectedTitleCode, setSelectedTitleCode] = useState('memberships_executive_director');
   const [permissionsState, setPermissionsState] = useState({});
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');

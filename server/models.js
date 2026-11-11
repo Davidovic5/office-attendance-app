@@ -74,7 +74,7 @@ const AttendanceRecordSchema = new mongoose.Schema({
 const RequestSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   employeeId: { type: String, required: true, index: true },
-  type: { type: String, required: true, enum: ['leave', 'permission'] },
+  type: { type: String, required: true, enum: ['leave', 'permission', 'early_checkout'] },
   leaveType: { type: String, enum: ['sick', 'travel', 'annual', 'casual', 'weekly_off', 'other'], default: 'sick' },
   startDate: { type: String },
   endDate: { type: String },
