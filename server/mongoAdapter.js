@@ -515,14 +515,15 @@ class MongoDatabaseAdapter {
       const remHours = Math.floor(remainingMinutes / 60);
       const remMins = remainingMinutes % 60;
       throw new Error(
-        `لم تكتمل ساعات العمل المقررة (${effectiveRequiredHours} ساعات)! متبقي لك: ${remHours} ساعة و ${remMins} دقيقة.`
+        `لا يمكنك تسجيل الانصراف قبل إتمام ${effectiveRequiredHours} ساعات عمل! متبقي لديك: ${remHours} ساعة و ${remMins} دقيقة.`
       );
     }
 
     record.checkOutTime = now.toISOString();
     record.durationMinutes = durationMinutes;
     record.completed8Hours = durationHours >= effectiveRequiredHours;
-    record.status = "completed";
+    record.status = "checked_out";
+    record.checkOutNotes = forceOverride ? `انصراف استثنائي / مبكر: ${reason}` : "انصراف نظامي بعد إتمام ساعات العمل";
     if (forceOverride && reason) {
       record.earlyCheckoutReason = reason;
     }

@@ -61,12 +61,13 @@ const AttendanceRecordSchema = new mongoose.Schema({
   date: { type: String, required: true, index: true }, // Format: YYYY-MM-DD
   checkInTime: { type: String, required: true },
   checkOutTime: { type: String, default: null },
-  status: { type: String, default: 'in_office' }, // 'in_office' | 'completed'
+  status: { type: String, default: 'in_office' }, // 'in_office' | 'checked_out'
   latitude: { type: Number },
   longitude: { type: Number },
   distanceMeters: { type: Number, default: 0 },
   durationMinutes: { type: Number, default: 0 },
-  completed8Hours: { type: Boolean, default: false }
+  completed8Hours: { type: Boolean, default: false },
+  checkOutNotes: { type: String, default: '' }
 });
 
 // 5. Leave & Permission Request Schema
