@@ -42,9 +42,31 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
   const [photoCompressing, setPhotoCompressing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Handle native PWA install prompt
+  React.useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleTriggerNativeInstall = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setInstallPrompt(null);
+        setShowInstallModal(false);
+      }
+    }
+  };
 
   // Login Form
   const [loginPhone, setLoginPhone] = useState('');
@@ -568,44 +590,71 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
             </div>
 
             <div className="space-y-4 text-xs leading-relaxed">
-              <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
-                <div className="font-black text-amber-400 text-sm flex items-center gap-2">
-                  <span>📱 لأجهزة الأندرويد (Android):</span>
+              {/* Option A: Instant PWA Install (Recommended: Instant OTA Auto-updates) */}
+              <div className="bg-gradient-to-b from-amber-500/10 to-transparent border border-amber-500/30 p-4 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="font-black text-amber-400 text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>تثبيت فوري على الشاشة (موصى به لجميع الأجهزة)</span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-md font-bold">
+                    تحديثات تلقائية ⚡
+                  </span>
                 </div>
-                <p className="text-zinc-300">
-                  تنزيل ملف التطبيق المباشر (APK) لتثبيته على أي هاتف أندرويد فوراً:
+                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                  أفضل وأسرع طريقة: تثبيت البرنامج كأيقونة على هاتفك. <b>أي تحديث جديد يُنشَر على السيرفر يصله هاتفك فوراً وبشكل تلقائي</b> دون الحاجة لحذف البرنامج أو إعادة تنزيله نهائياً!
                 </p>
+
+                {installPrompt ? (
+                  <button
+                    type="button"
+                    onClick={handleTriggerNativeInstall}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black rounded-xl shadow-md transition-all active:scale-[0.98]"
+                  >
+                    <Smartphone className="w-4 h-4 text-black" />
+                    <span>📲 اضغط هنا لتثبيت التطبيق على هاتفك الآن</span>
+                  </button>
+                ) : (
+                  <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800 text-[11px] text-zinc-300 space-y-1">
+                    <div className="font-bold text-amber-400">طريقة التثبيت في 3 ثوانٍ من المتصفح:</div>
+                    <div>• <b>للأندرويد (Chrome):</b> اضغط على القائمة (الثلاث نقاط ⠇ بالأعلى) ثم اختر <b>"تثبيت التطبيق" (Install app)</b>.</div>
+                    <div>• <b>للآيفون (Safari):</b> اضغط على زر <b>المشاركة (Share ⬆️)</b> ثم اختر <b>"إضافة إلى الشاشة الرئيسية"</b>.</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Option B: Android APK */}
+              <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
+                <div className="font-black text-zinc-200 text-xs flex items-center justify-between">
+                  <span>📱 ملف APK مباشر للأندرويد:</span>
+                  <span className="text-[10px] text-zinc-400">حزمة خام (Offline Package)</span>
+                </div>
                 <a
                   href="/download/OfficeAttendance.apk"
                   download
-                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
                 >
-                  <Download className="w-4 h-4 text-black" />
-                  <span>تنزيل تطبيق الأندرويد (WadiDeglaAttendance.apk)</span>
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>تنزيل ملف (WadiDeglaAttendance.apk)</span>
                 </a>
+                <p className="text-[10px] text-zinc-400 leading-normal">
+                  * ملاحظة: يتطلب تفعيل "السماح بتثبيت التطبيقات غير المعروفة" من إعدادات الحماية بهاتفك، واختيار "التثبيت على أي حال" في فحص Play Protect.
+                </p>
               </div>
 
+              {/* Option C: iOS Profile */}
               <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
-                <div className="font-black text-amber-400 text-sm flex items-center gap-2">
-                  <span>🍎 لأجهزة الآيفون (iPhone / iOS):</span>
+                <div className="font-black text-zinc-200 text-xs flex items-center justify-between">
+                  <span>🍎 ملف بروفايل الآيفون (iOS MobileConfig):</span>
                 </div>
-                <p className="text-zinc-300">
-                  ملف تثبيت الآيفون المباشر (MobileConfig) أو عبر Safari:
-                </p>
                 <a
                   href="/download/OfficeAttendance.mobileconfig"
                   download
-                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black rounded-xl shadow-xs transition-colors"
+                  className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
                 >
-                  <Download className="w-4 h-4 text-black" />
-                  <span>تنزيل ملف الآيفون (WadiDegla.mobileconfig)</span>
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>تنزيل ملف (WadiDegla.mobileconfig)</span>
                 </a>
-                <div className="text-[11px] text-zinc-300 bg-zinc-900 p-3 rounded-xl border border-zinc-800 mt-2 space-y-1">
-                  <div className="font-bold text-amber-400">أو الإضافة المباشرة في 5 ثوانٍ عبر Safari:</div>
-                  <div>1. افتح الرابط في متصفح <b>Safari</b> على الآيفون.</div>
-                  <div>2. اضغط زر <b>المشاركة (Share ⬆️)</b> بالأسفل.</div>
-                  <div>3. اضغط <b>"إضافة إلى الشاشة الرئيسية (Add to Home Screen)"</b>.</div>
-                </div>
               </div>
             </div>
 
