@@ -50,7 +50,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const [showEarlyModal, setShowEarlyModal] = useState(false);
   const [earlyReason, setEarlyReason] = useState('');
 
-  const shiftHours = officeSettings.shiftHours || 8;
+  const shiftHours = officeSettings?.shiftHours || 8;
   const shiftSeconds = shiftHours * 3600;
 
   // Fetch today's attendance for current user

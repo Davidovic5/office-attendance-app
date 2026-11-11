@@ -93,9 +93,9 @@ export function MonthlyReportTab({ currentUser }) {
 
   const filteredSummaries = employeeSummaries.filter(item => 
     !searchQuery ||
-    item.employee.name.includes(searchQuery) ||
-    item.employee.jobTitle.includes(searchQuery) ||
-    item.employee.branchName.includes(searchQuery)
+    (item.employee?.name && item.employee.name.includes(searchQuery)) ||
+    (item.employee?.jobTitle && item.employee.jobTitle.includes(searchQuery)) ||
+    (item.employee?.branchName && item.employee.branchName.includes(searchQuery))
   );
 
   return (

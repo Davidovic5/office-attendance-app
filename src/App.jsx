@@ -56,9 +56,15 @@ export default function App() {
       return null;
     }
   });
-  const [officeSettings, setOfficeSettings] = useState(null);
+  const [officeSettings, setOfficeSettings] = useState({
+    companyName: 'أندية وادي دجلة - Wadi Degla Clubs',
+    shiftHours: 8,
+    graceMinutes: 15,
+    workStartTime: '09:00',
+    workEndTime: '17:00'
+  });
   const [activeTab, setActiveTab] = useState('check_in');
-  const [loading, setLoading] = useState(!officeSettings);
+  const [loading, setLoading] = useState(false);
   
   // Modals
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -278,7 +284,7 @@ export default function App() {
     }
   };
 
-  if (loading || !officeSettings) {
+  if (loading && !currentUser && branches.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center font-['Cairo',sans-serif]">
         <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>

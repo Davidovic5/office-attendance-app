@@ -680,7 +680,15 @@ class MongoDatabaseAdapter {
     if (status === 'approved' && req.type === 'leave' && req.leaveType !== 'weekly_off') {
       const emp = await Employee.findOne({ id: req.employeeId });
       if (emp && emp.leaveBalance > 0) {
-        emp.leaveBalance = Math.max(0, emp.leaveBalance - 1);
+        let daysToDeduct = 1;
+        if (req.startDate && req.endDate) {
+          const d1 = new Date(req.startDate);
+          const d2 = new Date(req.endDate);
+          const diffTime = d2.getTime() - d1.getTime();
+          const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+          if (diffDays > 0) daysToDeduct = diffDays;
+        }
+        emp.leaveBalance = Math.max(0, emp.leaveBalance - daysToDeduct);
         await emp.save();
       }
     }
