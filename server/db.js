@@ -214,9 +214,6 @@ const DEFAULT_TITLES = [
     }
   }
 ];
-    }
-  }
-];
 
 function getInitialData() {
   return {
