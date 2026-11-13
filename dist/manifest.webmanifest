@@ -2,13 +2,13 @@
   "name": "أندية وادي دجلة - الحضور والانصراف",
   "short_name": "وادي دجلة",
   "description": "تطبيق تسجيل حضور وانصراف موظفي أندية وادي دجلة بالـ GPS",
-  "start_url": "/",
+  "start_url": "/?installed=1",
   "scope": "/",
-  "id": "/",
+  "id": "/?installed=1",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
   "icons": [
     {
       "src": "/icon-192.png",

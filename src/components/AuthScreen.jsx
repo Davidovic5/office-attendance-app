@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
+import { checkIsInstalledApp } from '../utils/appEnvironment';
 
 const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' },
@@ -39,6 +40,8 @@ const DAYS_OF_WEEK = [
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
 
 export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) {
+  const [isInstalledApp, setIsInstalledApp] = useState(() => checkIsInstalledApp());
+  const [webBypass, setWebBypass] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -210,123 +213,187 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
       {/* Decorative Brand Ambient Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md bg-zinc-900 border border-amber-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative z-10 text-zinc-100">
-        
-        {/* Wadi Degla Shield Logo & Brand Header */}
-        <div className="text-center mb-5">
-          <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
-            <img 
-              src="/logo.png" 
-              alt="Wadi Degla Clubs" 
-              className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(245,184,0,0.3)]" 
-            />
-          </div>
-          <h1 className="text-lg font-black text-amber-400 tracking-wide">أندية وادي دجلة</h1>
-          <p className="text-[11px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
-            WADI DEGLA CLUBS • نظام الحضور والغياب
-          </p>
-        </div>
-
-        {/* Quick Mobile App Download & Install Banner */}
-        <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 mb-4 text-center">
-          <div className="text-[11px] font-bold text-zinc-300 mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-zinc-200">
-              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-              <span>تثبيت تطبيق وادي دجلة للهاتف:</span>
-            </span>
-            <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded font-bold">
-              تحديث تلقائي ⚡
-            </span>
+      {/* ================= VIEW A: DOWNLOAD & INSTALL PORTAL (When opened in Web Browser) ================= */}
+      {!isInstalledApp && !webBypass ? (
+        <div className="w-full max-w-md bg-zinc-900 border border-amber-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative z-10 text-zinc-100 animate-fade-in">
+          {/* Wadi Degla Shield Logo & Brand Header */}
+          <div className="text-center mb-5">
+            <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Wadi Degla Clubs" 
+                className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(245,184,0,0.3)]" 
+              />
+            </div>
+            <h1 className="text-xl font-black text-amber-400 tracking-wide">أندية وادي دجلة</h1>
+            <p className="text-[11px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
+              WADI DEGLA CLUBS • تطبيق تسجيل الحضور الذكي
+            </p>
           </div>
 
-          {installPrompt && (
+          {/* Welcome & Instruction Notice */}
+          <div className="bg-amber-950/40 border border-amber-500/40 p-4 rounded-2xl mb-4 text-center space-y-1">
+            <p className="text-xs text-amber-300 font-bold leading-relaxed">
+              لتسجيل حضورك وانصرافك بالـ GPS بدقة، يرجى <b>تثبيت تطبيق أندية وادي دجلة</b> على هاتفك.
+            </p>
+            <p className="text-[11px] text-zinc-400 leading-normal">
+              بمجرد تثبيت التطبيق وفتحه من شاشة هاتفك، ستفتح لك شاشة تسجيل الدخول مباشرة دون الحاجة لأي روابط تحميل.
+            </p>
+          </div>
+
+          <div className="space-y-3.5">
+            {/* 1-Click PWA Install (Supported mobile browsers) */}
+            {installPrompt && (
+              <button
+                type="button"
+                onClick={handleTriggerNativeInstall}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 active:scale-[0.98] transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-black" />
+                <span>📲 اضغط هنا للتثبيت الفوري على شاشة الهاتف</span>
+              </button>
+            )}
+
+            {/* Android APK Download Card */}
+            <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-black text-zinc-100 text-xs flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-amber-400" />
+                  <span>هواتف أندرويد (Android):</span>
+                </span>
+                <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded font-bold">
+                  تحديثات تلقائية ⚡
+                </span>
+              </div>
+              
+              <a
+                href="/download/WadiDeglaAttendance.apk?v=2.4"
+                download="WadiDeglaAttendance.apk"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+              >
+                <Download className="w-4 h-4 text-black" />
+                <span>تحميل تطبيق أندرويد (WadiDeglaAttendance.apk)</span>
+              </a>
+
+              <div className="text-[11px] text-zinc-400 space-y-1 pt-1 border-t border-zinc-900 leading-normal">
+                <div className="flex items-center gap-1 text-zinc-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>حجم خفيف جداً (29 كيلوبايت) وتثبيت مباشر وسريع</span>
+                </div>
+                <div className="flex items-center gap-1 text-zinc-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>كافة التحديثات تصلك تلقائياً دون الحاجة لحذف البرنامج أو إعادة تنزيله</span>
+                </div>
+              </div>
+            </div>
+
+            {/* iOS Apple iPhone Install Card */}
+            <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2.5">
+              <div className="font-black text-zinc-100 text-xs flex items-center gap-1.5">
+                <Smartphone className="w-4 h-4 text-amber-400" />
+                <span>هواتف آيفون (Apple iPhone iOS):</span>
+              </div>
+
+              <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/80 text-[11px] text-zinc-300 space-y-1.5 leading-relaxed">
+                <div className="font-bold text-amber-400 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>طريقة التثبيت في ثانيتين عبر متصفح Safari:</span>
+                </div>
+                <div>1. اضغط على زر <b>المشاركة (Share ⬆️)</b> أسفل شاشة Safari.</div>
+                <div>2. اختر <b>"إضافة إلى الشاشة الرئيسية" (Add to Home Screen)</b>.</div>
+                <div>3. ستظهر أيقونة التطبيق الذهبية على شاشتك فوراً.</div>
+              </div>
+
+              <a
+                href="/download/OfficeAttendance.mobileconfig"
+                download
+                className="w-full py-2.5 px-3 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-zinc-700/80 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>أو تنزيل بروفايل الآيفون المباشر (MobileConfig)</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Discreet Admin / Web Bypass Link */}
+          <div className="mt-5 pt-3 border-t border-zinc-800 text-center">
             <button
               type="button"
-              onClick={handleTriggerNativeInstall}
-              className="w-full mb-2.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+              onClick={() => setWebBypass(true)}
+              className="text-[11px] text-zinc-500 hover:text-amber-400 transition-colors font-semibold"
             >
-              <Sparkles className="w-4 h-4 text-black" />
-              <span>📲 تثبيت فوري على شاشة الهاتف (موصى به)</span>
+              💻 دخول المشرفين عبر المتصفح (Web Login) ←
             </button>
+          </div>
+        </div>
+      ) : (
+        /* ================= VIEW B: PURE LOGIN / REGISTER (Inside Installed App or Web Bypass) ================= */
+        <div className="w-full max-w-md bg-zinc-900 border border-amber-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative z-10 text-zinc-100 animate-fade-in">
+          
+          {/* Wadi Degla Shield Logo & Brand Header */}
+          <div className="text-center mb-5">
+            <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
+              <img 
+                src="/logo.png" 
+                alt="Wadi Degla Clubs" 
+                className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(245,184,0,0.3)]" 
+              />
+            </div>
+            <h1 className="text-lg font-black text-amber-400 tracking-wide">أندية وادي دجلة</h1>
+            <p className="text-[11px] text-zinc-400 font-bold tracking-wider uppercase mt-0.5">
+              WADI DEGLA CLUBS • نظام الحضور والغياب
+            </p>
+          </div>
+
+          {/* Tab Switcher (Login vs Register) */}
+          <div className="flex bg-zinc-950 p-1.5 rounded-2xl mb-5 border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('login');
+                setErrorMsg('');
+                setSuccessMsg('');
+              }}
+              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                authMode === 'login'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>تسجيل الدخول</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('register');
+                setErrorMsg('');
+                setSuccessMsg('');
+              }}
+              className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                authMode === 'register'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>تسجيل موظف جديد</span>
+            </button>
+          </div>
+
+          {/* Messages */}
+          {errorMsg && (
+            <div className="bg-rose-950/70 border border-rose-700/80 p-3 rounded-2xl flex items-center gap-2 text-rose-300 text-xs font-bold mb-4 animate-fade-in">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
           )}
-
-          <div className="grid grid-cols-2 gap-2">
-            <a
-              href="/download/OfficeAttendance.apk"
-              download="WadiDeglaAttendance.apk"
-              className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-              title="تنزيل حزمة APK للأندرويد (تحديثات تلقائية سحابية)"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-400" />
-              <span>📱 أندرويد (APK)</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={() => setShowInstallModal(true)}
-              className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-              title="تعليمات تثبيت التطبيق للآيفون والأندرويد"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-400" />
-              <span>🍎 آيفون (iOS)</span>
-            </button>
-          </div>
-
-          <div className="mt-2 text-[10px] text-zinc-400 flex items-center justify-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            <span>كافة التحديثات تصلك تلقائياً دون الحاجة لإعادة التنزيل أو حذف البرنامج</span>
-          </div>
-        </div>
-
-        {/* Tab Switcher (Login vs Register) */}
-        <div className="flex bg-zinc-950 p-1.5 rounded-2xl mb-5 border border-zinc-800">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('login');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              authMode === 'login'
-                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <LogIn className="w-4 h-4" />
-            <span>تسجيل الدخول</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('register');
-              setErrorMsg('');
-              setSuccessMsg('');
-            }}
-            className={`flex-1 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              authMode === 'register'
-                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>تسجيل موظف جديد</span>
-          </button>
-        </div>
-
-        {/* Messages */}
-        {errorMsg && (
-          <div className="bg-rose-950/70 border border-rose-700/80 p-3 rounded-2xl flex items-center gap-2 text-rose-300 text-xs font-bold mb-4 animate-fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-        {successMsg && (
-          <div className="bg-emerald-950/70 border border-emerald-700/80 p-3 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-bold mb-4 animate-fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
+          {successMsg && (
+            <div className="bg-emerald-950/70 border border-emerald-700/80 p-3 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-bold mb-4 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
 
         {/* ================= LOGIN FORM ================= */}
         {authMode === 'login' ? (
@@ -590,7 +657,21 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
             </button>
           </form>
         )}
+
+        {/* Back to download portal if opened via web bypass */}
+        {webBypass && (
+          <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
+            <button
+              type="button"
+              onClick={() => setWebBypass(false)}
+              className="text-[11px] text-zinc-400 hover:text-amber-400 transition-colors font-bold"
+            >
+              ← العودة لصفحة تنزيل التطبيق للهاتف
+            </button>
+          </div>
+        )}
       </div>
+      )}
 
       {/* Install App Modal */}
       {showInstallModal && (

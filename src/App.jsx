@@ -33,6 +33,7 @@ import { RolesPermissionsTab } from './components/RolesPermissionsTab';
 import { OfficeSettingsTab } from './components/OfficeSettingsTab';
 import { MonthlyReportTab } from './components/MonthlyReportTab';
 import { compressImage } from './utils/imageCompressor';
+import { checkIsInstalledApp } from './utils/appEnvironment';
 
 const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' },
@@ -70,6 +71,7 @@ export default function App() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [isAppInstalled] = useState(() => checkIsInstalledApp());
 
   useEffect(() => {
     const handleBeforeInstall = (e) => {
@@ -445,14 +447,16 @@ export default function App() {
               <User className="w-4 h-4" />
             </button>
 
-            {/* Install App Button */}
-            <button
-              onClick={() => setShowInstallModal(true)}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center justify-center shadow-xs"
-              title="تنزيل التطبيق على الهاتف"
-            >
-              <Download className="w-4 h-4 text-amber-400" />
-            </button>
+            {/* Install App Button - Only shown when opened in web browser */}
+            {!isAppInstalled && (
+              <button
+                onClick={() => setShowInstallModal(true)}
+                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center justify-center shadow-xs"
+                title="تنزيل التطبيق على الهاتف"
+              >
+                <Download className="w-4 h-4 text-amber-400" />
+              </button>
+            )}
 
             {/* Logout */}
             <button

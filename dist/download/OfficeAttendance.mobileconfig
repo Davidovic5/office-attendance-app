@@ -20,7 +20,7 @@
             <key>PayloadOrganization</key>
             <string>أندية وادي دجلة</string>
             <key>URL</key>
-            <string>https://office-attendance-app-sand.vercel.app</string>
+            <string>https://office-attendance-app-sand.vercel.app/?installed=1</string>
             <key>Label</key>
             <string>وادي دجلة</string>
             <key>IsRemovable</key>
