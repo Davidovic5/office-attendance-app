@@ -227,33 +227,54 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           </p>
         </div>
 
-        {/* Quick Mobile App Download Buttons */}
+        {/* Quick Mobile App Download & Install Banner */}
         <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 mb-4 text-center">
-          <div className="text-[11px] font-bold text-zinc-300 mb-2 flex items-center justify-center gap-1.5">
-            <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-            <span>تحميل تطبيق الهاتف للموظفين (Download App):</span>
+          <div className="text-[11px] font-bold text-zinc-300 mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-zinc-200">
+              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+              <span>تثبيت تطبيق وادي دجلة للهاتف:</span>
+            </span>
+            <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.5 rounded font-bold">
+              تحديث تلقائي ⚡
+            </span>
           </div>
+
+          {installPrompt && (
+            <button
+              type="button"
+              onClick={handleTriggerNativeInstall}
+              className="w-full mb-2.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+            >
+              <Sparkles className="w-4 h-4 text-black" />
+              <span>📲 تثبيت فوري على شاشة الهاتف (موصى به)</span>
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <a
               href="/download/OfficeAttendance.apk"
-              download
+              download="WadiDeglaAttendance.apk"
               className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-              title="تنزيل ملف APK للأندرويد"
+              title="تنزيل حزمة APK للأندرويد (تحديثات تلقائية سحابية)"
             >
               <Download className="w-3.5 h-3.5 text-amber-400" />
-              <span>📱 أندرويد (.APK)</span>
+              <span>📱 أندرويد (APK)</span>
             </a>
 
             <button
               type="button"
               onClick={() => setShowInstallModal(true)}
               className="py-2 px-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-              title="تثبيت التطبيق للآيفون"
+              title="تعليمات تثبيت التطبيق للآيفون والأندرويد"
             >
               <Download className="w-3.5 h-3.5 text-amber-400" />
               <span>🍎 آيفون (iOS)</span>
             </button>
+          </div>
+
+          <div className="mt-2 text-[10px] text-zinc-400 flex items-center justify-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            <span>كافة التحديثات تصلك تلقائياً دون الحاجة لإعادة التنزيل أو حذف البرنامج</span>
           </div>
         </div>
 
@@ -627,17 +648,20 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
                 <div className="font-black text-zinc-200 text-xs flex items-center justify-between">
                   <span>📱 ملف APK مباشر للأندرويد:</span>
-                  <span className="text-[10px] text-zinc-400">حزمة خام (Offline Package)</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">متوافق مع جميع أجهزة أندرويد</span>
                 </div>
                 <a
                   href="/download/OfficeAttendance.apk"
-                  download
-                  className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
+                  download="WadiDeglaAttendance.apk"
+                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold rounded-xl transition-colors text-xs border border-zinc-700"
                 >
                   <Download className="w-3.5 h-3.5 text-amber-400" />
-                  <span>تنزيل ملف (WadiDeglaAttendance.apk)</span>
+                  <span>تنزيل تطبيق أندية وادي دجلة (WadiDeglaAttendance.apk)</span>
                 </a>
-                <p className="text-[10px] text-zinc-400 leading-normal">
+                <p className="text-[11px] text-zinc-400 leading-normal">
+                  حزمة أندرويد رسمية جاهزة للتثبيت المباشر على جميع الهواتف (Android 5+). ترتبط مباشرة بالسيرفر السحابي، <b>فتصلك كافة التحديثات والتحسينات تلقائياً بمجرد فتح التطبيق</b> دون الحاجة لحذفه أو إعادة تثبيته.
+                </p>
+                <p className="text-[10px] text-zinc-500 leading-normal">
                   * ملاحظة: يتطلب تفعيل "السماح بتثبيت التطبيقات غير المعروفة" من إعدادات الحماية بهاتفك، واختيار "التثبيت على أي حال" في فحص Play Protect.
                 </p>
               </div>

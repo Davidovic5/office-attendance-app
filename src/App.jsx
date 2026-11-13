@@ -895,18 +895,18 @@ export default function App() {
               <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl space-y-2">
                 <div className="font-black text-zinc-200 text-xs flex items-center justify-between">
                   <span>📱 ملف APK مباشر للأندرويد:</span>
-                  <span className="text-[10px] text-zinc-400">حزمة خام (Offline Package)</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">متوافق مع جميع أجهزة أندرويد</span>
                 </div>
                 <a
                   href="/download/OfficeAttendance.apk"
-                  download
-                  className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
+                  download="WadiDeglaAttendance.apk"
+                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold rounded-xl transition-colors text-xs border border-zinc-700"
                 >
                   <Download className="w-3.5 h-3.5 text-amber-400" />
-                  <span>تنزيل ملف (WadiDeglaAttendance.apk)</span>
+                  <span>تنزيل تطبيق أندية وادي دجلة (WadiDeglaAttendance.apk)</span>
                 </a>
-                <p className="text-[10px] text-zinc-400 leading-normal">
-                  * ملاحظة: يتطلب تفعيل "السماح بتثبيت التطبيقات غير المعروفة" من إعدادات الحماية بهاتفك، واختيار "التثبيت على أي حال" في فحص Play Protect.
+                <p className="text-[11px] text-zinc-400 leading-normal">
+                  حزمة أندرويد رسمية جاهزة للتثبيت المباشر على جميع الهواتف (Android 5+). ترتبط مباشرة بالسيرفر السحابي، <b>فتصلك كافة التحديثات والتحسينات تلقائياً بمجرد فتح التطبيق</b> دون الحاجة لحذفه أو إعادة تثبيته.
                 </p>
               </div>
 
