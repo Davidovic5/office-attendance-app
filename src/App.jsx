@@ -341,7 +341,7 @@ export default function App() {
   const tabs = [
     {
       id: 'check_in',
-      label: 'تسجيل الحضور',
+      label: 'الحضور',
       icon: Clock,
       enabled: permissions.check_in_out !== false
     },
@@ -353,13 +353,13 @@ export default function App() {
     },
     {
       id: 'leaves',
-      label: 'الإجازات والأذونات',
+      label: 'الإجازات',
       icon: FileText,
       enabled: permissions.request_leave !== false || permissions.request_permission !== false
     },
     {
       id: 'reports',
-      label: 'سجل وتقارير الشهر',
+      label: 'التقارير',
       icon: BarChart3,
       enabled: permissions.view_reports !== false || isManager
     },
@@ -371,7 +371,7 @@ export default function App() {
     },
     {
       id: 'settings',
-      label: 'إعدادات الفروع',
+      label: 'الفروع',
       icon: Settings,
       enabled: permissions.manage_office_settings || isManager
     }
@@ -414,56 +414,53 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-['Cairo',sans-serif] selection:bg-amber-500 selection:text-black">
       {/* Top Bar with Wadi Degla Shield Logo */}
-      <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-md border-b border-amber-500/20 px-4 py-2.5 shadow-md">
+      <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-md border-b border-amber-500/20 px-3.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] shadow-md">
         <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
           {/* Brand Logo & Branch Badge */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-11 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-8 h-10 flex items-center justify-center shrink-0">
               <img 
                 src="/logo.png" 
                 alt="Wadi Degla" 
                 className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(245,184,0,0.3)]" 
               />
             </div>
-            <div>
-              <h1 className="text-xs font-black text-amber-400 leading-tight">أندية وادي دجلة</h1>
-              <span className="text-[11px] text-zinc-300 font-bold flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
-                <span className="truncate max-w-[150px]">نادي وادي دجلة - فرع {currentUser.branchName || 'شيراتون'}</span>
+            <div className="min-w-0">
+              <h1 className="text-xs font-black text-amber-400 leading-tight truncate">أندية وادي دجلة</h1>
+              <span className="text-[10px] text-zinc-300 font-bold flex items-center gap-1 mt-0.5 truncate">
+                <MapPin className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                <span className="truncate">فرع {currentUser.branchName || 'اكتوبر ٢'}</span>
               </span>
             </div>
           </div>
 
           {/* User Controls */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Profile Settings Button */}
             <button
               onClick={openProfileSettings}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-colors flex items-center gap-1 text-xs font-bold"
+              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-colors flex items-center justify-center shadow-xs"
               title="إعدادات الحساب والصورة وكلمة المرور"
             >
               <User className="w-4 h-4" />
-              <span className="hidden sm:inline">حسابي</span>
             </button>
 
             {/* Install App Button */}
             <button
               onClick={() => setShowInstallModal(true)}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center gap-1 text-xs font-bold"
+              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center justify-center shadow-xs"
               title="تنزيل التطبيق على الهاتف"
             >
               <Download className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">تحميل</span>
             </button>
 
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-zinc-800/80 hover:bg-rose-950/80 text-zinc-400 hover:text-rose-300 transition-colors flex items-center gap-1 text-xs font-bold border border-zinc-700/60"
+              className="p-2 rounded-xl bg-zinc-800/80 hover:bg-rose-950/80 text-zinc-400 hover:text-rose-300 transition-colors flex items-center justify-center border border-zinc-700/60 shadow-xs"
               title="تسجيل الخروج"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">خروج</span>
             </button>
           </div>
         </div>
@@ -474,13 +471,13 @@ export default function App() {
         {/* Profile & Context Card in Wadi Degla Luxury Theme */}
         <div 
           onClick={openProfileSettings}
-          className="cursor-pointer group bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 border border-amber-500/30 hover:border-amber-500/60 text-white rounded-3xl p-4 shadow-xl mb-4 flex items-center justify-between relative overflow-hidden transition-all"
+          className="cursor-pointer group bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 border border-amber-500/30 hover:border-amber-500/60 text-white rounded-3xl p-3.5 sm:p-4 shadow-xl mb-4 flex items-center justify-between gap-2.5 relative overflow-hidden transition-all"
         >
           {/* Subtle gold accent glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="relative">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
+            <div className="relative shrink-0">
               <img 
                 src={currentUser.avatar} 
                 alt={currentUser.name} 
@@ -490,19 +487,23 @@ export default function App() {
                 <Camera className="w-3 h-3" />
               </div>
             </div>
-            <div>
-              <span className="text-[11px] text-zinc-400 font-bold block">مرحباً بك،</span>
-              <h2 className="text-base font-black text-amber-300 leading-tight group-hover:text-amber-400 transition-colors">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] text-zinc-400 font-bold block leading-tight">مرحباً بك،</span>
+              <h2 className="text-sm font-black text-amber-300 leading-tight group-hover:text-amber-400 transition-colors truncate">
                 {currentUser.name}
               </h2>
-              <span className="text-[11px] text-zinc-300 block mt-0.5">
-                <span className="text-amber-400 font-bold">{currentUser.jobTitle}</span> • فرع {currentUser.branchName}
-              </span>
+              <div className="text-[11px] font-bold text-amber-400 truncate mt-0.5 leading-tight">
+                {currentUser.jobTitle}
+              </div>
+              <div className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                <span className="truncate">فرع {currentUser.branchName}</span>
+              </div>
             </div>
           </div>
 
-          <div className="text-left bg-zinc-950/80 px-3 py-2 rounded-2xl border border-zinc-800 shrink-0 relative z-10">
-            <span className="text-[10px] text-zinc-400 font-semibold block">اليوم</span>
+          <div className="text-left bg-zinc-950/90 px-2.5 py-2 rounded-2xl border border-zinc-800 shrink-0 relative z-10">
+            <span className="text-[10px] text-zinc-400 font-semibold block leading-tight">اليوم</span>
             <span className="text-xs font-black text-amber-400 whitespace-nowrap">
               {new Date().toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' })}
             </span>
@@ -510,14 +511,14 @@ export default function App() {
         </div>
 
         {/* Tab Content Container */}
-        <div className="flex-1 pb-16">
+        <div className="flex-1 pb-24">
           {renderTabContent()}
         </div>
       </main>
 
       {/* Fixed Bottom Navigation in Wadi Degla Dark Shield */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-amber-500/20 px-2 py-1.5 shadow-2xl">
-        <div className="max-w-lg mx-auto flex justify-around items-center">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-amber-500/20 px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl">
+        <div className="max-w-lg mx-auto flex justify-around items-center gap-0.5">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -526,16 +527,16 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center py-1.5 px-2 rounded-2xl transition-all relative flex-1 ${
+                className={`flex flex-col items-center py-1 px-1 rounded-xl transition-all relative flex-1 min-w-0 ${
                   isActive ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                <span className={`text-[10px] tracking-tight whitespace-nowrap ${isActive ? 'font-black' : 'font-bold'}`}>
+                <Icon className={`w-4 h-4 mb-0.5 shrink-0 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                <span className={`text-[10px] tracking-tight truncate w-full text-center ${isActive ? 'font-black' : 'font-bold'}`}>
                   {tab.label}
                 </span>
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute bottom-0.5 shadow-sm shadow-amber-400"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute bottom-0 shadow-sm shadow-amber-400"></span>
                 )}
               </button>
             );

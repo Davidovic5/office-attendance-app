@@ -357,14 +357,14 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
       {/* GPS Location & Branch Card (Clean Production View - Real Phone GPS) */}
       <div className="bg-zinc-900 rounded-3xl p-4 shadow-xl border border-zinc-800">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-zinc-100 font-black text-xs">
-            <Compass className="w-4 h-4 text-amber-400" />
-            <span>نطاق فرعك الجغرافي (GPS الفعلي)</span>
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex items-center gap-1.5 text-zinc-100 font-black text-xs min-w-0">
+            <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="truncate">نطاق فرعك الجغرافي (GPS)</span>
           </div>
 
           {distanceInfo.distanceMeters !== null ? (
-            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 ${
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 shrink-0 ${
               distanceInfo.isWithinOffice 
                 ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-700/60' 
                 : 'bg-rose-950/80 text-rose-400 border border-rose-700/60'
@@ -373,9 +373,9 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               {distanceInfo.isWithinOffice ? 'داخل نطاق النادي' : 'خارج نطاق النادي'}
             </span>
           ) : (
-            <span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1">
+            <span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-              {gpsLoading ? 'جاري قراءة الـ GPS...' : 'اضغط للتحديد'}
+              {gpsLoading ? 'جاري القياس...' : 'اضغط للتحديد'}
             </span>
           )}
         </div>
@@ -471,10 +471,10 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               type="button"
               onClick={handleCheckIn}
               disabled={loading}
-              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-amber-500/25 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+              className="w-full py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm shadow-lg transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black shadow-amber-500/25 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
             >
-              <LogIn className="w-4 h-4 text-black" />
-              <span>{loading ? 'جاري التحقق من موقعك وتسجيل الحضور...' : `تسجيل الحضور الآن في فرع ${branch.name}`}</span>
+              <LogIn className="w-4 h-4 text-black shrink-0" />
+              <span className="truncate">{loading ? 'جاري التحقق من موقعك وتسجيل الحضور...' : `تسجيل الحضور في فرع ${branch.name}`}</span>
             </button>
           </div>
         ) : (
