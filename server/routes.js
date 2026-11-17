@@ -3,7 +3,16 @@ const { db, calculateDistanceMeters } = require('./db');
 
 const router = express.Router();
 
-// 0. Branches (الفروع)
+// 0. Branches & Sectors (الفروع والقطاعات)
+router.get('/sectors', async (req, res) => {
+  try {
+    const sectors = await db.getSectors();
+    res.json({ success: true, sectors });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/branches', async (req, res) => {
   try {
     const branches = await db.getBranches();
@@ -29,7 +38,7 @@ router.put('/branches/:id', async (req, res) => {
 // Authentication & Registration
 router.post('/auth/register', async (req, res) => {
   try {
-    const { name, phone, pin, password, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = req.body;
+    const { name, phone, pin, password, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
     }
@@ -39,11 +48,15 @@ router.post('/auth/register', async (req, res) => {
       phone,
       password: password || pin || "1234",
       pin: pin || password || "1234",
-      titleCode: titleCode || "specialist",
-      jobTitle: jobTitle || "Specialist",
-      branchId: branchId || "branch_sheraton",
+      titleCode: titleCode || "memberships_specialist",
+      jobTitle: jobTitle || "Memberships Specialist",
+      branchId: branchId || "branch_october2",
+      sectorId: sectorId || "",
+      sectorName: sectorName || "",
       weeklyOffDays: weeklyOffDays || ["friday", "saturday"],
-      avatar: avatar || null
+      avatar: avatar || null,
+      deviceId: deviceId || null,
+      deviceInfo: deviceInfo || null
     });
 
     res.json({
@@ -58,12 +71,12 @@ router.post('/auth/register', async (req, res) => {
 
 router.post('/auth/login', async (req, res) => {
   try {
-    const { phone, pin, password } = req.body;
+    const { phone, pin, password, deviceId, deviceInfo } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف." });
     }
 
-    const employee = await db.loginEmployee(phone, password || pin || "");
+    const employee = await db.loginEmployee(phone, password || pin || "", { deviceId, deviceInfo });
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${employee.name}`,
@@ -246,6 +259,33 @@ router.post('/employees', async (req, res) => {
   try {
     const newEmp = await db.registerEmployee(req.body);
     res.json({ success: true, employee: newEmp, message: "تمت إضافة الموظف بنجاح" });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Reset Device Binding (فك ارتباط الجهاز لنقل الحساب لهاتف جديد)
+router.post('/employees/:id/reset-device', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.resetEmployeeDevice(id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Update Employee Balances (تعديل رصيد الإجازات والأذونات للموظف)
+router.put('/employees/:id/balances', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { leaveBalance, permissionsBalanceHours } = req.body;
+    const updated = await db.updateEmployeeBalances(id, { leaveBalance, permissionsBalanceHours });
+    res.json({
+      success: true,
+      employee: updated,
+      message: `تم تحديث رصيد الموظف (${updated.name}) بنجاح.`
+    });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

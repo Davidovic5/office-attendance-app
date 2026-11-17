@@ -108,7 +108,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         setDistanceInfo({
           distanceMeters: res.distanceMeters,
           isWithinOffice: res.isWithinOffice,
-          checkedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
         });
       }
       return coords;
@@ -215,7 +215,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         setDistanceInfo({
           distanceMeters: distRes.distanceMeters,
           isWithinOffice: distRes.isWithinOffice,
-          checkedAt: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
         });
 
         // 3. Block if outside the 150m radius and clearly tell the employee their distance!
@@ -436,7 +436,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               تم تسجيل انصرافك لهذا اليوم بنجاح
             </span>
             <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded-lg border border-emerald-700/50">
-              {new Date(completedRecord.checkOutTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+              {new Date(completedRecord.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
           <div className="text-xs text-zinc-300 bg-zinc-950/80 p-2.5 rounded-2xl border border-zinc-800 flex justify-between items-center">
@@ -486,7 +486,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
             <h2 className="text-xl font-black text-zinc-100 mb-0.5">وردية العمل جارية</h2>
             <p className="text-xs text-zinc-400 mb-5">
-              مسجل في <b>فرع {branch.name}</b> الساعة {new Date(currentAttendance.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+              مسجل في <b>فرع {branch.name}</b> الساعة {new Date(currentAttendance.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })}
             </p>
 
             {/* Circular Timer Ring */}

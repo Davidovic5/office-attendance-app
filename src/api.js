@@ -1,9 +1,15 @@
 // API Service for Office Attendance App
+import { getOrCreateDeviceId, getDeviceSummary } from './utils/deviceHelper';
 
 const BASE_URL = '/api';
 
 export const api = {
-  // Branches
+  // Sectors & Branches
+  async getSectors() {
+    const res = await fetch(`${BASE_URL}/sectors`);
+    return res.json();
+  },
+
   async getBranches() {
     const res = await fetch(`${BASE_URL}/branches`);
     return res.json();
@@ -18,21 +24,25 @@ export const api = {
     return res.json();
   },
 
-  // Auth
+  // Auth with Device Binding
   async login(phone, password) {
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = getDeviceSummary();
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, password, pin: password }),
+      body: JSON.stringify({ phone, password, pin: password, deviceId, deviceInfo }),
     });
     return res.json();
   },
 
   async register(data) {
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = getDeviceSummary();
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, deviceId, deviceInfo }),
     });
     return res.json();
   },
@@ -60,6 +70,25 @@ export const api = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employeeId }),
+    });
+    return res.json();
+  },
+
+  // Device Management (فك ارتباط الجهاز)
+  async resetEmployeeDevice(employeeId) {
+    const res = await fetch(`${BASE_URL}/employees/${employeeId}/reset-device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return res.json();
+  },
+
+  // Balance Management (تعديل رصيد الإجازات والأذونات للموظف)
+  async updateEmployeeBalances(employeeId, balances) {
+    const res = await fetch(`${BASE_URL}/employees/${employeeId}/balances`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(balances)
     });
     return res.json();
   },

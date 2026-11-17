@@ -16,11 +16,14 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { api } from '../api';
+import { getUserAllowedBranches, DEFAULT_SECTORS } from '../utils/userScope';
+
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
 
 export function OfficePresenceTab({ currentUser }) {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(
-    currentUser?.branchId || 'branch_sheraton'
+    currentUser?.branchId || 'branch_october2'
   );
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,16 +33,28 @@ export function OfficePresenceTab({ currentUser }) {
   // Load branches
   useEffect(() => {
     api.getBranches().then(res => {
-      if (res.success) {
+      if (res.success && res.branches) {
         setBranches(res.branches);
+        const allowed = getUserAllowedBranches(currentUser, res.branches);
+        if (allowed.length > 0 && !allowed.some(b => b.id === selectedBranchId)) {
+          setSelectedBranchId(allowed[0].id);
+        }
       }
     }).catch(console.error);
-  }, []);
+  }, [currentUser]);
+
+  const allowedBranches = getUserAllowedBranches(currentUser, branches);
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+  const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
 
   const fetchStatus = async () => {
     try {
       setLoading(true);
-      const res = await api.getLiveStatus(null, selectedBranchId);
+      let branchParam = selectedBranchId;
+      if (selectedBranchId === 'all_sector' && isAreaMgr) {
+        branchParam = allowedBranches.map(b => b.id).join(',');
+      }
+      const res = await api.getLiveStatus(null, branchParam);
       if (res.success) {
         setLiveData(res.status);
       }
@@ -98,53 +113,86 @@ export function OfficePresenceTab({ currentUser }) {
           </button>
         </div>
 
-        {/* Branch Selector Dropdown */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <MapPin className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <select
-              value={selectedBranchId}
-              onChange={e => setSelectedBranchId(e.target.value)}
-              className="w-full pr-9 pl-3 py-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 cursor-pointer"
-            >
-              <option value="all" className="bg-zinc-900 text-zinc-100">🌐 جميع الفروع (إجمالي أندية وادي دجلة)</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
-                  📍 نادي وادي دجلة - فرع {b.name} ({b.city})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {/* Branch Selector Header */}
+        {allowedBranches.length > 1 ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <MapPin className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={selectedBranchId}
+                  onChange={e => setSelectedBranchId(e.target.value)}
+                  className="w-full pr-9 pl-3 py-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  {isExecutive && (
+                    <option value="all" className="bg-zinc-900 text-zinc-100">
+                      🌐 جميع الفروع والقطاعات (إجمالي أندية وادي دجلة)
+                    </option>
+                  )}
+                  {isAreaMgr && (
+                    <option value="all_sector" className="bg-zinc-900 text-amber-400 font-bold">
+                      🏢 كافة فروع القطاع ({currentUser?.sectorName || 'القطاع'})
+                    </option>
+                  )}
+                  {allowedBranches.map(b => (
+                    <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                      📍 نادي وادي دجلة - فرع {b.name} ({b.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        {/* Quick Branch Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none pt-1 border-t border-zinc-800">
-          <button
-            type="button"
-            onClick={() => setSelectedBranchId('all')}
-            className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
-              selectedBranchId === 'all'
-                ? 'bg-amber-500 text-black border-amber-500 font-black'
-                : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-            }`}
-          >
-            الكل
-          </button>
-          {branches.map(b => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => setSelectedBranchId(b.id)}
-              className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
-                selectedBranchId === b.id
-                  ? 'bg-amber-500 text-black border-amber-500 font-black'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-              }`}
-            >
-              {b.name}
-            </button>
-          ))}
-        </div>
+            {/* Quick Branch Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] scrollbar-none pt-1 border-t border-zinc-800">
+              {isExecutive && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBranchId('all')}
+                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
+                    selectedBranchId === 'all'
+                      ? 'bg-amber-500 text-black border-amber-500 font-black'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                  }`}
+                >
+                  الكل
+                </button>
+              )}
+              {isAreaMgr && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBranchId('all_sector')}
+                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
+                    selectedBranchId === 'all_sector'
+                      ? 'bg-amber-500 text-black border-amber-500 font-black'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                  }`}
+                >
+                  كافة فروع القطاع
+                </button>
+              )}
+              {allowedBranches.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setSelectedBranchId(b.id)}
+                  className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap transition-all border ${
+                    selectedBranchId === b.id
+                      ? 'bg-amber-500 text-black border-amber-500 font-black'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                  }`}
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : allowedBranches.length === 1 ? (
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs">
+            <span className="font-bold text-zinc-400">فرعك المعتمد:</span>
+            <span className="font-black text-amber-400">📍 نادي وادي دجلة - فرع {allowedBranches[0].name} ({allowedBranches[0].city})</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Metrics Row */}
@@ -392,23 +440,25 @@ export function OfficePresenceTab({ currentUser }) {
 
           <div className="grid gap-1.5">
             {absent
+              .map(item => item.employee || item)
               .filter(emp => 
                 !searchQuery || 
-                emp.name.includes(searchQuery) || 
-                emp.jobTitle.includes(searchQuery)
+                (emp.name && emp.name.includes(searchQuery)) || 
+                (emp.jobTitle && emp.jobTitle.includes(searchQuery))
               )
               .map(emp => (
-                <div key={emp.id} className="bg-zinc-900/80 p-3 rounded-2xl border border-zinc-800 shadow-xs flex items-center justify-between opacity-80">
+                <div key={emp.id || Math.random()} className="bg-zinc-900/80 p-3 rounded-2xl border border-zinc-800 shadow-xs flex items-center justify-between opacity-80">
                   <div className="flex items-center gap-2.5">
                     <img 
-                      src={emp.avatar} 
-                      alt={emp.name} 
+                      src={emp.avatar || DEFAULT_AVATAR} 
+                      alt={emp.name || 'موظف'} 
                       className="w-9 h-9 rounded-xl object-cover border border-zinc-700 grayscale"
+                      onError={e => { e.target.src = DEFAULT_AVATAR; }}
                     />
                     <div>
-                      <span className="font-bold text-xs text-zinc-300 block">{emp.name}</span>
+                      <span className="font-bold text-xs text-zinc-300 block">{emp.name || 'موظف'}</span>
                       <span className="text-[10px] text-zinc-500">
-                        {emp.jobTitle} • {emp.branchName}
+                        {emp.jobTitle || 'موظف'} • {emp.branchName || ''}
                       </span>
                     </div>
                   </div>

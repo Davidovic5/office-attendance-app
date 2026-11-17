@@ -12,17 +12,45 @@ import {
   AlertCircle,
   Lock,
   Unlock,
-  KeyRound
+  KeyRound,
+  Smartphone,
+  Calendar,
+  Clock,
+  Search,
+  Building2,
+  Edit2,
+  RotateCcw
 } from 'lucide-react';
 import { api } from '../api';
+import { getUserAllowedBranches } from '../utils/userScope';
+import { formatArabicDateWithDay } from '../utils/dateHelpers';
 
-export function RolesPermissionsTab({ onTitlesUpdated }) {
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
+
+export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
+  const [activeSubTab, setActiveSubTab] = useState('roles'); // 'roles' | 'employees'
+
+  // Roles & Titles state
   const [titles, setTitles] = useState([]);
   const [selectedTitleCode, setSelectedTitleCode] = useState('memberships_executive_director');
   const [permissionsState, setPermissionsState] = useState({});
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
+
+  // Employees & Devices management state
+  const [employees, setEmployees] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
+  const [empActionLoading, setEmpActionLoading] = useState(false);
+  const [empSuccessMsg, setEmpSuccessMsg] = useState('');
+  const [empErrorMsg, setEmpErrorMsg] = useState('');
+
+  // Editing Balance modal/inline state
+  const [editingEmp, setEditingEmp] = useState(null);
+  const [editLeaveBalance, setEditLeaveBalance] = useState(30);
+  const [editPermBalance, setEditPermBalance] = useState(2);
 
   // Dictionary of permission labels & descriptions
   const permissionDefs = [
@@ -99,29 +127,48 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
       const res = await api.getTitles();
       if (res.success) {
         setTitles(res.titles);
-        const current = res.titles.find(t => t.code === selectedTitleCode) || res.titles[0];
-        if (current) {
-          setSelectedTitleCode(current.code);
-          setPermissionsState(current.permissions || {});
+        const selected = res.titles.find(t => t.code === selectedTitleCode) || res.titles[0];
+        if (selected) {
+          setSelectedTitleCode(selected.code);
+          setPermissionsState({ ...(selected.permissions || {}) });
         }
       }
     } catch (err) {
       console.error(err);
+      setSaveError('تعذر جلب المسميات الوظيفية من السيرفر.');
+    }
+  };
+
+  const fetchEmployeesData = async () => {
+    try {
+      const [empRes, branchRes] = await Promise.all([
+        api.getEmployees(),
+        api.getBranches()
+      ]);
+      if (empRes.success && empRes.employees) {
+        setEmployees(empRes.employees);
+      }
+      if (branchRes.success && branchRes.branches) {
+        setBranches(branchRes.branches);
+      }
+    } catch (err) {
+      console.error("fetchEmployeesData error:", err);
     }
   };
 
   useEffect(() => {
     fetchTitles();
+    fetchEmployeesData();
   }, []);
 
   const handleSelectTitle = (code) => {
     setSelectedTitleCode(code);
+    const titleObj = titles.find(t => t.code === code);
+    if (titleObj) {
+      setPermissionsState({ ...(titleObj.permissions || {}) });
+    }
     setSaveSuccess('');
     setSaveError('');
-    const t = titles.find(item => item.code === code);
-    if (t) {
-      setPermissionsState(t.permissions || {});
-    }
   };
 
   const handleTogglePermission = (key) => {
@@ -129,6 +176,7 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
       ...prev,
       [key]: !prev[key]
     }));
+    setSaveSuccess('');
   };
 
   const handleSavePermissions = async () => {
@@ -139,177 +187,565 @@ export function RolesPermissionsTab({ onTitlesUpdated }) {
     try {
       const res = await api.updateTitlePermissions(selectedTitleCode, permissionsState);
       if (res.success) {
-        setSaveSuccess(res.message);
-        fetchTitles();
+        setSaveSuccess(`تم تحديث صلاحيات (${res.title.name}) بنجاح.`);
         if (onTitlesUpdated) onTitlesUpdated();
       } else {
-        setSaveError(res.error || 'حدث خطأ أثناء حفظ الصلاحيات');
+        setSaveError(res.error || 'حدث خطأ أثناء حفظ الصلاحيات.');
       }
     } catch (err) {
-      setSaveError(err.message || 'فشل الاتصال بالخادم');
+      console.error(err);
+      setSaveError(err.message || 'فشل الاتصال بالخادم.');
     } finally {
       setLoading(false);
     }
   };
 
-  const activeTitle = titles.find(t => t.code === selectedTitleCode);
+  // Reset device binding for an employee
+  const handleResetDevice = async (employee) => {
+    if (!window.confirm(`هل أنت متأكد من فك ارتباط الجهاز لحساب الموظف (${employee.name})؟\n\nسيمكّنه هذا من تسجيل الدخول من هاتفه الجديد فوراً وتأمينه عليه.`)) {
+      return;
+    }
 
-  // Group permissions by category
-  const categories = ['الحضور والعمل', 'الرؤية والمتابعة', 'الإجازات والأذونات', 'الإدارة والإعدادات'];
+    setEmpActionLoading(true);
+    setEmpSuccessMsg('');
+    setEmpErrorMsg('');
+
+    try {
+      const res = await api.resetEmployeeDevice(employee.id);
+      if (res.success) {
+        setEmpSuccessMsg(`تم فك ارتباط الجهاز للموظف (${employee.name}) بنجاح. يمكنه الآن فتح حسابه على الهاتف الجديد.`);
+        fetchEmployeesData();
+      } else {
+        setEmpErrorMsg(res.error || 'تعذر فك الارتباط.');
+      }
+    } catch (err) {
+      setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
+    } finally {
+      setEmpActionLoading(false);
+    }
+  };
+
+  // Open Edit Balances modal
+  const openBalanceModal = (emp) => {
+    setEditingEmp(emp);
+    setEditLeaveBalance(emp.leaveBalance !== undefined ? emp.leaveBalance : 30);
+    setEditPermBalance(emp.permissionsBalanceHours !== undefined ? emp.permissionsBalanceHours : 2);
+    setEmpSuccessMsg('');
+    setEmpErrorMsg('');
+  };
+
+  // Save Balances
+  const handleSaveBalances = async (e) => {
+    e.preventDefault();
+    if (!editingEmp) return;
+
+    setEmpActionLoading(true);
+    setEmpSuccessMsg('');
+    setEmpErrorMsg('');
+
+    try {
+      const res = await api.updateEmployeeBalances(editingEmp.id, {
+        leaveBalance: Number(editLeaveBalance),
+        permissionsBalanceHours: Number(editPermBalance)
+      });
+      if (res.success) {
+        setEmpSuccessMsg(`تم تحديث رصيد (${editingEmp.name}): ${editLeaveBalance} يوم إجازة، و ${editPermBalance} ساعات إذن.`);
+        setEditingEmp(null);
+        fetchEmployeesData();
+      } else {
+        setEmpErrorMsg(res.error || 'تعذر تحديث الرصيد.');
+      }
+    } catch (err) {
+      setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
+    } finally {
+      setEmpActionLoading(false);
+    }
+  };
+
+  // Filter employees according to user's scope
+  const allowedBranches = getUserAllowedBranches(currentUser, branches);
+  const allowedBranchIds = allowedBranches.map(b => b.id);
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+
+  const visibleEmployees = employees.filter(emp => {
+    // Branch scoping
+    if (!isExecutive && !allowedBranchIds.includes(emp.branchId)) {
+      return false;
+    }
+    // Branch filter dropdown
+    if (selectedBranchFilter !== 'all' && emp.branchId !== selectedBranchFilter) {
+      return false;
+    }
+    // Search query
+    if (employeeSearch.trim()) {
+      const q = employeeSearch.trim().toLowerCase();
+      const nameMatch = emp.name && emp.name.toLowerCase().includes(q);
+      const phoneMatch = emp.phone && emp.phone.includes(q);
+      const titleMatch = emp.jobTitle && emp.jobTitle.toLowerCase().includes(q);
+      return nameMatch || phoneMatch || titleMatch;
+    }
+    return true;
+  });
+
+  const activeTitle = titles.find(t => t.code === selectedTitleCode);
+  const categories = Array.from(new Set(permissionDefs.map(p => p.category)));
 
   return (
-    <div className="space-y-4 pb-8 text-right">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-black text-amber-400">التحكم في صلاحيات المسميات الوظيفية (RBAC)</h2>
-        <p className="text-xs text-zinc-400">
-          حدد كل مسمى وظيفي (تايتل) وما يُسمح له برؤيته والوصول إليه في النظام بدقة.
-        </p>
+    <div className="space-y-4 pb-8 text-right font-['Cairo',sans-serif]">
+      {/* Top Segmented Subtab Switcher */}
+      <div className="bg-zinc-900 p-1.5 rounded-2xl border border-zinc-800 shadow-lg flex gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('roles')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'roles'
+              ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>صلاحيات المسميات</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('employees')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'employees'
+              ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+          }`}
+        >
+          <Smartphone className="w-4 h-4" />
+          <span>الأجهزة والأرصدة للموظفين</span>
+        </button>
       </div>
 
-      {/* Success / Error Messages */}
-      {saveSuccess && (
-        <div className="bg-emerald-950/70 border border-emerald-700/80 p-3.5 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-bold animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{saveSuccess}</span>
-        </div>
-      )}
-      {saveError && (
-        <div className="bg-rose-950/70 border border-rose-700/80 p-3.5 rounded-2xl flex items-center gap-2 text-rose-300 text-xs font-bold animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-          <span>{saveError}</span>
-        </div>
-      )}
-
-      {/* Title Selector Pills */}
-      <div>
-        <label className="block text-xs font-bold text-zinc-300 mb-2">اختر المسمى الوظيفي للتعديل على صلاحياته:</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {titles.map(title => (
-            <button
-              key={title.code}
-              type="button"
-              onClick={() => handleSelectTitle(title.code)}
-              className={`p-3 rounded-2xl text-right border transition-all ${
-                selectedTitleCode === title.code
-                  ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/20 font-black'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-black text-xs">{title.name}</span>
-                {selectedTitleCode === title.code ? (
-                  <Check className="w-3.5 h-3.5 text-black" />
-                ) : (
-                  <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
-                )}
-              </div>
-              <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-zinc-900' : 'text-zinc-500'}`}>
-                {title.description}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Permissions Matrix Box */}
-      {activeTitle && (
-        <div className="bg-zinc-900 rounded-3xl p-5 border border-zinc-800 shadow-xl space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
-            <div>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-amber-400" />
-                <h3 className="font-black text-sm text-zinc-100">
-                  صلاحيات مسمى: <span className="text-amber-400">"{activeTitle.name}"</span>
-                </h3>
-              </div>
-              <p className="text-xs text-zinc-400 mt-0.5">{activeTitle.description}</p>
+      {/* ================= VIEW 1: EMPLOYEES, DEVICES & BALANCES ================= */}
+      {activeSubTab === 'employees' && (
+        <div className="space-y-4 animate-fade-in">
+          {/* Header & Description */}
+          <div className="bg-zinc-900 p-4 rounded-3xl border border-zinc-800 shadow-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-amber-400 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-amber-400" />
+                <span>إدارة ارتباط الأجهزة وأرصدة الإجازات للموظفين</span>
+              </h2>
+              <button
+                type="button"
+                onClick={fetchEmployeesData}
+                className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-500/30 transition-colors"
+              >
+                تحديث
+              </button>
             </div>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              كل حساب موظف <b>مقفل على جهازه فقط</b> لمنع فتح الحساب من هاتفين. في حال قام الموظف بتغيير هاتفه، اضغط "فك ارتباط الجهاز" ليتمكن من ربط هاتفه الجديد. كما يمكنك تعديل رصيد الإجازات السنوية (الافتراضي 30 يوماً) وساعتين أذن شهرياً للموظفين الجدد.
+            </p>
 
-            <button
-              type="button"
-              onClick={handleSavePermissions}
-              disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0"
-            >
-              <Save className="w-4 h-4 text-black" />
-              <span>{loading ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
-            </button>
+            {/* Notification messages */}
+            {empSuccessMsg && (
+              <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{empSuccessMsg}</span>
+              </div>
+            )}
+            {empErrorMsg && (
+              <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-600/60 text-rose-300 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{empErrorMsg}</span>
+              </div>
+            )}
+
+            {/* Search and Branch Filter */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-zinc-800">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={employeeSearch}
+                  onChange={e => setEmployeeSearch(e.target.value)}
+                  placeholder="بحث باسم الموظف أو رقم هاتفه..."
+                  className="w-full pr-8 pl-3 py-2 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-bold"
+                />
+              </div>
+
+              {allowedBranches.length > 1 && (
+                <div className="flex items-center gap-1.5 sm:w-56">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <select
+                    value={selectedBranchFilter}
+                    onChange={e => setSelectedBranchFilter(e.target.value)}
+                    className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="all">كافة الفروع المتاحة</option>
+                    {allowedBranches.map(b => (
+                      <option key={b.id} value={b.id}>
+                        فرع {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Grouped Permission Items */}
-          <div className="space-y-4">
-            {categories.map(category => {
-              const items = permissionDefs.filter(p => p.category === category);
-              if (items.length === 0) return null;
+          {/* Employee Cards List */}
+          <div className="space-y-2.5">
+            {visibleEmployees.length === 0 ? (
+              <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl text-center text-zinc-500">
+                <Users className="w-10 h-10 mx-auto text-zinc-700 mb-2" />
+                <p className="text-xs font-bold">لا يوجد موظفون مطابقون في نطاق صلاحياتك.</p>
+              </div>
+            ) : (
+              visibleEmployees.map(emp => {
+                const isBound = Boolean(emp.boundDeviceId);
 
-              return (
-                <div key={category} className="space-y-2">
-                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider block">
-                    {category}
-                  </span>
-
-                  <div className="grid gap-2">
-                    {items.map(def => {
-                      const isEnabled = Boolean(permissionsState[def.key]);
-
-                      return (
-                        <div
-                          key={def.key}
-                          onClick={() => handleTogglePermission(def.key)}
-                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                            isEnabled
-                              ? 'bg-zinc-950 border-amber-500/40 text-zinc-100'
-                              : 'bg-zinc-950/50 border-zinc-800/80 text-zinc-500 opacity-60'
-                          }`}
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-zinc-200">{def.label}</span>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
-                                isEnabled ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400'
-                              }`}>
-                                {isEnabled ? 'مفعل' : 'معطل'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              {def.description}
-                            </p>
+                return (
+                  <div
+                    key={emp.id}
+                    className="bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl shadow-md space-y-2.5 hover:border-zinc-700 transition-colors"
+                  >
+                    {/* Top Row: Avatar, Name, Job Title */}
+                    <div className="flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={emp.avatar || DEFAULT_AVATAR}
+                          alt={emp.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shrink-0"
+                          onError={e => { e.target.src = DEFAULT_AVATAR; }}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-xs text-zinc-100 truncate">{emp.name}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono" dir="ltr">({emp.phone})</span>
                           </div>
-
-                          {/* Toggle switch */}
-                          <div
-                            className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
-                              isEnabled ? 'bg-amber-500' : 'bg-zinc-800'
-                            }`}
-                          >
-                            <div
-                              className={`w-5 h-5 rounded-full bg-zinc-950 shadow-sm transition-transform absolute top-0.5 ${
-                                isEnabled ? 'left-0.5' : 'right-0.5'
-                              }`}
-                            />
+                          <div className="text-[10px] font-bold text-amber-400 truncate mt-0.5">
+                            {emp.jobTitle} • فرع {emp.branchName || 'اكتوبر ٢'}
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+
+                      {/* Device Status Badge */}
+                      <div className="shrink-0">
+                        {isBound ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-950/70 border border-emerald-600/60 text-emerald-300">
+                            <Lock className="w-3 h-3 text-emerald-400" />
+                            <span>مقفل على جهاز</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-950/70 border border-amber-600/60 text-amber-300">
+                            <Unlock className="w-3 h-3 text-amber-400" />
+                            <span>متاح للربط</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Device Details & Balances */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-zinc-800/80 text-xs">
+                      {/* Device Info */}
+                      <div className="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/70 space-y-1">
+                        <div className="text-[10px] text-zinc-400 flex items-center justify-between">
+                          <span className="flex items-center gap-1 font-bold">
+                            <Smartphone className="w-3 h-3 text-amber-400" />
+                            <span>الجهاز المرتبط:</span>
+                          </span>
+                          {isBound && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetDevice(emp)}
+                              disabled={empActionLoading}
+                              className="text-[10px] font-black text-rose-400 hover:text-rose-300 bg-rose-950/70 hover:bg-rose-900 border border-rose-800/60 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                              title="فك ارتباط الجهاز للسماح بنقل الحساب لهاتف جديد"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>فك الارتباط 🔓</span>
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-zinc-200 font-bold text-[11px] truncate">
+                          {isBound ? (
+                            <span>{emp.deviceInfo || 'هاتف محمول معتمد'}</span>
+                          ) : (
+                            <span className="text-zinc-500">لا يوجد جهاز مرتبط حالياً (سيرتبط بأول جهاز يسجل منه)</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Balances Info */}
+                      <div className="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/70 space-y-1">
+                        <div className="text-[10px] text-zinc-400 flex items-center justify-between">
+                          <span className="flex items-center gap-1 font-bold">
+                            <Calendar className="w-3 h-3 text-amber-400" />
+                            <span>الأرصدة المعتمدة:</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openBalanceModal(emp)}
+                            className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                            title="تعديل رصيد الإجازات والأذونات"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>تعديل ✏️</span>
+                          </button>
+                        </div>
+                        <div className="text-amber-300 font-black text-[11px] flex items-center gap-2">
+                          <span>إجازات: <b>{emp.leaveBalance !== undefined ? emp.leaveBalance : 30} يوم</b></span>
+                          <span>•</span>
+                          <span>أذونات: <b>{emp.permissionsBalanceHours !== undefined ? emp.permissionsBalanceHours : 2} س/شهر</b></span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
-          {/* Bottom Save Action */}
-          <div className="pt-3 border-t border-zinc-800 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSavePermissions}
-              disabled={loading}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            >
-              <Save className="w-4 h-4 text-black" />
-              <span>{loading ? 'جاري الحفظ...' : 'حفظ صلاحيات هذا المسمى'}</span>
-            </button>
+          {/* Edit Balances Modal */}
+          {editingEmp && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-sm bg-zinc-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl space-y-4 text-right">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h3 className="text-xs font-black text-zinc-100">تعديل رصيد الإجازات والأذونات</h3>
+                      <span className="text-[10px] text-amber-400 font-bold block">{editingEmp.name}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingEmp(null)}
+                    className="p-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveBalances} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                      رصيد الإجازات السنوية (أيام):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={editLeaveBalance}
+                      onChange={e => setEditLeaveBalance(e.target.value)}
+                      required
+                      className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                    />
+                    <span className="text-[10px] text-zinc-500 block mt-1">
+                      * الرصيد الافتراضي هو 30 يوماً. للموظفين الجدد يمكنك خفضه حسب تاريخ التعيين.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                      رصيد الأذونات الشهرية (ساعات / شهر):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={editPermBalance}
+                      onChange={e => setEditPermBalance(e.target.value)}
+                      required
+                      className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                    />
+                    <span className="text-[10px] text-zinc-500 block mt-1">
+                      * الرصيد الافتراضي هو ساعتان (2 ساعة) لكل شهر.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={empActionLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{empActionLoading ? 'جاري الحفظ...' : 'حفظ الرصيد المعتمد'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingEmp(null)}
+                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= VIEW 2: ROLES & TITLES PERMISSIONS ================= */}
+      {activeSubTab === 'roles' && (
+        <div className="space-y-4 animate-fade-in">
+          {/* Header & Description */}
+          <div className="bg-zinc-900 p-4 rounded-3xl border border-zinc-800 shadow-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-amber-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>لوحة التحكم في صلاحيات الهرم الإداري (7 تايتلز)</span>
+              </h2>
+            </div>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              تحكم كامل في ما يمكن لكل مسمى وظيفي رؤيته والقيام به في النظام وفق الترتيب الهرمي المعتمد.
+            </p>
+
+            {/* Notification messages */}
+            {saveSuccess && (
+              <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{saveSuccess}</span>
+              </div>
+            )}
+            {saveError && (
+              <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-600/60 text-rose-300 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{saveError}</span>
+              </div>
+            )}
           </div>
+
+          {/* Titles Selector List */}
+          <div className="bg-zinc-900 p-3.5 rounded-3xl border border-zinc-800 shadow-xl space-y-2">
+            <span className="text-xs font-black text-zinc-300 block">اختر المسمى الوظيفي لضبط صلاحياته:</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
+              {titles.map(title => (
+                <button
+                  key={title.code}
+                  type="button"
+                  onClick={() => handleSelectTitle(title.code)}
+                  className={`p-2.5 rounded-2xl border text-right transition-all flex flex-col justify-between ${
+                    selectedTitleCode === title.code
+                      ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black'
+                      : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-black text-xs">{title.name}</span>
+                    {selectedTitleCode === title.code ? (
+                      <Check className="w-3.5 h-3.5 text-black" />
+                    ) : (
+                      <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
+                    )}
+                  </div>
+                  <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-zinc-900' : 'text-zinc-500'}`}>
+                    {title.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Permissions Matrix Box */}
+          {activeTitle && (
+            <div className="bg-zinc-900 rounded-3xl p-5 border border-zinc-800 shadow-xl space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-amber-400" />
+                    <h3 className="font-black text-sm text-zinc-100">
+                      صلاحيات مسمى: <span className="text-amber-400">"{activeTitle.name}"</span>
+                    </h3>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-0.5">{activeTitle.description}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSavePermissions}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0"
+                >
+                  <Save className="w-4 h-4 text-black" />
+                  <span>{loading ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
+                </button>
+              </div>
+
+              {/* Grouped Permission Items */}
+              <div className="space-y-4">
+                {categories.map(category => {
+                  const items = permissionDefs.filter(p => p.category === category);
+                  if (items.length === 0) return null;
+
+                  return (
+                    <div key={category} className="space-y-2">
+                      <span className="text-xs font-black text-amber-400 uppercase tracking-wider block">
+                        {category}
+                      </span>
+
+                      <div className="grid gap-2">
+                        {items.map(def => {
+                          const isEnabled = Boolean(permissionsState[def.key]);
+
+                          return (
+                            <div
+                              key={def.key}
+                              onClick={() => handleTogglePermission(def.key)}
+                              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                isEnabled
+                                  ? 'bg-zinc-950 border-amber-500/40 text-zinc-100'
+                                  : 'bg-zinc-950/50 border-zinc-800/80 text-zinc-500 opacity-60'
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-zinc-200">{def.label}</span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
+                                    isEnabled ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400'
+                                  }`}>
+                                    {isEnabled ? 'مفعل' : 'معطل'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                  {def.description}
+                                </p>
+                              </div>
+
+                              {/* Toggle switch */}
+                              <div
+                                className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                                  isEnabled ? 'bg-amber-500' : 'bg-zinc-800'
+                                }`}
+                              >
+                                <div
+                                  className={`w-5 h-5 rounded-full bg-zinc-950 shadow-sm transition-transform absolute top-0.5 ${
+                                    isEnabled ? 'left-0.5' : 'right-0.5'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Save Action */}
+              <div className="pt-3 border-t border-zinc-800 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSavePermissions}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4 text-black" />
+                  <span>{loading ? 'جاري الحفظ...' : 'حفظ صلاحيات هذا المسمى'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -8,7 +8,9 @@ const BranchSchema = new mongoose.Schema({
   city: { type: String, required: true },
   latitude: { type: Number, required: true },
   longitude: { type: Number, required: true },
-  radiusMeters: { type: Number, default: 100 }
+  radiusMeters: { type: Number, default: 100 },
+  sectorId: { type: String, default: '' },
+  sectorName: { type: String, default: '' }
 });
 
 // 2. Title & Permissions Schema
@@ -43,13 +45,18 @@ const EmployeeSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true, index: true },
   password: { type: String, required: true },
   pin: { type: String, default: '' },
-  titleCode: { type: String, required: true, default: 'specialist' },
-  jobTitle: { type: String, default: 'Specialist' },
-  branchId: { type: String, required: true, default: 'branch_sheraton' },
+  titleCode: { type: String, required: true, default: 'memberships_specialist' },
+  jobTitle: { type: String, default: 'Memberships Specialist' },
+  branchId: { type: String, required: true, default: 'branch_october2' },
+  sectorId: { type: String, default: '' },
+  sectorName: { type: String, default: '' },
   weeklyOffDays: { type: [String], default: ['friday', 'saturday'] },
   avatar: { type: String, default: '' },
-  leaveBalance: { type: Number, default: 21 },
-  permissionsBalanceHours: { type: Number, default: 6 },
+  leaveBalance: { type: Number, default: 30 },
+  permissionsBalanceHours: { type: Number, default: 2 },
+  boundDeviceId: { type: String, default: null },
+  deviceInfo: { type: String, default: null },
+  deviceBoundAt: { type: String, default: null },
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
 

@@ -33,15 +33,56 @@ const DAY_MAP = {
   6: 'saturday'
 };
 
+const DEFAULT_SECTORS = [
+  {
+    id: 'sector_west_cairo',
+    name: 'قطاع غرب القاهرة',
+    branchIds: ['branch_maadi', 'branch_october1', 'branch_october2']
+  },
+  {
+    id: 'sector_east_cairo',
+    name: 'قطاع شرق القاهرة',
+    branchIds: ['branch_nakheel', 'branch_lotus']
+  },
+  {
+    id: 'sector_east_delta',
+    name: 'قطاع شرق الدلتا',
+    branchIds: ['branch_sheraton', 'branch_damietta', 'branch_mansoura']
+  },
+  {
+    id: 'sector_alex_tanta',
+    name: 'قطاع اسكندرية وطنطا',
+    branchIds: ['branch_alexandria', 'branch_tanta']
+  },
+  {
+    id: 'sector_upper_egypt',
+    name: 'قطاع الصعيد',
+    branchIds: ['branch_minya', 'branch_assiut']
+  }
+];
+
 const DEFAULT_BRANCHES = [
-  { id: 'branch_sheraton', code: 'sheraton', name: 'شيراتون', city: 'القاهرة', latitude: 30.1025, longitude: 31.3780, radiusMeters: 100 },
-  { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100 },
-  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100 },
-  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150 },
-  { id: 'branch_lotus', code: 'lotus', name: 'اللوتس', city: 'القاهرة الجديدة', latitude: 30.0384, longitude: 31.4880, radiusMeters: 100 },
-  { id: 'branch_assiut', code: 'assiut', name: 'اسيوط', city: 'أسيوط', latitude: 27.1809, longitude: 31.1837, radiusMeters: 120 },
-  { id: 'branch_minya', code: 'minya', name: 'المنيا', city: 'المنيا', latitude: 28.0871, longitude: 30.7618, radiusMeters: 120 },
-  { id: 'branch_alexandria', code: 'alexandria', name: 'اسكندرية', city: 'الإسكندرية', latitude: 31.2001, longitude: 29.9187, radiusMeters: 100 }
+  // قطاع غرب القاهرة
+  { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+
+  // قطاع شرق القاهرة
+  { id: 'branch_nakheel', code: 'nakheel', name: 'النخيل', city: 'القاهرة الجديدة', latitude: 30.0465, longitude: 31.4425, radiusMeters: 120, sectorId: 'sector_east_cairo', sectorName: 'قطاع شرق القاهرة' },
+  { id: 'branch_lotus', code: 'lotus', name: 'اللوتس', city: 'القاهرة الجديدة', latitude: 30.0384, longitude: 31.4880, radiusMeters: 100, sectorId: 'sector_east_cairo', sectorName: 'قطاع شرق القاهرة' },
+
+  // قطاع شرق الدلتا
+  { id: 'branch_sheraton', code: 'sheraton', name: 'شيراتون', city: 'القاهرة', latitude: 30.1025, longitude: 31.3780, radiusMeters: 100, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+  { id: 'branch_damietta', code: 'damietta', name: 'دمياط', city: 'دمياط الجديدة', latitude: 31.4365, longitude: 31.6705, radiusMeters: 150, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+  { id: 'branch_mansoura', code: 'mansoura', name: 'المنصورة', city: 'المنصورة', latitude: 31.0535, longitude: 31.3785, radiusMeters: 150, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+
+  // قطاع اسكندرية وطنطا
+  { id: 'branch_alexandria', code: 'alexandria', name: 'اسكندرية', city: 'الإسكندرية', latitude: 31.2001, longitude: 29.9187, radiusMeters: 120, sectorId: 'sector_alex_tanta', sectorName: 'قطاع اسكندرية وطنطا' },
+  { id: 'branch_tanta', code: 'tanta', name: 'طنطا', city: 'طنطا', latitude: 30.7925, longitude: 31.0012, radiusMeters: 120, sectorId: 'sector_alex_tanta', sectorName: 'قطاع اسكندرية وطنطا' },
+
+  // قطاع الصعيد
+  { id: 'branch_minya', code: 'minya', name: 'المنيا', city: 'المنيا', latitude: 28.0871, longitude: 30.7618, radiusMeters: 120, sectorId: 'sector_upper_egypt', sectorName: 'قطاع الصعيد' },
+  { id: 'branch_assiut', code: 'assiut', name: 'اسيوط', city: 'أسيوط', latitude: 27.1809, longitude: 31.1837, radiusMeters: 120, sectorId: 'sector_upper_egypt', sectorName: 'قطاع الصعيد' }
 ];
 
 const DEFAULT_TITLES = [
@@ -75,7 +116,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Area Manager (مدير منطقة العضويات)",
     englishTitle: "Memberships Area Manager",
     arabicTitle: "مدير منطقة العضويات",
-    description: "إدارة ومتابعة فروع المنطقة واعتماد كافة طلبات الإجازات والأذونات والانصراف الطارئ والتقارير",
+    description: "إدارة ومتابعة فروع القطاع التابع له فقط واعتماد كافة طلبات الإجازات والأذونات والانصراف والتقارير",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -86,10 +127,10 @@ const DEFAULT_TITLES = [
       approve_leaves_permissions: true,
       approve_early_checkout: true,
       manage_employees: true,
-      manage_titles_permissions: true,
-      manage_office_settings: true,
+      manage_titles_permissions: false,
+      manage_office_settings: false,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: true
     }
   },
@@ -99,7 +140,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Manager (مدير العضويات)",
     englishTitle: "Memberships Manager",
     arabicTitle: "مدير العضويات",
-    description: "الجهة المخولة حصرياً باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق",
+    description: "الجهة المخولة حصرياً بالفرع باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق لفرعه فقط",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -113,7 +154,7 @@ const DEFAULT_TITLES = [
       manage_titles_permissions: false,
       manage_office_settings: true,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: true
     }
   },
@@ -123,7 +164,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Deputy Manager (نائب مدير العضويات)",
     englishTitle: "Memberships Deputy Manager",
     arabicTitle: "نائب مدير العضويات",
-    description: "متابعة الفريق ومراجعة الطلبات والتقارير - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ يتطلب موافقة مدير العضويات",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -137,7 +178,7 @@ const DEFAULT_TITLES = [
       manage_titles_permissions: false,
       manage_office_settings: false,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: false
     }
   },
@@ -353,6 +394,11 @@ class Database {
     return this.data.officeSettings;
   }
 
+  // Sectors
+  getSectors() {
+    return DEFAULT_SECTORS;
+  }
+
   // Branches
   getBranches() {
     return this.data.branches;
@@ -378,7 +424,7 @@ class Database {
   updateTitlePermissions(code, permissions) {
     const title = this.data.titles.find(t => t.code === code);
     if (!title) return null;
-    title.permissions = { ...title.permissions, ...newPermissions };
+    title.permissions = { ...title.permissions, ...permissions };
     this.save();
     return title;
   }
@@ -387,7 +433,14 @@ class Database {
   getEmployees(branchId = null) {
     let list = this.data.employees;
     if (branchId && branchId !== 'all') {
-      list = list.filter(e => e.branchId === branchId);
+      if (Array.isArray(branchId)) {
+        list = list.filter(e => branchId.includes(e.branchId));
+      } else if (branchId.includes(',')) {
+        const allowed = branchId.split(',');
+        list = list.filter(e => allowed.includes(e.branchId));
+      } else {
+        list = list.filter(e => e.branchId === branchId);
+      }
     }
     return list.map(emp => {
       const titleObj = this.data.titles.find(t => t.code === emp.titleCode);
@@ -417,7 +470,7 @@ class Database {
   }
 
   registerEmployee(data) {
-    const { name, phone, password, pin, titleCode, jobTitle, branchId, weeklyOffDays, avatar } = data;
+    const { name, phone, password, pin, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo, leaveBalance, permissionsBalanceHours } = data;
     
     const existing = this.data.employees.find(e => e.phone === phone.trim());
     if (existing) {
@@ -435,13 +488,18 @@ class Database {
       phone: phone.trim(),
       password: pass,
       pin: pass,
-      titleCode: titleObj ? titleObj.code : "specialist",
-      jobTitle: jobTitle ? jobTitle.trim() : (titleObj ? titleObj.englishTitle : "Specialist"),
-      branchId: branchObj ? branchObj.id : "branch_sheraton",
+      titleCode: titleObj ? titleObj.code : "memberships_specialist",
+      jobTitle: jobTitle ? jobTitle.trim() : (titleObj ? titleObj.englishTitle : "Memberships Specialist"),
+      branchId: branchObj ? branchObj.id : "branch_october2",
+      sectorId: sectorId || "",
+      sectorName: sectorName || "",
       weeklyOffDays: Array.isArray(weeklyOffDays) && weeklyOffDays.length > 0 ? weeklyOffDays : ["friday", "saturday"],
       avatar: avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80`,
-      leaveBalance: 21,
-      permissionsBalanceHours: 6,
+      leaveBalance: leaveBalance !== undefined ? Number(leaveBalance) : 30,
+      permissionsBalanceHours: permissionsBalanceHours !== undefined ? Number(permissionsBalanceHours) : 2,
+      boundDeviceId: deviceId || null,
+      deviceInfo: deviceInfo || null,
+      deviceBoundAt: deviceId ? new Date().toISOString() : null,
       createdAt: new Date().toISOString()
     };
 
@@ -450,7 +508,7 @@ class Database {
     return this.getEmployeeById(newEmp.id);
   }
 
-  loginEmployee(phone, password) {
+  loginEmployee(phone, password, deviceContext = null) {
     const emp = this.data.employees.find(e => e.phone === phone.trim());
     if (!emp) {
       throw new Error("رقم الهاتف غير مسجل بالنظام.");
@@ -461,7 +519,39 @@ class Database {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
+    // Device binding check
+    if (deviceContext && deviceContext.deviceId) {
+      if (!emp.boundDeviceId) {
+        emp.boundDeviceId = deviceContext.deviceId;
+        emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
+        emp.deviceBoundAt = new Date().toISOString();
+        this.save();
+      } else if (emp.boundDeviceId !== deviceContext.deviceId) {
+        const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
+        throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي (Memberships Executive Director) لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
+      }
+    }
+
     return this.getEmployeeById(emp.id);
+  }
+
+  resetEmployeeDevice(employeeId) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+    emp.boundDeviceId = null;
+    emp.deviceInfo = null;
+    emp.deviceBoundAt = null;
+    this.save();
+    return { success: true, message: `تم فك ارتباط الجهاز للموظف (${emp.name}) بنجاح. يمكنه الآن تسجيل الدخول من جهازه الجديد وسيتم اعتماده تلقائياً.` };
+  }
+
+  updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+    if (leaveBalance !== undefined && leaveBalance !== null) emp.leaveBalance = Number(leaveBalance);
+    if (permissionsBalanceHours !== undefined && permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(permissionsBalanceHours);
+    this.save();
+    return this.getEmployeeById(employeeId);
   }
 
   changePassword(employeeId, oldPassword, newPassword) {
@@ -704,7 +794,10 @@ class Database {
 
       // 5. Absent
       result.summary.absentCount++;
-      result.absent.push({ employee: emp });
+      result.absent.push({
+        ...emp,
+        employee: emp
+      });
     });
 
     return result;
@@ -956,7 +1049,9 @@ class Database {
           status = 'present';
           const hrs = (dayAtt.durationMinutes ? (dayAtt.durationMinutes / 60).toFixed(1) : 0);
           label = `حاضر (${hrs}س)`;
-          detail = `${dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : ''} - ${dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : 'في العمل'}`;
+          const inTime = dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '';
+          const outTime = dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل';
+          detail = `${inTime} - ${outTime}`;
         } else if (dayLeave) {
           status = 'leave';
           label = dayLeave.leaveType === 'sick' ? 'مرضي' : (dayLeave.leaveType === 'travel' ? 'سفر' : (dayLeave.leaveType === 'annual' ? 'سنوي' : 'إجازة'));
@@ -1044,6 +1139,7 @@ module.exports = {
   Database,
   calculateDistanceMeters,
   DAY_MAP,
+  DEFAULT_SECTORS,
   DEFAULT_BRANCHES,
   DEFAULT_TITLES
 };

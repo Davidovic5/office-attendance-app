@@ -27,15 +27,56 @@ const DAY_MAP = {
   6: 'saturday'
 };
 
+const DEFAULT_SECTORS = [
+  {
+    id: 'sector_west_cairo',
+    name: 'قطاع غرب القاهرة',
+    branchIds: ['branch_maadi', 'branch_october1', 'branch_october2']
+  },
+  {
+    id: 'sector_east_cairo',
+    name: 'قطاع شرق القاهرة',
+    branchIds: ['branch_nakheel', 'branch_lotus']
+  },
+  {
+    id: 'sector_east_delta',
+    name: 'قطاع شرق الدلتا',
+    branchIds: ['branch_sheraton', 'branch_damietta', 'branch_mansoura']
+  },
+  {
+    id: 'sector_alex_tanta',
+    name: 'قطاع اسكندرية وطنطا',
+    branchIds: ['branch_alexandria', 'branch_tanta']
+  },
+  {
+    id: 'sector_upper_egypt',
+    name: 'قطاع الصعيد',
+    branchIds: ['branch_minya', 'branch_assiut']
+  }
+];
+
 const DEFAULT_BRANCHES = [
-  { id: 'branch_sheraton', code: 'sheraton', name: 'شيراتون', city: 'القاهرة', latitude: 30.1025, longitude: 31.3780, radiusMeters: 100 },
-  { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100 },
-  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100 },
-  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150 },
-  { id: 'branch_lotus', code: 'lotus', name: 'اللوتس', city: 'القاهرة الجديدة', latitude: 30.0384, longitude: 31.4880, radiusMeters: 100 },
-  { id: 'branch_assiut', code: 'assiut', name: 'اسيوط', city: 'أسيوط', latitude: 27.1809, longitude: 31.1837, radiusMeters: 120 },
-  { id: 'branch_minya', code: 'minya', name: 'المنيا', city: 'المنيا', latitude: 28.0871, longitude: 30.7618, radiusMeters: 120 },
-  { id: 'branch_alexandria', code: 'alexandria', name: 'اسكندرية', city: 'الإسكندرية', latitude: 31.2001, longitude: 29.9187, radiusMeters: 100 }
+  // قطاع غرب القاهرة
+  { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+
+  // قطاع شرق القاهرة
+  { id: 'branch_nakheel', code: 'nakheel', name: 'النخيل', city: 'القاهرة الجديدة', latitude: 30.0465, longitude: 31.4425, radiusMeters: 120, sectorId: 'sector_east_cairo', sectorName: 'قطاع شرق القاهرة' },
+  { id: 'branch_lotus', code: 'lotus', name: 'اللوتس', city: 'القاهرة الجديدة', latitude: 30.0384, longitude: 31.4880, radiusMeters: 100, sectorId: 'sector_east_cairo', sectorName: 'قطاع شرق القاهرة' },
+
+  // قطاع شرق الدلتا
+  { id: 'branch_sheraton', code: 'sheraton', name: 'شيراتون', city: 'القاهرة', latitude: 30.1025, longitude: 31.3780, radiusMeters: 100, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+  { id: 'branch_damietta', code: 'damietta', name: 'دمياط', city: 'دمياط الجديدة', latitude: 31.4365, longitude: 31.6705, radiusMeters: 150, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+  { id: 'branch_mansoura', code: 'mansoura', name: 'المنصورة', city: 'المنصورة', latitude: 31.0535, longitude: 31.3785, radiusMeters: 150, sectorId: 'sector_east_delta', sectorName: 'قطاع شرق الدلتا' },
+
+  // قطاع اسكندرية وطنطا
+  { id: 'branch_alexandria', code: 'alexandria', name: 'اسكندرية', city: 'الإسكندرية', latitude: 31.2001, longitude: 29.9187, radiusMeters: 120, sectorId: 'sector_alex_tanta', sectorName: 'قطاع اسكندرية وطنطا' },
+  { id: 'branch_tanta', code: 'tanta', name: 'طنطا', city: 'طنطا', latitude: 30.7925, longitude: 31.0012, radiusMeters: 120, sectorId: 'sector_alex_tanta', sectorName: 'قطاع اسكندرية وطنطا' },
+
+  // قطاع الصعيد
+  { id: 'branch_minya', code: 'minya', name: 'المنيا', city: 'المنيا', latitude: 28.0871, longitude: 30.7618, radiusMeters: 120, sectorId: 'sector_upper_egypt', sectorName: 'قطاع الصعيد' },
+  { id: 'branch_assiut', code: 'assiut', name: 'اسيوط', city: 'أسيوط', latitude: 27.1809, longitude: 31.1837, radiusMeters: 120, sectorId: 'sector_upper_egypt', sectorName: 'قطاع الصعيد' }
 ];
 
 const DEFAULT_TITLES = [
@@ -69,7 +110,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Area Manager (مدير منطقة العضويات)",
     englishTitle: "Memberships Area Manager",
     arabicTitle: "مدير منطقة العضويات",
-    description: "إدارة ومتابعة فروع المنطقة واعتماد كافة طلبات الإجازات والأذونات والانصراف الطارئ والتقارير",
+    description: "إدارة ومتابعة فروع القطاع التابع له فقط واعتماد كافة طلبات الإجازات والأذونات والانصراف والتقارير",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -80,10 +121,10 @@ const DEFAULT_TITLES = [
       approve_leaves_permissions: true,
       approve_early_checkout: true,
       manage_employees: true,
-      manage_titles_permissions: true,
-      manage_office_settings: true,
+      manage_titles_permissions: false,
+      manage_office_settings: false,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: true
     }
   },
@@ -93,7 +134,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Manager (مدير العضويات)",
     englishTitle: "Memberships Manager",
     arabicTitle: "مدير العضويات",
-    description: "الجهة المخولة حصرياً باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق",
+    description: "الجهة المخولة حصرياً بالفرع باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق لفرعه فقط",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -107,7 +148,7 @@ const DEFAULT_TITLES = [
       manage_titles_permissions: false,
       manage_office_settings: true,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: true
     }
   },
@@ -117,7 +158,7 @@ const DEFAULT_TITLES = [
     name: "Memberships Deputy Manager (نائب مدير العضويات)",
     englishTitle: "Memberships Deputy Manager",
     arabicTitle: "نائب مدير العضويات",
-    description: "متابعة الفريق ومراجعة الطلبات والتقارير - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ يتطلب موافقة مدير العضويات",
     color: "amber",
     permissions: {
       check_in_out: true,
@@ -131,7 +172,7 @@ const DEFAULT_TITLES = [
       manage_titles_permissions: false,
       manage_office_settings: false,
       view_reports: true,
-      view_all_branches: true,
+      view_all_branches: false,
       override_early_checkout: false
     }
   },
@@ -348,9 +389,22 @@ class MongoDatabaseAdapter {
     return updated;
   }
 
+  async getSectors() {
+    return DEFAULT_SECTORS;
+  }
+
   async getEmployees(branchId = null) {
     await this.ensureConnected();
-    const query = (branchId && branchId !== 'all') ? { branchId } : {};
+    let query = {};
+    if (branchId && branchId !== 'all') {
+      if (Array.isArray(branchId)) {
+        query = { branchId: { $in: branchId } };
+      } else if (branchId.includes(',')) {
+        query = { branchId: { $in: branchId.split(',') } };
+      } else {
+        query = { branchId };
+      }
+    }
     const employees = await Employee.find(query).lean();
     const titles = await Title.find().lean();
     const branches = await Branch.find().lean();
@@ -396,13 +450,18 @@ class MongoDatabaseAdapter {
       phone: empData.phone.trim(),
       password: (empData.password || empData.pin || "1234").trim(),
       pin: (empData.pin || empData.password || "1234").trim(),
-      titleCode: empData.titleCode || "specialist",
-      jobTitle: empData.jobTitle || "Specialist",
-      branchId: empData.branchId || "branch_sheraton",
+      titleCode: empData.titleCode || "memberships_specialist",
+      jobTitle: empData.jobTitle || "Memberships Specialist",
+      branchId: empData.branchId || "branch_october2",
+      sectorId: empData.sectorId || "",
+      sectorName: empData.sectorName || "",
       weeklyOffDays: empData.weeklyOffDays || ["friday", "saturday"],
       avatar: empData.avatar || "",
-      leaveBalance: 21,
-      permissionsBalanceHours: 6,
+      leaveBalance: empData.leaveBalance !== undefined ? empData.leaveBalance : 30,
+      permissionsBalanceHours: empData.permissionsBalanceHours !== undefined ? empData.permissionsBalanceHours : 2,
+      boundDeviceId: empData.deviceId || null,
+      deviceInfo: empData.deviceInfo || null,
+      deviceBoundAt: empData.deviceId ? new Date().toISOString() : null,
       createdAt: new Date().toISOString()
     });
 
@@ -410,9 +469,9 @@ class MongoDatabaseAdapter {
     return this.getEmployeeById(newEmp.id);
   }
 
-  async loginEmployee(phone, password) {
+  async loginEmployee(phone, password, deviceContext = null) {
     await this.ensureConnected();
-    const emp = await Employee.findOne({ phone: phone.trim() }).lean();
+    const emp = await Employee.findOne({ phone: phone.trim() });
     if (!emp) {
       throw new Error("رقم الهاتف غير مسجل بالنظام.");
     }
@@ -422,7 +481,41 @@ class MongoDatabaseAdapter {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
+    // Device binding check
+    if (deviceContext && deviceContext.deviceId) {
+      if (!emp.boundDeviceId) {
+        emp.boundDeviceId = deviceContext.deviceId;
+        emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
+        emp.deviceBoundAt = new Date().toISOString();
+        await emp.save();
+      } else if (emp.boundDeviceId !== deviceContext.deviceId) {
+        const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
+        throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي (Memberships Executive Director) لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
+      }
+    }
+
     return this.getEmployeeById(emp.id);
+  }
+
+  async resetEmployeeDevice(employeeId) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود.");
+    emp.boundDeviceId = null;
+    emp.deviceInfo = null;
+    emp.deviceBoundAt = null;
+    await emp.save();
+    return { success: true, message: `تم فك ارتباط الجهاز للموظف (${emp.name}) بنجاح. يمكنه الآن تسجيل الدخول من جهازه الجديد وسيتم اعتماده تلقائياً.` };
+  }
+
+  async updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود.");
+    if (leaveBalance !== undefined && leaveBalance !== null) emp.leaveBalance = Number(leaveBalance);
+    if (permissionsBalanceHours !== undefined && permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(permissionsBalanceHours);
+    await emp.save();
+    return this.getEmployeeById(employeeId);
   }
 
   async updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId }) {
@@ -673,7 +766,10 @@ class MongoDatabaseAdapter {
       }
 
       result.summary.absentCount++;
-      result.absent.push({ employee: emp });
+      result.absent.push({
+        ...emp,
+        employee: emp
+      });
     });
 
     return result;
@@ -689,7 +785,15 @@ class MongoDatabaseAdapter {
     let list = await Request.find(query).sort({ requestedAt: -1 }).lean();
 
     if (filters.branchId && filters.branchId !== 'all') {
-      const branchEmployees = await Employee.find({ branchId: filters.branchId }, { id: 1 }).lean();
+      let bQuery = {};
+      if (Array.isArray(filters.branchId)) {
+        bQuery = { branchId: { $in: filters.branchId } };
+      } else if (filters.branchId.includes(',')) {
+        bQuery = { branchId: { $in: filters.branchId.split(',') } };
+      } else {
+        bQuery = { branchId: filters.branchId };
+      }
+      const branchEmployees = await Employee.find(bQuery, { id: 1 }).lean();
       const branchEmpIds = new Set(branchEmployees.map(e => e.id));
       list = list.filter(r => branchEmpIds.has(r.employeeId));
     }
@@ -831,7 +935,15 @@ class MongoDatabaseAdapter {
     }
 
     const attQuery = { date: { $regex: `^${monthStr}` } };
-    if (branchId && branchId !== 'all') attQuery.branchId = branchId;
+    if (branchId && branchId !== 'all') {
+      if (Array.isArray(branchId)) {
+        attQuery.branchId = { $in: branchId };
+      } else if (branchId.includes(',')) {
+        attQuery.branchId = { $in: branchId.split(',') };
+      } else {
+        attQuery.branchId = branchId;
+      }
+    }
     if (employeeId && employeeId !== 'all') attQuery.employeeId = employeeId;
     const attendance = await AttendanceRecord.find(attQuery).lean();
 
@@ -920,7 +1032,9 @@ class MongoDatabaseAdapter {
           status = 'present';
           const hrs = (dayAtt.durationMinutes ? (dayAtt.durationMinutes / 60).toFixed(1) : 0);
           label = `حاضر (${hrs}س)`;
-          detail = `${dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : ''} - ${dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : 'في العمل'}`;
+          const inTime = dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '';
+          const outTime = dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل';
+          detail = `${inTime} - ${outTime}`;
         } else if (dayLeave) {
           status = 'leave';
           label = dayLeave.leaveType === 'sick' ? 'مرضي' : (dayLeave.leaveType === 'travel' ? 'سفر' : (dayLeave.leaveType === 'annual' ? 'سنوي' : 'إجازة'));
@@ -989,6 +1103,7 @@ module.exports = {
   MongoDatabaseAdapter,
   calculateDistanceMeters,
   DAY_MAP,
+  DEFAULT_SECTORS,
   DEFAULT_BRANCHES,
   DEFAULT_TITLES
 };

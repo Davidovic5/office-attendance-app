@@ -34,15 +34,16 @@ import { OfficeSettingsTab } from './components/OfficeSettingsTab';
 import { MonthlyReportTab } from './components/MonthlyReportTab';
 import { compressImage } from './utils/imageCompressor';
 import { checkIsInstalledApp } from './utils/appEnvironment';
+import { formatArabicDateWithDay } from './utils/dateHelpers';
 
 const DAYS_OF_WEEK = [
-  { id: 'friday', name: 'الجمعة' },
   { id: 'saturday', name: 'السبت' },
   { id: 'sunday', name: 'الأحد' },
   { id: 'monday', name: 'الإثنين' },
   { id: 'tuesday', name: 'الثلاثاء' },
   { id: 'wednesday', name: 'الأربعاء' },
-  { id: 'thursday', name: 'الخميس' }
+  { id: 'thursday', name: 'الخميس' },
+  { id: 'friday', name: 'الجمعة' }
 ];
 
 export default function App() {
@@ -401,7 +402,7 @@ export default function App() {
       case 'reports':
         return <MonthlyReportTab currentUser={currentUser} />;
       case 'roles':
-        return <RolesPermissionsTab onTitlesUpdated={() => loadInitialData(true)} />;
+        return <RolesPermissionsTab currentUser={currentUser} onTitlesUpdated={() => loadInitialData(true)} />;
       case 'settings':
         return (
           <OfficeSettingsTab 
@@ -436,12 +437,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* User Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* User Controls - Spaced out safely */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Profile Settings Button */}
             <button
               onClick={openProfileSettings}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-colors flex items-center justify-center shadow-xs"
+              className="p-2 sm:p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-colors flex items-center justify-center shadow-xs"
               title="إعدادات الحساب والصورة وكلمة المرور"
             >
               <User className="w-4 h-4" />
@@ -451,17 +452,20 @@ export default function App() {
             {!isAppInstalled && (
               <button
                 onClick={() => setShowInstallModal(true)}
-                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center justify-center shadow-xs"
+                className="p-2 sm:p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700/80 transition-colors flex items-center justify-center shadow-xs"
                 title="تنزيل التطبيق على الهاتف"
               >
                 <Download className="w-4 h-4 text-amber-400" />
               </button>
             )}
 
+            {/* Subtle Divider between profile and logout */}
+            <div className="w-[1px] h-5 bg-zinc-800 mx-0.5"></div>
+
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-zinc-800/80 hover:bg-rose-950/80 text-zinc-400 hover:text-rose-300 transition-colors flex items-center justify-center border border-zinc-700/60 shadow-xs"
+              className="p-2 sm:p-2.5 rounded-xl bg-zinc-800/80 hover:bg-rose-950/80 text-zinc-400 hover:text-rose-300 transition-colors flex items-center justify-center border border-zinc-700/60 shadow-xs"
               title="تسجيل الخروج"
             >
               <LogOut className="w-4 h-4" />
@@ -506,10 +510,10 @@ export default function App() {
             </div>
           </div>
 
-          <div className="text-left bg-zinc-950/90 px-2.5 py-2 rounded-2xl border border-zinc-800 shrink-0 relative z-10">
+          <div className="text-left bg-zinc-950/90 px-3 py-2 rounded-2xl border border-zinc-800 shrink-0 relative z-10 shadow-inner">
             <span className="text-[10px] text-zinc-400 font-semibold block leading-tight">اليوم</span>
             <span className="text-xs font-black text-amber-400 whitespace-nowrap">
-              {new Date().toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' })}
+              {formatArabicDateWithDay(new Date())}
             </span>
           </div>
         </div>

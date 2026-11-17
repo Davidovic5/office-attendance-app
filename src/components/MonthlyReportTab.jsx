@@ -22,6 +22,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { api } from '../api';
+import { getUserAllowedBranches } from '../utils/userScope';
 
 const MONTH_NAMES = [
   'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
@@ -40,18 +41,38 @@ export function MonthlyReportTab({ currentUser }) {
   const [expandedEmployeeId, setExpandedEmployeeId] = useState(null);
   const [viewMode, setViewMode] = useState('summary'); // 'summary' | 'attendance_log' | 'leaves_log'
 
+  const allowedBranches = getUserAllowedBranches(currentUser, branches);
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+  const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
+
   // Load branches
   useEffect(() => {
     api.getBranches().then(res => {
-      if (res.success) setBranches(res.branches || []);
+      if (res.success && res.branches) {
+        setBranches(res.branches);
+        const allowed = getUserAllowedBranches(currentUser, res.branches);
+        if (allowed.length === 1) {
+          setSelectedBranchId(allowed[0].id);
+        } else if (currentUser?.titleCode === 'memberships_area_manager') {
+          setSelectedBranchId('all_sector');
+        } else {
+          setSelectedBranchId('all');
+        }
+      }
     }).catch(console.error);
-  }, []);
+  }, [currentUser]);
 
   // Fetch monthly report
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const res = await api.getMonthlyReport(selectedYear, selectedMonth, selectedBranchId);
+      let branchParam = selectedBranchId;
+      if (selectedBranchId === 'all_sector' && isAreaMgr) {
+        branchParam = allowedBranches.map(b => b.id).join(',');
+      } else if (!isExecutive && allowedBranches.length === 1) {
+        branchParam = allowedBranches[0].id;
+      }
+      const res = await api.getMonthlyReport(selectedYear, selectedMonth, branchParam);
       if (res.success) {
         setReportData(res.report);
       }
@@ -141,18 +162,29 @@ export function MonthlyReportTab({ currentUser }) {
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
-            <select
-              value={selectedBranchId}
-              onChange={e => setSelectedBranchId(e.target.value)}
-              className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
-            >
-              <option value="all">🌐 جميع الفروع (إجمالي أندية وادي دجلة)</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>
-                  فرع {b.name} ({b.city})
-                </option>
-              ))}
-            </select>
+            {allowedBranches.length > 1 ? (
+              <select
+                value={selectedBranchId}
+                onChange={e => setSelectedBranchId(e.target.value)}
+                className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+              >
+                {isExecutive && (
+                  <option value="all">🌐 جميع الفروع والقطاعات (إجمالي أندية وادي دجلة)</option>
+                )}
+                {isAreaMgr && (
+                  <option value="all_sector">🏢 كافة فروع القطاع ({currentUser?.sectorName || 'القطاع'})</option>
+                )}
+                {allowedBranches.map(b => (
+                  <option key={b.id} value={b.id}>
+                    فرع {b.name} ({b.city})
+                  </option>
+                ))}
+              </select>
+            ) : allowedBranches.length === 1 ? (
+              <div className="text-xs font-bold text-amber-400 bg-zinc-950 px-3 py-2 rounded-xl border border-zinc-800 flex-1">
+                فرع {allowedBranches[0].name} ({allowedBranches[0].city})
+              </div>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -387,9 +419,9 @@ export function MonthlyReportTab({ currentUser }) {
 
                     <div className="text-left font-mono">
                       <div className="text-zinc-200 font-bold">
-                        حضور: {checkInDate ? checkInDate.toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : '--'}
+                        حضور: {checkInDate ? checkInDate.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '--'}
                         {' ➔ '}
-                        انصراف: {checkOutDate ? checkOutDate.toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : 'في العمل'}
+                        انصراف: {checkOutDate ? checkOutDate.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل'}
                       </div>
                       <div className="text-[11px] text-emerald-400 mt-0.5">
                         إجمالي الوقت: {durationHrs} ساعة {rec.completed8Hours && '• مكتمل 8س ✅'}

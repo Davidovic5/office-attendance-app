@@ -16,10 +16,12 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { api } from '../api';
+import { getUserAllowedBranches } from '../utils/userScope';
 
 export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [activeSubTab, setActiveSubTab] = useState('list'); // 'list' | 'new_request'
   const [requests, setRequests] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
@@ -48,10 +50,31 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
     'memberships_executive_director'
   ].includes(currentUser.titleCode);
 
+  useEffect(() => {
+    api.getBranches().then(res => {
+      if (res.success && res.branches) {
+        setBranches(res.branches);
+      }
+    }).catch(console.error);
+  }, []);
+
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const res = await api.getRequests();
+      let params = {};
+      const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+      const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
+
+      if (isAreaMgr) {
+        const allowed = getUserAllowedBranches(currentUser, branches);
+        if (allowed.length > 0) {
+          params.branchId = allowed.map(b => b.id).join(',');
+        }
+      } else if (!isExecutive && currentUser?.branchId) {
+        params.branchId = currentUser.branchId;
+      }
+
+      const res = await api.getRequests(params);
       if (res.success) {
         setRequests(res.requests);
       }
@@ -64,7 +87,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [branches, currentUser]);
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
@@ -154,10 +177,10 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
         {/* Balance Badges */}
         <div className="flex items-center gap-2">
           <div className="bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl text-xs font-bold text-amber-400">
-            رصيدك: {currentUser.leaveBalance ?? 21} يوم
+            رصيدك: {currentUser.leaveBalance ?? 30} يوم
           </div>
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-xl text-xs font-bold text-zinc-300">
-            أذوناتك: {currentUser.permissionsBalanceHours ?? 6} س
+            أذوناتك: {currentUser.permissionsBalanceHours ?? 2} س
           </div>
         </div>
       </div>

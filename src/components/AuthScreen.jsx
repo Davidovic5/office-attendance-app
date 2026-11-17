@@ -25,6 +25,7 @@ import {
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
 import { checkIsInstalledApp } from '../utils/appEnvironment';
+import { DEFAULT_SECTORS } from '../utils/userScope';
 
 const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' },
@@ -83,7 +84,8 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regTitleCode, setRegTitleCode] = useState(titles && titles[titles.length - 1] ? titles[titles.length - 1].code : 'memberships_specialist');
-  const [regBranchId, setRegBranchId] = useState(branches && branches[0] ? branches[0].id : 'branch_sheraton');
+  const [regSectorId, setRegSectorId] = useState(DEFAULT_SECTORS[0].id);
+  const [regBranchId, setRegBranchId] = useState(branches && branches[0] ? branches[0].id : 'branch_october2');
   const [regWeeklyOff, setRegWeeklyOff] = useState(['friday', 'saturday']);
   const [regAvatar, setRegAvatar] = useState('');
   const [avatarPreview, setAvatarPreview] = useState('');
@@ -179,13 +181,18 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
 
     try {
       const selectedTitle = (titles || []).find(t => t.code === regTitleCode);
+      const isAreaMgr = regTitleCode === 'memberships_area_manager';
+      const selectedSector = isAreaMgr ? DEFAULT_SECTORS.find(s => s.id === regSectorId) : null;
+
       const res = await api.register({
         name: regName.trim(),
         phone: regPhone.trim(),
         pin: regPassword.trim(),
         titleCode: regTitleCode,
-        jobTitle: selectedTitle ? selectedTitle.englishTitle : 'Specialist',
+        jobTitle: selectedTitle ? selectedTitle.englishTitle : 'Memberships Specialist',
         branchId: regBranchId,
+        sectorId: selectedSector ? selectedSector.id : '',
+        sectorName: selectedSector ? selectedSector.name : '',
         weeklyOffDays: regWeeklyOff,
         avatar: regAvatar || avatarPreview || DEFAULT_AVATAR
       });
@@ -581,26 +588,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
             </div>
 
-            {/* 4. Branch Selection */}
-            <div>
-              <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-amber-400" />
-                <span>اختر فرع وادي دجلة التابع له:</span>
-              </label>
-              <select
-                value={regBranchId}
-                onChange={e => setRegBranchId(e.target.value)}
-                className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-amber-500/50 text-amber-400 focus:outline-none focus:border-amber-400"
-              >
-                {branchList.map(b => (
-                  <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
-                    📍 نادي وادي دجلة - فرع {b.name} ({b.city})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 5. Job Title & Hierarchy */}
+            {/* 4. Job Title & Hierarchy */}
             <div>
               <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center gap-1">
                 <Briefcase className="w-3 h-3 text-amber-400" />
@@ -608,12 +596,81 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </label>
               <select
                 value={regTitleCode}
-                onChange={e => setRegTitleCode(e.target.value)}
+                onChange={e => {
+                  const newTitle = e.target.value;
+                  setRegTitleCode(newTitle);
+                  if (newTitle === 'memberships_area_manager') {
+                    const sec = DEFAULT_SECTORS.find(s => s.id === regSectorId) || DEFAULT_SECTORS[0];
+                    if (sec && sec.branchIds.length > 0) {
+                      setRegBranchId(sec.branchIds[0]);
+                    }
+                  }
+                }}
                 className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
               >
                 {titles.map(t => (
                   <option key={t.code} value={t.code} className="bg-zinc-900 text-zinc-100">
                     {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4.1 Sector Selection (For Area Manager) */}
+            {regTitleCode === 'memberships_area_manager' && (
+              <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-2xl space-y-1.5 animate-fade-in">
+                <label className="block text-[11px] font-black text-amber-300 flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>اختر القطاع المسؤول عنه (Memberships Area Manager):</span>
+                </label>
+                <select
+                  value={regSectorId}
+                  onChange={e => {
+                    const secId = e.target.value;
+                    setRegSectorId(secId);
+                    const sec = DEFAULT_SECTORS.find(s => s.id === secId);
+                    if (sec && sec.branchIds.length > 0) {
+                      setRegBranchId(sec.branchIds[0]);
+                    }
+                  }}
+                  className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-amber-500 text-amber-300 focus:outline-none"
+                >
+                  {DEFAULT_SECTORS.map(sec => (
+                    <option key={sec.id} value={sec.id} className="bg-zinc-900 text-zinc-100">
+                      🏢 {sec.name} ({branchList.filter(b => sec.branchIds.includes(b.id)).map(b => b.name).join(' - ')})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-zinc-400 leading-tight">
+                  * سيتم منحك صلاحية متابعة كافة أندية وموظفي هذا القطاع بالكامل.
+                </p>
+              </div>
+            )}
+
+            {/* 5. Branch Selection */}
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-amber-400" />
+                <span>
+                  {regTitleCode === 'memberships_area_manager' 
+                    ? 'اختر الفرع المعتمد بالقطاع (مقر تواجدك الأساسي):' 
+                    : 'اختر فرع وادي دجلة التابع له:'}
+                </span>
+              </label>
+              <select
+                value={regBranchId}
+                onChange={e => setRegBranchId(e.target.value)}
+                className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-amber-500/50 text-amber-400 focus:outline-none focus:border-amber-400"
+              >
+                {(regTitleCode === 'memberships_area_manager'
+                  ? branchList.filter(b => {
+                      const sec = DEFAULT_SECTORS.find(s => s.id === regSectorId);
+                      return sec ? sec.branchIds.includes(b.id) : true;
+                    })
+                  : branchList
+                ).map(b => (
+                  <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                    📍 نادي وادي دجلة - فرع {b.name} ({b.city})
                   </option>
                 ))}
               </select>
@@ -732,7 +789,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                   <span className="text-[10px] text-emerald-400 font-bold">متوافق مع جميع أجهزة أندرويد</span>
                 </div>
                 <a
-                  href="/download/OfficeAttendance.apk"
+                  href="/download/WadiDeglaAttendance.apk?v=2.4"
                   download="WadiDeglaAttendance.apk"
                   className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold rounded-xl transition-colors text-xs border border-zinc-700"
                 >
