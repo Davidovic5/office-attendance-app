@@ -484,7 +484,19 @@ export function MonthlyReportTab({ currentUser }) {
                             {isEarlyCheckout
                               ? 'انصراف طارئ 🚨'
                               : isLeave 
-                                ? (req.leaveType === 'sick' ? 'إجازة مرضي 🏥' : (req.leaveType === 'travel' ? 'سفر / مأمورية ✈️' : (req.leaveType === 'annual' ? 'إجازة سنوية 🏖️' : 'إجازة'))) 
+                                ? (req.leaveType === 'sick' 
+                                    ? 'إجازة مرضي 🏥' 
+                                    : (req.leaveType === 'work_mission' 
+                                        ? 'مأمورية عمل 🎯' 
+                                        : (req.leaveType === 'weekly_rest_compensation' 
+                                            ? 'بدل راحة أسبوعية 🔄' 
+                                            : (req.leaveType === 'holiday_compensation' 
+                                                ? 'بدل إجازة عيد 🎉' 
+                                                : (req.leaveType === 'casual' 
+                                                    ? 'إجازة عارضة ⚡' 
+                                                    : (req.leaveType === 'annual' 
+                                                        ? 'إجازة سنوية 🏖️' 
+                                                        : 'إجازة')))))) 
                                 : 'إذن ساعتين 🕒'}
                           </span>
                         </div>

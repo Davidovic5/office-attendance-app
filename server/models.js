@@ -22,6 +22,7 @@ const TitleSchema = new mongoose.Schema({
   arabicTitle: { type: String, required: true },
   description: { type: String, default: '' },
   color: { type: String, default: 'zinc' },
+  order: { type: Number, default: 7 },
   permissions: {
     check_in_out: { type: Boolean, default: true },
     view_own_attendance: { type: Boolean, default: true },
@@ -57,6 +58,8 @@ const EmployeeSchema = new mongoose.Schema({
   boundDeviceId: { type: String, default: null },
   deviceInfo: { type: String, default: null },
   deviceBoundAt: { type: String, default: null },
+  isSuperAdmin: { type: Boolean, default: false },
+  isGhost: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
@@ -81,8 +84,23 @@ const AttendanceRecordSchema = new mongoose.Schema({
 const RequestSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   employeeId: { type: String, required: true, index: true },
+  branchId: { type: String, default: null },
   type: { type: String, required: true, enum: ['leave', 'permission', 'early_checkout'] },
-  leaveType: { type: String, enum: ['sick', 'travel', 'annual', 'casual', 'weekly_off', 'other'], default: 'sick' },
+  leaveType: { 
+    type: String, 
+    enum: [
+      'sick', 
+      'annual', 
+      'casual', 
+      'work_mission', 
+      'weekly_rest_compensation', 
+      'holiday_compensation', 
+      'travel', 
+      'weekly_off', 
+      'other'
+    ], 
+    default: 'annual' 
+  },
   startDate: { type: String },
   endDate: { type: String },
   date: { type: String },
@@ -92,6 +110,13 @@ const RequestSchema = new mongoose.Schema({
   endTime: { type: String, default: '11:00' },
   reason: { type: String, required: true },
   attachmentName: { type: String, default: null },
+  attachmentData: { type: String, default: null },
+  missionBranchId: { type: String, default: null },
+  missionBranchName: { type: String, default: null },
+  missionDate: { type: String, default: null },
+  compensationOffDate: { type: String, default: null },
+  compensationWorkedDate: { type: String, default: null },
+  holidayName: { type: String, default: null },
   status: { type: String, default: 'pending', enum: ['pending', 'approved', 'rejected'] },
   requestedAt: { type: String, default: () => new Date().toISOString() },
   reviewedBy: { type: String, default: null },

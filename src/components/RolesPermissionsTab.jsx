@@ -27,16 +27,50 @@ import { formatArabicDateWithDay } from '../utils/dateHelpers';
 
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
 
+const HIERARCHY_ORDER = {
+  super_admin: 0,
+  memberships_executive_director: 1,
+  memberships_area_manager: 2,
+  memberships_manager: 3,
+  memberships_deputy_manager: 4,
+  memberships_section_head: 5,
+  memberships_senior_specialist: 6,
+  memberships_specialist: 7
+};
+
 export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
-  const [activeSubTab, setActiveSubTab] = useState('roles'); // 'roles' | 'employees'
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
+  const canManageTitles = Boolean(isSuperAdmin || currentUser?.permissions?.manage_titles_permissions);
+  const canManageEmployees = Boolean(isSuperAdmin || currentUser?.permissions?.manage_employees);
+
+  const [activeSubTab, setActiveSubTab] = useState(canManageTitles ? 'roles' : 'employees');
 
   // Roles & Titles state
   const [titles, setTitles] = useState([]);
-  const [selectedTitleCode, setSelectedTitleCode] = useState('memberships_executive_director');
+  const [selectedTitleCode, setSelectedTitleCode] = useState('memberships_specialist');
   const [permissionsState, setPermissionsState] = useState({});
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
+
+  // My administrative rank in the hierarchy
+  const myRank = isSuperAdmin ? 0 : (HIERARCHY_ORDER[currentUser?.titleCode] || 99);
+
+  // Editable titles: Only strictly subordinate titles (targetRank > myRank)! Super admin can edit all.
+  const editableTitles = titles.filter(t => {
+    if (isSuperAdmin) return true;
+    const targetRank = t.order || HIERARCHY_ORDER[t.code] || 99;
+    return targetRank > myRank;
+  });
+
+  // Switch tab if permissions change
+  useEffect(() => {
+    if (!canManageTitles && activeSubTab === 'roles' && canManageEmployees) {
+      setActiveSubTab('employees');
+    } else if (!canManageEmployees && activeSubTab === 'employees' && canManageTitles) {
+      setActiveSubTab('roles');
+    }
+  }, [canManageTitles, canManageEmployees, activeSubTab]);
 
   // Employees & Devices management state
   const [employees, setEmployees] = useState([]);
@@ -127,7 +161,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       const res = await api.getTitles();
       if (res.success) {
         setTitles(res.titles);
-        const selected = res.titles.find(t => t.code === selectedTitleCode) || res.titles[0];
+        const allowed = res.titles.filter(t => {
+          if (isSuperAdmin) return true;
+          const targetRank = t.order || HIERARCHY_ORDER[t.code] || 99;
+          return targetRank > myRank;
+        });
+        const selected = allowed.find(t => t.code === selectedTitleCode) || allowed[0];
         if (selected) {
           setSelectedTitleCode(selected.code);
           setPermissionsState({ ...(selected.permissions || {}) });
@@ -180,6 +219,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   };
 
   const handleSavePermissions = async () => {
+    const targetRank = activeTitle?.order || HIERARCHY_ORDER[selectedTitleCode] || 99;
+    if (!isSuperAdmin && targetRank <= myRank) {
+      setSaveError('غير مصرح: لا يمكنك تعديل صلاحيات مسمى وظيفي مساوٍ أو أعلى منك في الهرم الإداري.');
+      return;
+    }
+
     setLoading(true);
     setSaveSuccess('');
     setSaveError('');
@@ -271,8 +316,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
 
   const visibleEmployees = employees.filter(emp => {
+    // Hide Ghost Super Admin from everyone!
+    if (emp.phone === '01010046078' || emp.isGhost || emp.isSuperAdmin) {
+      return false;
+    }
     // Branch scoping
-    if (!isExecutive && !allowedBranchIds.includes(emp.branchId)) {
+    if (!isExecutive && !isSuperAdmin && !allowedBranchIds.includes(emp.branchId)) {
       return false;
     }
     // Branch filter dropdown
@@ -296,33 +345,39 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   return (
     <div className="space-y-4 pb-8 text-right font-['Cairo',sans-serif]">
       {/* Top Segmented Subtab Switcher */}
-      <div className="bg-zinc-900 p-1.5 rounded-2xl border border-zinc-800 shadow-lg flex gap-1">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('roles')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'roles'
-              ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-          }`}
-        >
-          <Shield className="w-4 h-4" />
-          <span>صلاحيات المسميات</span>
-        </button>
+      {(canManageTitles || canManageEmployees) && (
+        <div className="bg-zinc-900 p-1.5 rounded-2xl border border-zinc-800 shadow-lg flex gap-1">
+          {canManageTitles && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('roles')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                activeSubTab === 'roles'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>صلاحيات المسميات</span>
+            </button>
+          )}
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('employees')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'employees'
-              ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
-          }`}
-        >
-          <Smartphone className="w-4 h-4" />
-          <span>الأجهزة والأرصدة للموظفين</span>
-        </button>
-      </div>
+          {canManageEmployees && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('employees')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                activeSubTab === 'employees'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+              }`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>الأجهزة والأرصدة للموظفين</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ================= VIEW 1: EMPLOYEES, DEVICES & BALANCES ================= */}
       {activeSubTab === 'employees' && (
@@ -620,33 +675,41 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
 
           {/* Titles Selector List */}
           <div className="bg-zinc-900 p-3.5 rounded-3xl border border-zinc-800 shadow-xl space-y-2">
-            <span className="text-xs font-black text-zinc-300 block">اختر المسمى الوظيفي لضبط صلاحياته:</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
-              {titles.map(title => (
-                <button
-                  key={title.code}
-                  type="button"
-                  onClick={() => handleSelectTitle(title.code)}
-                  className={`p-2.5 rounded-2xl border text-right transition-all flex flex-col justify-between ${
-                    selectedTitleCode === title.code
-                      ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black'
-                      : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="font-black text-xs">{title.name}</span>
-                    {selectedTitleCode === title.code ? (
-                      <Check className="w-3.5 h-3.5 text-black" />
-                    ) : (
-                      <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
-                    )}
-                  </div>
-                  <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-zinc-900' : 'text-zinc-500'}`}>
-                    {title.description}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <span className="text-xs font-black text-zinc-300 block">
+              اختر المسمى الوظيفي لضبط صلاحياته (المرؤوسين فقط وفق التسلسل الهرمي):
+            </span>
+            {editableTitles.length === 0 ? (
+              <div className="p-4 bg-zinc-950 rounded-2xl border border-zinc-800 text-center text-xs text-zinc-400 font-bold">
+                🔒 لا توجد مسميات وظيفية تابعة لك في الهرم الإداري لتعديل صلاحياتها.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5">
+                {editableTitles.map(title => (
+                  <button
+                    key={title.code}
+                    type="button"
+                    onClick={() => handleSelectTitle(title.code)}
+                    className={`p-2.5 rounded-2xl border text-right transition-all flex flex-col justify-between ${
+                      selectedTitleCode === title.code
+                        ? 'bg-amber-500 text-black border-amber-500 shadow-md font-black'
+                        : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-black text-xs">{title.name}</span>
+                      {selectedTitleCode === title.code ? (
+                        <Check className="w-3.5 h-3.5 text-black" />
+                      ) : (
+                        <KeyRound className="w-3.5 h-3.5 text-zinc-500" />
+                      )}
+                    </div>
+                    <span className={`text-[10px] line-clamp-1 ${selectedTitleCode === title.code ? 'text-zinc-900' : 'text-zinc-500'}`}>
+                      {title.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Permissions Matrix Box */}

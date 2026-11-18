@@ -350,52 +350,77 @@ export default function App() {
     );
   }
 
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
+
   // Look up current user's title dynamically from titles list, falling back to currentUser.permissions
   const userTitleObj = (titles || []).find(t => t.code === currentUser.titleCode);
-  const permissions = userTitleObj?.permissions || currentUser.permissions || {};
-  const isExecutive = currentUser.titleCode === 'memberships_executive_director' || currentUser.titleCode === 'memberships_area_manager';
-  const isManager = isExecutive || currentUser.titleCode === 'memberships_manager' || permissions.manage_titles_permissions;
-  const liveUser = { ...currentUser, permissions };
+  const basePermissions = userTitleObj?.permissions || currentUser.permissions || {};
+  const permissions = isSuperAdmin
+    ? {
+        check_in_out: true,
+        view_own_attendance: true,
+        view_office_presence: true,
+        request_leave: true,
+        request_permission: true,
+        approve_leaves_permissions: true,
+        approve_early_checkout: true,
+        manage_employees: true,
+        manage_titles_permissions: true,
+        manage_office_settings: true,
+        view_reports: true,
+        view_all_branches: true,
+        override_early_checkout: true
+      }
+    : basePermissions;
 
-  // Tabs configuration based on user permissions
+  const liveUser = { ...currentUser, isSuperAdmin, permissions };
+
+  // Tabs configuration strictly based on permissions without hardcoded role bypasses!
   const tabs = [
     {
       id: 'check_in',
       label: 'الحضور',
       icon: Clock,
-      enabled: permissions.check_in_out !== false
+      enabled: Boolean(isSuperAdmin || permissions.check_in_out !== false)
     },
     {
       id: 'presence',
       label: 'المتواجدين',
       icon: Users,
-      enabled: permissions.view_office_presence !== false
+      enabled: Boolean(isSuperAdmin || permissions.view_office_presence !== false)
     },
     {
       id: 'leaves',
       label: 'الإجازات',
       icon: FileText,
-      enabled: permissions.request_leave !== false || permissions.request_permission !== false
+      enabled: Boolean(isSuperAdmin || permissions.request_leave !== false || permissions.request_permission !== false || permissions.approve_leaves_permissions)
     },
     {
       id: 'reports',
       label: 'التقارير',
       icon: BarChart3,
-      enabled: permissions.view_reports !== false || isManager
+      enabled: Boolean(isSuperAdmin || permissions.view_reports !== false)
     },
     {
       id: 'roles',
       label: 'الصلاحيات',
       icon: Shield,
-      enabled: permissions.manage_titles_permissions || isManager
+      enabled: Boolean(isSuperAdmin || permissions.manage_titles_permissions || permissions.manage_employees)
     },
     {
       id: 'settings',
       label: 'الفروع',
       icon: Settings,
-      enabled: permissions.manage_office_settings || isManager
+      enabled: Boolean(isSuperAdmin || permissions.manage_office_settings)
     }
   ].filter(t => t.enabled);
+
+  // Auto fallback activeTab if current tab was disabled
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some(t => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
 
   const renderTabContent = () => {
     switch (activeTab) {

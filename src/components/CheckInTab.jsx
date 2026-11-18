@@ -39,14 +39,25 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     'memberships_manager'
   ].includes(currentUser.titleCode) || Boolean(hasOverridePermission);
 
-  // Employee's branch
-  const branch = currentUser.branchDetails || {
+  // Branches & Mission State
+  const [allBranches, setAllBranches] = useState([]);
+  const [todayMission, setTodayMission] = useState(null);
+
+  // Employee's regular home branch
+  const homeBranch = currentUser.branchDetails || {
     id: 'branch_october2',
     name: 'اكتوبر ٢',
     latitude: 29.9652734,
     longitude: 30.9634410,
     radiusMeters: 150
   };
+
+  // If employee has an approved work mission today at another branch, use that branch!
+  const missionBranch = todayMission && todayMission.missionBranchId
+    ? allBranches.find(b => b.id === todayMission.missionBranchId)
+    : null;
+
+  const branch = missionBranch || homeBranch;
   
   // Real Phone GPS State (No Simulation)
   const [userCoords, setUserCoords] = useState(null);
@@ -126,7 +137,16 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     refreshLocation(true);
   }, [branch.id]);
 
-  // Fetch today's attendance & early checkout requests
+  // Load branches list
+  useEffect(() => {
+    api.getBranches().then(res => {
+      if (res.success && res.branches) {
+        setAllBranches(res.branches);
+      }
+    }).catch(console.error);
+  }, []);
+
+  // Fetch today's attendance, approved work missions & early checkout requests
   const fetchAttendance = async () => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -147,6 +167,16 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
           const now = Date.now();
           setElapsedSeconds(Math.max(0, Math.floor((now - checkInTime) / 1000)));
         }
+      }
+
+      // Fetch approved work missions for current user today
+      const allApprovedReqs = await api.getRequests({ employeeId: currentUser.id, status: 'approved' });
+      if (allApprovedReqs.success && allApprovedReqs.requests) {
+        const mission = allApprovedReqs.requests.find(
+          r => r.type === 'leave' && r.leaveType === 'work_mission' &&
+          (r.missionDate === todayStr || r.date === todayStr || (r.startDate <= todayStr && r.endDate >= todayStr))
+        );
+        setTodayMission(mission || null);
       }
 
       // Fetch early checkout requests for current user today
@@ -353,6 +383,19 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         <div className="bg-emerald-950/80 border border-emerald-700 p-4 rounded-2xl flex items-start gap-2.5 text-emerald-200 text-xs shadow-lg animate-fade-in leading-relaxed">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div className="flex-1 font-black">{successMsg}</div>
+        </div>
+      )}
+
+      {/* Approved Mission Today Banner */}
+      {todayMission && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-500/40 p-4 rounded-3xl text-right space-y-1.5 shadow-lg animate-fade-in">
+          <div className="flex items-center gap-2 text-amber-400">
+            <Building2 className="w-5 h-5 text-amber-400 shrink-0" />
+            <span className="text-xs font-black">🎯 لديك مأمورية عمل معتمدة اليوم</span>
+          </div>
+          <p className="text-xs text-zinc-300 leading-relaxed font-bold">
+            تم تفعيل نطاق تسجيل الحضور والانصراف بفرع: <span className="text-amber-300 underline font-black">فرع {branch.name}</span>
+          </p>
         </div>
       )}
 

