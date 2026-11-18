@@ -321,7 +321,17 @@ class Database {
         if (!this.data.branches || this.data.branches.length === 0) {
           this.data.branches = DEFAULT_BRANCHES;
         }
-        this.data.titles = DEFAULT_TITLES;
+        if (!this.data.titles || this.data.titles.length === 0) {
+          this.data.titles = DEFAULT_TITLES;
+        } else {
+          // Sync new titles if any, but preserve existing customized permissions
+          for (const dt of DEFAULT_TITLES) {
+            const existing = this.data.titles.find(t => t.code === dt.code);
+            if (!existing) {
+              this.data.titles.push(dt);
+            }
+          }
+        }
         this.save();
       } catch (err) {
         console.error("Error reading database, creating fresh one:", err);

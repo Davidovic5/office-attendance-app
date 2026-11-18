@@ -31,12 +31,13 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const [successMsg, setSuccessMsg] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // High-level authority: Executive Director, Area Manager, Memberships Manager
+  // High-level authority: Executive Director, Area Manager, Memberships Manager, or anyone granted override_early_checkout permission
+  const hasOverridePermission = currentUser.permissions && currentUser.permissions.override_early_checkout;
   const isExecutiveOrManager = [
     'memberships_executive_director',
     'memberships_area_manager',
     'memberships_manager'
-  ].includes(currentUser.titleCode);
+  ].includes(currentUser.titleCode) || Boolean(hasOverridePermission);
 
   // Employee's branch
   const branch = currentUser.branchDetails || {

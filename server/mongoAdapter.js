@@ -287,11 +287,27 @@ async function seedMongoData() {
     await Branch.updateOne({ id: b.id }, { $set: b }, { upsert: true });
   }
 
-  // 3. Titles
+  // 3. Titles (Preserve user customized permissions, never overwrite them!)
   const validCodes = DEFAULT_TITLES.map(t => t.code);
   await Title.deleteMany({ code: { $nin: validCodes } });
   for (const t of DEFAULT_TITLES) {
-    await Title.updateOne({ code: t.code }, { $set: t }, { upsert: true });
+    const existing = await Title.findOne({ code: t.code });
+    if (!existing) {
+      await Title.create(t);
+    } else {
+      // Never overwrite existing permissions configured by the user
+      await Title.updateOne(
+        { code: t.code },
+        {
+          $set: {
+            name: t.name,
+            englishTitle: t.englishTitle,
+            order: t.order,
+            description: t.description
+          }
+        }
+      );
+    }
   }
 
   // 4. Default Master Seed Employee if none exist
@@ -381,12 +397,13 @@ class MongoDatabaseAdapter {
 
   async updateTitlePermissions(code, permissions) {
     await this.ensureConnected();
-    const updated = await Title.findOneAndUpdate(
-      { code },
-      { $set: { permissions } },
-      { new: true }
-    ).lean();
-    return updated;
+    const doc = await Title.findOne({ code });
+    if (!doc) return null;
+    const currentPerms = doc.permissions ? (doc.permissions.toObject ? doc.permissions.toObject() : doc.permissions) : {};
+    doc.permissions = { ...currentPerms, ...permissions };
+    doc.markModified('permissions');
+    await doc.save();
+    return doc.toObject ? doc.toObject() : doc;
   }
 
   async getSectors() {

@@ -186,9 +186,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
 
     try {
       const res = await api.updateTitlePermissions(selectedTitleCode, permissionsState);
-      if (res.success) {
-        setSaveSuccess(`تم تحديث صلاحيات (${res.title.name}) بنجاح.`);
-        if (onTitlesUpdated) onTitlesUpdated();
+      if (res.success && res.title) {
+        setSaveSuccess(`تم حفظ وتطبيق صلاحيات (${res.title.name}) بنجاح.`);
+        // Immediately update local titles array so state stays fresh!
+        setTitles(prev => prev.map(t => t.code === selectedTitleCode ? res.title : t));
+        setPermissionsState({ ...(res.title.permissions || {}) });
+        if (onTitlesUpdated) onTitlesUpdated(res.title);
       } else {
         setSaveError(res.error || 'حدث خطأ أثناء حفظ الصلاحيات.');
       }

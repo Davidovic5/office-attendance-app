@@ -130,8 +130,22 @@ export default function App() {
       if (settingsRes.success) {
         setOfficeSettings(settingsRes.settings);
       }
-      if (titlesRes.success) {
+      if (titlesRes.success && titlesRes.titles) {
         setTitles(titlesRes.titles);
+        // Sync currentUser permissions from fresh titles
+        const saved = localStorage.getItem('office_auth_user');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const myTitle = titlesRes.titles.find(t => t.code === parsed.titleCode);
+            if (myTitle) {
+              parsed.permissions = myTitle.permissions;
+              parsed.titleDetails = myTitle;
+              localStorage.setItem('office_auth_user', JSON.stringify(parsed));
+              setCurrentUser(prev => prev ? { ...prev, permissions: myTitle.permissions, titleDetails: myTitle } : parsed);
+            }
+          } catch (e) {}
+        }
       }
       if (branchesRes.success) {
         setBranches(branchesRes.branches);
@@ -336,9 +350,12 @@ export default function App() {
     );
   }
 
-  const permissions = currentUser.permissions || {};
+  // Look up current user's title dynamically from titles list, falling back to currentUser.permissions
+  const userTitleObj = (titles || []).find(t => t.code === currentUser.titleCode);
+  const permissions = userTitleObj?.permissions || currentUser.permissions || {};
   const isExecutive = currentUser.titleCode === 'memberships_executive_director' || currentUser.titleCode === 'memberships_area_manager';
   const isManager = isExecutive || currentUser.titleCode === 'memberships_manager' || permissions.manage_titles_permissions;
+  const liveUser = { ...currentUser, permissions };
 
   // Tabs configuration based on user permissions
   const tabs = [
@@ -385,24 +402,43 @@ export default function App() {
       case 'check_in':
         return (
           <CheckInTab 
-            currentUser={currentUser} 
+            currentUser={liveUser} 
             officeSettings={officeSettings} 
             onAttendanceUpdated={() => loadInitialData(true)}
           />
         );
       case 'presence':
-        return <OfficePresenceTab currentUser={currentUser} />;
+        return <OfficePresenceTab currentUser={liveUser} />;
       case 'leaves':
         return (
           <LeavesPermissionsTab 
-            currentUser={currentUser} 
+            currentUser={liveUser} 
             onStatusChanged={() => loadInitialData(true)}
           />
         );
       case 'reports':
-        return <MonthlyReportTab currentUser={currentUser} />;
+        return <MonthlyReportTab currentUser={liveUser} />;
       case 'roles':
-        return <RolesPermissionsTab currentUser={currentUser} onTitlesUpdated={() => loadInitialData(true)} />;
+        return (
+          <RolesPermissionsTab 
+            currentUser={liveUser} 
+            onTitlesUpdated={(updatedTitle) => {
+              loadInitialData(true);
+              if (updatedTitle) {
+                setTitles(prev => prev.map(t => t.code === updatedTitle.code ? updatedTitle : t));
+                if (currentUser && currentUser.titleCode === updatedTitle.code) {
+                  const updatedUser = {
+                    ...currentUser,
+                    permissions: updatedTitle.permissions,
+                    titleDetails: updatedTitle
+                  };
+                  setCurrentUser(updatedUser);
+                  localStorage.setItem('office_auth_user', JSON.stringify(updatedUser));
+                }
+              }
+            }} 
+          />
+        );
       case 'settings':
         return (
           <OfficeSettingsTab 
