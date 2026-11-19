@@ -15,13 +15,14 @@ async function updateAllMobilePackages() {
   fs.mkdirSync(tempDir, { recursive: true });
 
   const logoBuffer = await fs.promises.readFile(logoPath);
+  const trimmedLogoBuffer = await sharp(logoBuffer).trim().toBuffer();
 
-  console.log('📱 1. Generating Wadi Degla official app icon variants...');
+  console.log('📱 1. Generating Wadi Degla official app icon variants from 3D Gold Shield...');
 
-  // Helper to generate centered logo on dark #121212 background
-  async function makeIcon(size, safeRatio = 0.72) {
+  // Helper to generate centered logo on dark #09090b background
+  async function makeIcon(size, safeRatio = 0.84) {
     const logoHeight = Math.round(size * safeRatio);
-    const resizedLogo = await sharp(logoBuffer)
+    const resizedLogo = await sharp(trimmedLogoBuffer)
       .resize({ height: logoHeight, fit: 'contain' })
       .toBuffer();
 
@@ -30,7 +31,7 @@ async function updateAllMobilePackages() {
         width: size,
         height: size,
         channels: 4,
-        background: { r: 18, g: 18, b: 18, alpha: 1 }
+        background: { r: 9, g: 9, b: 11, alpha: 1 }
       }
     }).composite([{
       input: resizedLogo,
@@ -38,8 +39,8 @@ async function updateAllMobilePackages() {
     }]).png({ quality: 100 }).toBuffer();
   }
 
-  const icon192Png = await makeIcon(192, 0.72);
-  const icon512Png = await makeIcon(512, 0.72);
+  const icon192Png = await makeIcon(192, 0.84);
+  const icon512Png = await makeIcon(512, 0.84);
 
   // Setup Keystore
   const keystorePath = path.join(tempDir, 'release.keystore');
