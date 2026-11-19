@@ -227,7 +227,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           <div className="text-center mb-5">
             <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
               <img 
-                src="/logo.png" 
+                src="/logo.png?v=4.0" 
                 alt="Wadi Degla Clubs" 
                 className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(245,184,0,0.3)]" 
               />
@@ -274,7 +274,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
               
               <a
-                href="/download/WadiDeglaAttendance.apk?v=2.5"
+                href="/download/WadiDeglaAttendance.apk?v=3.0"
                 download="WadiDeglaAttendance.apk"
                 className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
               >
@@ -312,13 +312,17 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
 
               <a
-                href="/download/OfficeAttendance.mobileconfig?v=3.0"
+                href="/download/OfficeAttendance.mobileconfig?v=4.0"
                 download
                 className="w-full py-2.5 px-3 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-zinc-700/80 transition-colors"
               >
                 <Download className="w-3.5 h-3.5 text-amber-400" />
                 <span>أو تنزيل بروفايل الآيفون المباشر (MobileConfig)</span>
               </a>
+
+              <p className="text-[10px] text-zinc-400 leading-normal bg-zinc-900/50 p-2 rounded-lg border border-zinc-800/60">
+                💡 <b>إذا كان التطبيق مثبتاً مسبقاً على الآيفون:</b> يرجى حذف الأيقونة القديمة أولاً أو إزالة ملف التعريف القديم من (الإعدادات ⚙️ &gt; عام &gt; إدارة الأجهزة والـ VPN)، ثم إعادة التثبيت لتظهر أيقونة الدرع الذهبي الجديدة فوراً.
+              </p>
             </div>
           </div>
 
@@ -341,7 +345,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           <div className="text-center mb-5">
             <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
               <img 
-                src="/logo.png" 
+                src="/logo.png?v=4.0" 
                 alt="Wadi Degla Clubs" 
                 className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(245,184,0,0.3)]" 
               />
@@ -736,7 +740,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           <div className="bg-zinc-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-amber-500/30 max-h-[90vh] overflow-y-auto text-zinc-100">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
               <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="" className="w-7 h-9 object-contain" />
+                <img src="/logo.png?v=4.0" alt="" className="w-7 h-9 object-contain" />
                 <h3 className="text-sm font-black text-amber-400">تنزيل تطبيق أندية وادي دجلة</h3>
               </div>
               <button
@@ -810,7 +814,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                   <span>🍎 ملف بروفايل الآيفون (iOS MobileConfig):</span>
                 </div>
                 <a
-                  href="/download/OfficeAttendance.mobileconfig?v=3.0"
+                  href="/download/OfficeAttendance.mobileconfig?v=4.0"
                   download
                   className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
                 >

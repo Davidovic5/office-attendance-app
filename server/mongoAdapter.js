@@ -259,6 +259,7 @@ const DEFAULT_TITLES = [
 
 // Serverless Mongoose connection caching
 let cachedDb = global._mongoConnection || null;
+let isSeeding = false;
 
 async function connectToMongo(uri) {
   if (cachedDb && mongoose.connection.readyState === 1) {
@@ -266,103 +267,99 @@ async function connectToMongo(uri) {
   }
   const conn = await mongoose.connect(uri, {
     bufferCommands: false,
-    serverSelectionTimeoutMS: 5000
+    serverSelectionTimeoutMS: 5000,
+    maxPoolSize: 10,
+    minPoolSize: 1,
+    socketTimeoutMS: 20000,
+    connectTimeoutMS: 10000
   });
   global._mongoConnection = conn;
   cachedDb = conn;
 
-  // Auto seed on first run
-  await seedMongoData();
+  // Non-blocking background seed check:
+  // NEVER block API requests or logins with 40+ sequential database round-trips!
+  if (!global._mongoSeeded) {
+    global._mongoSeeded = true;
+    checkAndSeedIfEmpty().catch(err => {
+      console.error("Background seed check error:", err.message);
+    });
+  }
+
   return conn;
 }
 
+async function checkAndSeedIfEmpty() {
+  if (isSeeding) return;
+  isSeeding = true;
+  try {
+    const branchCount = await Branch.estimatedDocumentCount();
+    if (branchCount > 0) {
+      // Database already seeded and healthy.
+      return;
+    }
+    await seedMongoData();
+  } catch (err) {
+    console.error("checkAndSeedIfEmpty error:", err);
+  } finally {
+    isSeeding = false;
+  }
+}
+
 async function seedMongoData() {
-  // 1. Settings
-  const settingsCount = await OfficeSettings.countDocuments();
-  if (settingsCount === 0) {
-    await OfficeSettings.create({
-      companyName: "أندية وادي دجلة - Wadi Degla Clubs",
-      shiftHours: 8,
-      graceMinutes: 15,
-      workStartTime: "09:00",
-      workEndTime: "17:00"
-    });
-  }
-
-  // 2. Branches (Preserve user customized coordinates and radius!)
-  for (const b of DEFAULT_BRANCHES) {
-    const existing = await Branch.findOne({ id: b.id });
-    if (!existing) {
-      await Branch.create(b);
-    } else {
-      // Sync sector association only, never overwrite coordinates, radius, or user edits!
-      await Branch.updateOne(
-        { id: b.id },
-        {
-          $set: {
-            sectorId: b.sectorId,
-            sectorName: b.sectorName
-          }
-        }
-      );
+  try {
+    // 1. Settings
+    const settingsCount = await OfficeSettings.estimatedDocumentCount();
+    if (settingsCount === 0) {
+      await OfficeSettings.create({
+        companyName: "أندية وادي دجلة - Wadi Degla Clubs",
+        shiftHours: 8,
+        graceMinutes: 15,
+        workStartTime: "09:00",
+        workEndTime: "17:00"
+      });
     }
-  }
 
-  // 3. Titles (Preserve user customized permissions, never overwrite them!)
-  const validCodes = DEFAULT_TITLES.map(t => t.code);
-  await Title.deleteMany({ code: { $nin: validCodes } });
-  for (const t of DEFAULT_TITLES) {
-    const existing = await Title.findOne({ code: t.code });
-    if (!existing) {
-      await Title.create(t);
-    } else {
-      // Never overwrite existing permissions configured by the user
-      await Title.updateOne(
-        { code: t.code },
-        {
-          $set: {
-            name: t.name,
-            englishTitle: t.englishTitle,
-            order: t.order,
-            description: t.description
-          }
-        }
-      );
+    // 2. Branches (Parallel execution)
+    const existingBranches = await Branch.find({}, { id: 1 }).lean();
+    const existingBranchIds = new Set(existingBranches.map(b => b.id));
+    const missingBranches = DEFAULT_BRANCHES.filter(b => !existingBranchIds.has(b.id));
+    if (missingBranches.length > 0) {
+      await Branch.insertMany(missingBranches);
     }
-  }
 
-  // 4. Master Ghost Super Admin (01010046078 / 1111) - Highest Authority & Completely Hidden
-  const existingAdmin = await Employee.findOne({ phone: "01010046078" });
-  if (!existingAdmin) {
-    await Employee.create({
-      id: "emp_1792955351678",
-      name: "ديفيد جان",
-      phone: "01010046078",
-      password: "1111",
-      pin: "1111",
-      titleCode: "memberships_executive_director",
-      jobTitle: "Memberships Executive Director",
-      branchId: "branch_october2",
-      weeklyOffDays: ["friday", "saturday"],
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
-      leaveBalance: 30,
-      permissionsBalanceHours: 10,
-      isSuperAdmin: true,
-      isGhost: true,
-      createdAt: new Date().toISOString()
-    });
-  } else {
-    await Employee.updateOne(
-      { phone: "01010046078" },
-      {
-        $set: {
-          password: "1111",
-          pin: "1111",
-          isSuperAdmin: true,
-          isGhost: true
-        }
-      }
-    );
+    // 3. Titles (Parallel execution)
+    const validCodes = DEFAULT_TITLES.map(t => t.code);
+    await Title.deleteMany({ code: { $nin: validCodes } });
+    const existingTitles = await Title.find({}, { code: 1 }).lean();
+    const existingTitleCodes = new Set(existingTitles.map(t => t.code));
+    const missingTitles = DEFAULT_TITLES.filter(t => !existingTitleCodes.has(t.code));
+    if (missingTitles.length > 0) {
+      await Title.insertMany(missingTitles);
+    }
+
+    // 4. Master Ghost Super Admin
+    const existingAdmin = await Employee.findOne({ phone: "01010046078" });
+    if (!existingAdmin) {
+      await Employee.create({
+        id: "emp_1792955351678",
+        name: "ديفيد جان",
+        phone: "01010046078",
+        password: "1111",
+        pin: "1111",
+        titleCode: "memberships_executive_director",
+        jobTitle: "Memberships Executive Director",
+        branchId: "branch_october2",
+        weeklyOffDays: ["friday", "saturday"],
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
+        leaveBalance: 30,
+        permissionsBalanceHours: 10,
+        isSuperAdmin: true,
+        isGhost: true,
+        createdAt: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.error("seedMongoData error:", err);
   }
 }
 
@@ -459,9 +456,11 @@ class MongoDatabaseAdapter {
         query.branchId = branchId;
       }
     }
-    const employees = await Employee.find(query).lean();
-    const titles = await Title.find().lean();
-    const branches = await Branch.find().lean();
+    const [employees, titles, branches] = await Promise.all([
+      Employee.find(query).lean(),
+      Title.find().lean(),
+      Branch.find().lean()
+    ]);
 
     return employees.map(emp => {
       const titleObj = titles.find(t => t.code === emp.titleCode);
@@ -499,8 +498,10 @@ class MongoDatabaseAdapter {
     await this.ensureConnected();
     const emp = await Employee.findOne({ id }).lean();
     if (!emp) return null;
-    const titleObj = await Title.findOne({ code: emp.titleCode }).lean();
-    const branchObj = await Branch.findOne({ id: emp.branchId }).lean();
+    const [titleObj, branchObj] = await Promise.all([
+      Title.findOne({ code: emp.titleCode }).lean(),
+      Branch.findOne({ id: emp.branchId }).lean()
+    ]);
     const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
     return {
       ...emp,
@@ -558,7 +559,21 @@ class MongoDatabaseAdapter {
     });
 
     await newEmp.save();
-    return this.getEmployeeById(newEmp.id);
+
+    const [titleObj, branchObj] = await Promise.all([
+      Title.findOne({ code: newEmp.titleCode }).lean(),
+      Branch.findOne({ id: newEmp.branchId }).lean()
+    ]);
+
+    return {
+      ...newEmp.toObject(),
+      isSuperAdmin: false,
+      isGhost: false,
+      titleDetails: titleObj || null,
+      branchDetails: branchObj || null,
+      branchName: branchObj ? branchObj.name : 'غير محدد',
+      permissions: titleObj ? titleObj.permissions : {}
+    };
   }
 
   async loginEmployee(phone, password, deviceContext = null) {
@@ -589,7 +604,37 @@ class MongoDatabaseAdapter {
       }
     }
 
-    return this.getEmployeeById(emp.id);
+    const [titleObj, branchObj] = await Promise.all([
+      Title.findOne({ code: emp.titleCode }).lean(),
+      Branch.findOne({ id: emp.branchId }).lean()
+    ]);
+
+    const empObj = emp.toObject ? emp.toObject() : emp;
+    return {
+      ...empObj,
+      isSuperAdmin: isSuper,
+      isGhost: isSuper ? true : Boolean(emp.isGhost),
+      titleDetails: titleObj || null,
+      branchDetails: branchObj || null,
+      branchName: branchObj ? branchObj.name : 'غير محدد',
+      permissions: isSuper
+        ? {
+            check_in_out: true,
+            view_own_attendance: true,
+            view_office_presence: true,
+            request_leave: true,
+            request_permission: true,
+            approve_leaves_permissions: true,
+            approve_early_checkout: true,
+            manage_employees: true,
+            manage_titles_permissions: true,
+            manage_office_settings: true,
+            view_reports: true,
+            view_all_branches: true,
+            override_early_checkout: true
+          }
+        : (titleObj ? titleObj.permissions : {})
+    };
   }
 
   async resetEmployeeDevice(employeeId) {

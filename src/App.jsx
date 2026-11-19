@@ -48,8 +48,22 @@ const DAYS_OF_WEEK = [
 
 export default function App() {
   const [employees, setEmployees] = useState([]);
-  const [titles, setTitles] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [titles, setTitles] = useState(() => {
+    try {
+      const cached = localStorage.getItem('office_cached_titles');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [branches, setBranches] = useState(() => {
+    try {
+      const cached = localStorage.getItem('office_cached_branches');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('office_auth_user');
@@ -114,24 +128,36 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Load initial system data (with silent background refresh support)
+  // Load initial system data (lightning fast, non-blocking)
   const loadInitialData = async (isBackground = false) => {
     try {
-      if (!isBackground && !officeSettings) {
-        setLoading(true);
-      }
-      const [settingsRes, employeesRes, titlesRes, branchesRes] = await Promise.all([
+      const isUserAuthed = Boolean(currentUser || localStorage.getItem('office_auth_user'));
+      
+      // Fetch metadata in parallel; fetch employees only when authenticated
+      const promises = [
         api.getSettings(),
-        api.getEmployees(),
         api.getTitles(),
         api.getBranches()
-      ]);
+      ];
+      if (isUserAuthed) {
+        promises.push(api.getEmployees());
+      }
 
-      if (settingsRes.success) {
+      const results = await Promise.all(promises);
+      const settingsRes = results[0];
+      const titlesRes = results[1];
+      const branchesRes = results[2];
+      const employeesRes = isUserAuthed ? results[3] : null;
+
+      if (settingsRes && settingsRes.success) {
         setOfficeSettings(settingsRes.settings);
       }
-      if (titlesRes.success && titlesRes.titles) {
+      if (titlesRes && titlesRes.success && titlesRes.titles) {
         setTitles(titlesRes.titles);
+        try {
+          localStorage.setItem('office_cached_titles', JSON.stringify(titlesRes.titles));
+        } catch (e) {}
+
         // Sync currentUser permissions from fresh titles
         const saved = localStorage.getItem('office_auth_user');
         if (saved) {
@@ -147,10 +173,13 @@ export default function App() {
           } catch (e) {}
         }
       }
-      if (branchesRes.success) {
+      if (branchesRes && branchesRes.success && branchesRes.branches) {
         setBranches(branchesRes.branches);
+        try {
+          localStorage.setItem('office_cached_branches', JSON.stringify(branchesRes.branches));
+        } catch (e) {}
       }
-      if (employeesRes.success && employeesRes.employees && employeesRes.employees.length > 0) {
+      if (employeesRes && employeesRes.success && employeesRes.employees && employeesRes.employees.length > 0) {
         setEmployees(employeesRes.employees);
 
         const saved = localStorage.getItem('office_auth_user');
@@ -326,7 +355,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center font-['Cairo',sans-serif]">
         <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <img src="/logo.png" alt="Wadi Degla" className="w-14 h-18 object-contain mb-2" />
+        <img src="/logo.png?v=4.0" alt="Wadi Degla" className="w-14 h-18 object-contain mb-2" />
         <h1 className="text-sm font-black text-amber-400">أندية وادي دجلة</h1>
         <p className="text-xs text-zinc-400 mt-1">جاري تحميل النظام...</p>
       </div>
@@ -484,7 +513,7 @@ export default function App() {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-8 h-10 flex items-center justify-center shrink-0">
               <img 
-                src="/logo.png" 
+                src="/logo.png?v=4.0" 
                 alt="Wadi Degla" 
                 className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(245,184,0,0.3)]" 
               />
@@ -916,7 +945,7 @@ export default function App() {
           <div className="bg-zinc-900 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-amber-500/30 max-h-[90vh] overflow-y-auto text-zinc-100 text-right">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
               <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="" className="w-7 h-9 object-contain" />
+                <img src="/logo.png?v=4.0" alt="" className="w-7 h-9 object-contain" />
                 <h3 className="text-sm font-black text-amber-400">تنزيل تطبيق أندية وادي دجلة</h3>
               </div>
               <button
@@ -986,7 +1015,7 @@ export default function App() {
                   <span>🍎 ملف بروفايل الآيفون (iOS MobileConfig):</span>
                 </div>
                 <a
-                  href="/download/OfficeAttendance.mobileconfig"
+                  href="/download/OfficeAttendance.mobileconfig?v=4.0"
                   download
                   className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
                 >

@@ -133,6 +133,78 @@ async function updateAllMobilePackages() {
     console.log(`   ✅ iOS IPA successfully updated with AppIcons (${(signedIpaBuffer.length / (1024*1024)).toFixed(2)} MB).`);
   }
 
+  // -------------------------------------------------------------
+  // C. UPDATE IOS MOBILECONFIG PROFILE
+  // -------------------------------------------------------------
+  console.log('📱 4. Updating iOS MobileConfig profile with new 3D Gold Shield Icon...');
+  const appleTouchIconPath = path.join(rootDir, 'public', 'apple-touch-icon.png');
+  const appleTouchIconBuffer = await fs.promises.readFile(appleTouchIconPath);
+  const base64Icon = appleTouchIconBuffer.toString('base64');
+  
+  // Format base64 to 68-char chunks for clean XML plist compatibility
+  const formattedBase64 = base64Icon.match(/.{1,68}/g).join('\n            ');
+
+  const mobileconfigContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadType</key>
+            <string>com.apple.webClip.managed</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadIdentifier</key>
+            <string>com.wadidegla.attendance.webclip.v4</string>
+            <key>PayloadUUID</key>
+            <string>C9A7A213-0544-42E4-A57C-DAE6114EEFD1</string>
+            <key>PayloadDisplayName</key>
+            <string>أندية وادي دجلة</string>
+            <key>PayloadDescription</key>
+            <string>تطبيق تسجيل حضور وانصراف الموظفين بالـ GPS - أندية وادي دجلة</string>
+            <key>PayloadOrganization</key>
+            <string>أندية وادي دجلة</string>
+            <key>URL</key>
+            <string>https://office-attendance-app-sand.vercel.app/?v=4.0&amp;installed=1</string>
+            <key>Label</key>
+            <string>وادي دجلة</string>
+            <key>IsRemovable</key>
+            <true/>
+            <key>FullScreen</key>
+            <true/>
+            <key>Precomposed</key>
+            <true/>
+            <key>Icon</key>
+            <data>
+            ${formattedBase64}
+            </data>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>تطبيق أندية وادي دجلة للحضور والانصراف</string>
+    <key>PayloadIdentifier</key>
+    <string>com.wadidegla.attendance.profile.v4</string>
+    <key>PayloadOrganization</key>
+    <string>أندية وادي دجلة</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>D9A7A213-0544-42E4-A57C-DAE6114EEFD1</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>`;
+
+  const mobileconfigPath = path.join(rootDir, 'public', 'download', 'OfficeAttendance.mobileconfig');
+  const distMobileconfigPath = path.join(rootDir, 'dist', 'download', 'OfficeAttendance.mobileconfig');
+
+  await fs.promises.writeFile(mobileconfigPath, mobileconfigContent, 'utf8');
+  if (fs.existsSync(path.dirname(distMobileconfigPath))) {
+    await fs.promises.writeFile(distMobileconfigPath, mobileconfigContent, 'utf8');
+  }
+  console.log('   ✅ iOS MobileConfig successfully updated with new UUID and 3D Gold Shield Icon!');
+
   console.log('🎉 ALL MOBILE PACKAGES NOW HAVE THE OFFICIAL 3D WADI DEGLA GOLD EMBLEM!');
 }
 
