@@ -274,7 +274,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
               
               <a
-                href="/download/WadiDeglaAttendance.apk?v=2.4"
+                href="/download/WadiDeglaAttendance.apk?v=2.5"
                 download="WadiDeglaAttendance.apk"
                 className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
               >
@@ -789,7 +789,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                   <span className="text-[10px] text-emerald-400 font-bold">متوافق مع جميع أجهزة أندرويد</span>
                 </div>
                 <a
-                  href="/download/WadiDeglaAttendance.apk?v=2.4"
+                  href="/download/WadiDeglaAttendance.apk?v=2.5"
                   download="WadiDeglaAttendance.apk"
                   className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-amber-400 font-bold rounded-xl transition-colors text-xs border border-zinc-700"
                 >
