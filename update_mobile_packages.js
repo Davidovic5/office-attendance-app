@@ -1,7 +1,6 @@
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { execSync } = require('child_process');
 const JSZip = require('jszip');
 
@@ -20,13 +19,13 @@ async function updateAllMobilePackages() {
   console.log('📱 1. Generating Wadi Degla official app icon variants...');
 
   // Helper to generate centered logo on dark #121212 background
-  async function makeIcon(size, isWebp = true, safeRatio = 0.68) {
+  async function makeIcon(size, safeRatio = 0.72) {
     const logoHeight = Math.round(size * safeRatio);
     const resizedLogo = await sharp(logoBuffer)
       .resize({ height: logoHeight, fit: 'contain' })
       .toBuffer();
 
-    let img = sharp({
+    return sharp({
       create: {
         width: size,
         height: size,
@@ -36,116 +35,69 @@ async function updateAllMobilePackages() {
     }).composite([{
       input: resizedLogo,
       gravity: 'center'
-    }]);
+    }]).png({ quality: 100 }).toBuffer();
+  }
 
-    if (isWebp) {
-      return img.webp({ quality: 95 }).toBuffer();
-    } else {
-      return img.png({ quality: 100 }).toBuffer();
+  const icon192Png = await makeIcon(192, 0.72);
+  const icon512Png = await makeIcon(512, 0.72);
+
+  // Setup Keystore
+  const keystorePath = path.join(tempDir, 'release.keystore');
+  execSync(`keytool -genkeypair -v -keystore "${keystorePath}" -alias degla -keyalg RSA -keysize 2048 -validity 10000 -storepass wadidegla -keypass wadidegla -dname "CN=WadiDegla, OU=Clubs, O=WadiDegla, C=EG" 2>/dev/null`);
+
+  const apksignerPath = '/Users/davidovic/Library/Android/sdk/build-tools/34.0.0/apksigner';
+  const zipalignPath = '/Users/davidovic/Library/Android/sdk/build-tools/34.0.0/zipalign';
+
+  async function processApk(apkFileName) {
+    console.log(`📦 Processing APK: ${apkFileName}...`);
+    const apkPath = path.join(rootDir, 'public', 'download', apkFileName);
+    const distApkPath = path.join(rootDir, 'dist', 'download', apkFileName);
+
+    if (!fs.existsSync(apkPath)) return;
+
+    const apkData = await fs.promises.readFile(apkPath);
+    const apkZip = await JSZip.loadAsync(apkData);
+
+    // Replace icon
+    apkZip.file('res/drawable/icon.png', icon192Png);
+
+    // Strip old META-INF signatures
+    const toDelete = [];
+    apkZip.forEach((rel) => {
+      if (rel.startsWith('META-INF/')) toDelete.push(rel);
+    });
+    toDelete.forEach(p => apkZip.remove(p));
+
+    const unsignedBuffer = await apkZip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    const unsignedPath = path.join(tempDir, `unsigned_${apkFileName}`);
+    const alignedPath = path.join(tempDir, `aligned_${apkFileName}`);
+    fs.writeFileSync(unsignedPath, unsignedBuffer);
+
+    // Zipalign 4
+    execSync(`"${zipalignPath}" -p -f 4 "${unsignedPath}" "${alignedPath}"`);
+
+    // Sign with apksigner (v1, v2, v3 enabled)
+    execSync(`"${apksignerPath}" sign --ks "${keystorePath}" --ks-pass pass:wadidegla --ks-key-alias degla --key-pass pass:wadidegla --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true "${alignedPath}"`);
+
+    // Verify
+    const verifyOut = execSync(`"${apksignerPath}" verify --verbose "${alignedPath}"`).toString();
+    console.log(`   Verification: ${verifyOut.includes('Verified using v1') && verifyOut.includes('Verified using v2') ? 'OK (v1+v2+v3)' : 'Check needed'}`);
+
+    const signedData = fs.readFileSync(alignedPath);
+    fs.writeFileSync(apkPath, signedData);
+    if (fs.existsSync(path.dirname(distApkPath))) {
+      fs.writeFileSync(distApkPath, signedData);
     }
+    console.log(`   ✅ ${apkFileName} successfully updated and signed (${(signedData.length / 1024).toFixed(1)} KB)`);
   }
 
-  // Pre-generate icon buffers
-  const icon192Webp = await makeIcon(192, true, 0.68);
-  const icon144Webp = await makeIcon(144, true, 0.68);
-  const icon96Webp = await makeIcon(96, true, 0.68);
-  const icon72Webp = await makeIcon(72, true, 0.68);
-  const icon48Webp = await makeIcon(48, true, 0.68);
-  const icon432Png = await makeIcon(432, false, 0.70);
-
-  // -------------------------------------------------------------
-  // A. UPDATE ANDROID APK
-  // -------------------------------------------------------------
-  console.log('📦 2. Injecting icons into OfficeAttendance.apk...');
-  const apkPath = path.join(rootDir, 'public', 'download', 'OfficeAttendance.apk');
-  const distApkPath = path.join(rootDir, 'dist', 'download', 'OfficeAttendance.apk');
-
-  const apkData = await fs.promises.readFile(apkPath);
-  const apkZip = await JSZip.loadAsync(apkData);
-
-  // Replace all 10 launcher icon targets in the APK
-  apkZip.file('res/-6.webp', icon192Webp);
-  apkZip.file('res/sK.webp', icon192Webp);
-  apkZip.file('res/j_.webp', icon144Webp);
-  apkZip.file('res/Sn.webp', icon144Webp);
-  apkZip.file('res/qs.webp', icon96Webp);
-  apkZip.file('res/u5.webp', icon96Webp);
-  apkZip.file('res/MO.webp', icon72Webp);
-  apkZip.file('res/fq.webp', icon72Webp);
-  apkZip.file('res/d2.webp', icon48Webp);
-  apkZip.file('res/yw.webp', icon48Webp);
-  apkZip.file('res/Wh.png', icon432Png);
-
-  // Remove existing signatures
-  const filesToDelete = [];
-  apkZip.forEach((relativePath) => {
-    if (relativePath.startsWith('META-INF/') && (relativePath.endsWith('.SF') || relativePath.endsWith('.RSA') || relativePath.endsWith('MANIFEST.MF'))) {
-      filesToDelete.push(relativePath);
-    }
-  });
-  filesToDelete.forEach(p => apkZip.remove(p));
-
-  // Build MANIFEST.MF
-  const entries = [];
-  const filenames = Object.keys(apkZip.files).filter(name => !apkZip.files[name].dir && !name.startsWith('META-INF/')).sort();
-
-  let manifestContent = 'Manifest-Version: 1.0\r\nCreated-By: Wadi Degla Clubs App Signer\r\n\r\n';
-  const entryDigests = {};
-
-  for (const name of filenames) {
-    const fileBuf = await apkZip.file(name).async('nodebuffer');
-    const hash = crypto.createHash('sha256').update(fileBuf).digest('base64');
-    const entryBlock = `Name: ${name}\r\nSHA-256-Digest: ${hash}\r\n\r\n`;
-    manifestContent += entryBlock;
-
-    // Digest of the entry block for CERT.SF
-    const blockBuf = Buffer.from(`Name: ${name}\r\nSHA-256-Digest: ${hash}\r\n\r\n`, 'utf8');
-    entryDigests[name] = crypto.createHash('sha256').update(blockBuf).digest('base64');
-  }
-
-  const manifestBuf = Buffer.from(manifestContent, 'utf8');
-  const manifestSha256 = crypto.createHash('sha256').update(manifestBuf).digest('base64');
-
-  // Build CERT.SF
-  let certSfContent = `Signature-Version: 1.0\r\nCreated-By: Wadi Degla Clubs App Signer\r\nSHA-256-Digest-Manifest: ${manifestSha256}\r\n\r\n`;
-  for (const name of filenames) {
-    certSfContent += `Name: ${name}\r\nSHA-256-Digest: ${entryDigests[name]}\r\n\r\n`;
-  }
-  const certSfBuf = Buffer.from(certSfContent, 'utf8');
-
-  // Write temporary files for OpenSSL PKCS#7 signing
-  const certSfPath = path.join(tempDir, 'CERT.SF');
-  const certRsaPath = path.join(tempDir, 'CERT.RSA');
-  const keyPath = path.join(tempDir, 'key.pem');
-  const certPath = path.join(tempDir, 'cert.pem');
-
-  fs.writeFileSync(certSfPath, certSfBuf);
-
-  // Generate self-signed RSA key and certificate
-  execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 10000 -nodes -subj "/CN=WadiDegla/O=WadiDeglaClubs/C=EG" 2>/dev/null`);
-
-  // Sign CERT.SF to create CERT.RSA (PKCS#7 in DER format)
-  execSync(`openssl smime -sign -in "${certSfPath}" -out "${certRsaPath}" -outform DER -signer "${certPath}" -inkey "${keyPath}" -nodetach 2>/dev/null`);
-
-  const certRsaBuf = fs.readFileSync(certRsaPath);
-
-  // Add signature files back into zip
-  apkZip.file('META-INF/MANIFEST.MF', manifestBuf);
-  apkZip.file('META-INF/CERT.SF', certSfBuf);
-  apkZip.file('META-INF/CERT.RSA', certRsaBuf);
-
-  // Generate new signed APK buffer
-  const signedApkBuffer = await apkZip.generateAsync({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
-    compressionOptions: { level: 6 }
-  });
-
-  fs.writeFileSync(apkPath, signedApkBuffer);
-  if (fs.existsSync(path.dirname(distApkPath))) {
-    fs.writeFileSync(distApkPath, signedApkBuffer);
-  }
-  console.log(`   ✅ Android APK successfully updated and signed (${(signedApkBuffer.length / (1024*1024)).toFixed(2)} MB).`);
+  await processApk('OfficeAttendance.apk');
+  await processApk('WadiDeglaAttendance.apk');
 
   // -------------------------------------------------------------
   // B. UPDATE IOS IPA
@@ -158,9 +110,9 @@ async function updateAllMobilePackages() {
     const ipaData = await fs.promises.readFile(ipaPath);
     const ipaZip = await JSZip.loadAsync(ipaData);
 
-    const icon180Png = await makeIcon(180, false, 0.72);
-    const icon120Png = await makeIcon(120, false, 0.72);
-    const icon152Png = await makeIcon(152, false, 0.72);
+    const icon180Png = await makeIcon(180, 0.72);
+    const icon120Png = await makeIcon(120, 0.72);
+    const icon152Png = await makeIcon(152, 0.72);
 
     ipaZip.file('Payload/OfficeAttendance.app/AppIcon60x60@2x.png', icon120Png);
     ipaZip.file('Payload/OfficeAttendance.app/AppIcon60x60@3x.png', icon180Png);
@@ -180,7 +132,7 @@ async function updateAllMobilePackages() {
     console.log(`   ✅ iOS IPA successfully updated with AppIcons (${(signedIpaBuffer.length / (1024*1024)).toFixed(2)} MB).`);
   }
 
-  console.log('🎉 ALL MOBILE PACKAGES NOW HAVE THE OFFICIAL WADI DEGLA ICON EMBEDDED!');
+  console.log('🎉 ALL MOBILE PACKAGES NOW HAVE THE OFFICIAL 3D WADI DEGLA GOLD EMBLEM!');
 }
 
 updateAllMobilePackages().catch(err => {

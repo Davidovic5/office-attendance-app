@@ -54,7 +54,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [holidayName, setHolidayName] = useState('');
 
   // Permission specific state
-  const [permissionType, setPermissionType] = useState('morning'); // 'morning' | 'evening' | 'midday'
+  const [permissionType, setPermissionType] = useState('morning'); // 'morning' (تأخير صباحي) | 'evening' (انصراف مبكر)
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:00');
 
@@ -735,7 +735,6 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                 >
                   <option value="morning" className="bg-zinc-900 text-zinc-100">إذن تأخير صباحي (تأخير ساعتين في أول اليوم)</option>
                   <option value="evening" className="bg-zinc-900 text-zinc-100">إذن انصراف مبكر (انصراف قبل انتهاء الـ 8 ساعات بساعتين)</option>
-                  <option value="midday" className="bg-zinc-900 text-zinc-100">إذن طارئ خلال اليوم (ساعتين لقضاء مصلحة)</option>
                 </select>
               </div>
 

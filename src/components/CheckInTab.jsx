@@ -101,7 +101,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
           }
           reject(new Error(msg));
         },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
       );
     });
   };
@@ -132,9 +132,25 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     }
   };
 
-  // Auto-ping live location on initial mount quietly
+  // Only auto-ping live location on initial mount if permission is ALREADY granted
+  // If permission is 'prompt', do NOT show popup on load; wait for user tap
   useEffect(() => {
-    refreshLocation(true);
+    let isMounted = true;
+    async function checkPermissionAndPing() {
+      if (typeof window !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: 'geolocation' });
+          if (status.state === 'granted') {
+            if (isMounted) refreshLocation(true);
+          }
+          return;
+        } catch (e) {
+          // Permissions API query not supported for geolocation on some browsers
+        }
+      }
+    }
+    checkPermissionAndPing();
+    return () => { isMounted = false; };
   }, [branch.id]);
 
   // Load branches list

@@ -289,9 +289,23 @@ async function seedMongoData() {
     });
   }
 
-  // 2. Branches
+  // 2. Branches (Preserve user customized coordinates and radius!)
   for (const b of DEFAULT_BRANCHES) {
-    await Branch.updateOne({ id: b.id }, { $set: b }, { upsert: true });
+    const existing = await Branch.findOne({ id: b.id });
+    if (!existing) {
+      await Branch.create(b);
+    } else {
+      // Sync sector association only, never overwrite coordinates, radius, or user edits!
+      await Branch.updateOne(
+        { id: b.id },
+        {
+          $set: {
+            sectorId: b.sectorId,
+            sectorName: b.sectorName
+          }
+        }
+      );
+    }
   }
 
   // 3. Titles (Preserve user customized permissions, never overwrite them!)

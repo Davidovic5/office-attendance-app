@@ -98,16 +98,22 @@ export function OfficeSettingsTab({ onSettingsUpdated }) {
     setSuccessMsg('');
 
     try {
+      const radius = Math.max(10, parseInt(branchForm.radiusMeters, 10) || 100);
+      const lat = parseFloat(branchForm.latitude);
+      const lng = parseFloat(branchForm.longitude);
+
       const res = await api.updateBranch(selectedBranchId, {
         ...branchForm,
-        latitude: parseFloat(branchForm.latitude),
-        longitude: parseFloat(branchForm.longitude),
-        radiusMeters: parseInt(branchForm.radiusMeters, 10)
+        latitude: lat,
+        longitude: lng,
+        radiusMeters: radius
       });
 
-      if (res.success) {
-        setSuccessMsg(`تم حفظ وتحديث إحداثيات فرع (${res.branch.name}) بنجاح!`);
-        loadData();
+      if (res.success && res.branch) {
+        // Immediate optimistic update to local state
+        setBranches(prev => prev.map(b => (b.id === res.branch.id ? res.branch : b)));
+        setBranchForm({ ...res.branch });
+        setSuccessMsg(`✅ تم حفظ وتثبيت إعدادات فرع (${res.branch.name}) بنجاح! النطاق الحالي المعتمد: ${res.branch.radiusMeters} متر.`);
         if (onSettingsUpdated) onSettingsUpdated();
       } else {
         setErrorMsg(res.error || 'حدث خطأ في الحفظ');
@@ -230,13 +236,61 @@ export function OfficeSettingsTab({ onSettingsUpdated }) {
           </div>
         </div>
 
-        {/* Radius Slider */}
-        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-2">
+        {/* Radius Slider & Controls */}
+        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-200">نطاق الحضور المسموح به لهذا الفرع:</span>
-            <span className="text-xs font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg">
-              {branchForm.radiusMeters} متر
-            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                step="5"
+                value={branchForm.radiusMeters || 100}
+                onChange={e => setBranchForm({ ...branchForm, radiusMeters: Math.max(10, parseInt(e.target.value, 10) || 10) })}
+                className="w-20 p-1.5 text-xs font-mono font-black text-center rounded-lg bg-zinc-900 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+              />
+              <span className="text-xs font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded-lg">
+                متر
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons & Steppers */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] text-zinc-400 font-bold ml-1">تحديد سريع:</span>
+            {[30, 50, 75, 100, 150, 200].map(val => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setBranchForm(prev => ({ ...prev, radiusMeters: val }))}
+                className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-all ${
+                  branchForm.radiusMeters === val
+                    ? 'bg-amber-500 text-black shadow-sm font-black'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800'
+                }`}
+              >
+                {val}م
+              </button>
+            ))}
+            <div className="mr-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setBranchForm(prev => ({ ...prev, radiusMeters: Math.max(10, (prev.radiusMeters || 100) - 10) }))}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-zinc-800"
+                title="تقليل 10 أمتار"
+              >
+                -10م
+              </button>
+              <button
+                type="button"
+                onClick={() => setBranchForm(prev => ({ ...prev, radiusMeters: (prev.radiusMeters || 100) + 10 }))}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-zinc-800"
+                title="زيادة 10 أمتار"
+              >
+                +10م
+              </button>
+            </div>
           </div>
 
           <input
@@ -250,9 +304,9 @@ export function OfficeSettingsTab({ onSettingsUpdated }) {
           />
 
           <div className="flex justify-between text-[10px] text-zinc-500 font-bold">
-            <span>20م</span>
-            <span>100م (الموصى به)</span>
-            <span>500م</span>
+            <span>20م (مبنى ضيق)</span>
+            <span>100م (موصى به للنادي)</span>
+            <span>500م (نطاق واسع)</span>
           </div>
         </div>
 
