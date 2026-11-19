@@ -51,7 +51,7 @@ app.get('/download/:filename', (req, res) => {
             <key>PayloadIdentifier</key>
             <string>com.office.attendance.webclip</string>
             <key>PayloadUUID</key>
-            <string>8A7A213D-0544-42E4-A57C-DAE6114EEFB6</string>
+            <string>8A7A213D-0544-42E4-A57C-DAE6114EEFC0</string>
             <key>PayloadDisplayName</key>
             <string>أندية وادي دجلة</string>
             <key>PayloadDescription</key>
@@ -79,7 +79,7 @@ ${iconXml ? iconXml + '\n' : ''}        </dict>
     <key>PayloadType</key>
     <string>Configuration</string>
     <key>PayloadUUID</key>
-    <string>B8A7A213-0544-42E4-A57C-DAE6114EEFB6</string>
+    <string>B8A7A213-0544-42E4-A57C-DAE6114EEFC0</string>
     <key>PayloadVersion</key>
     <integer>1</integer>
 </dict>

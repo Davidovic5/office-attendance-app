@@ -312,7 +312,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
 
               <a
-                href="/download/OfficeAttendance.mobileconfig"
+                href="/download/OfficeAttendance.mobileconfig?v=3.0"
                 download
                 className="w-full py-2.5 px-3 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-zinc-700/80 transition-colors"
               >
@@ -810,7 +810,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                   <span>🍎 ملف بروفايل الآيفون (iOS MobileConfig):</span>
                 </div>
                 <a
-                  href="/download/OfficeAttendance.mobileconfig"
+                  href="/download/OfficeAttendance.mobileconfig?v=3.0"
                   download
                   className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition-colors text-xs"
                 >
