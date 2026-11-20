@@ -83,12 +83,45 @@ export const api = {
     return res.json();
   },
 
-  // Balance Management (تعديل رصيد الإجازات والأذونات للموظف)
+  // Balance & Details Management (تعديل بيانات ومسمى وفرع ورصيد الموظف)
   async updateEmployeeBalances(employeeId, balances) {
     const res = await fetch(`${BASE_URL}/employees/${employeeId}/balances`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(balances)
+    });
+    return res.json();
+  },
+
+  async updateEmployeeDetails(employeeId, data) {
+    const res = await fetch(`${BASE_URL}/employees/${employeeId}/details`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  // Push Notifications (إشعارات الموبايل)
+  async getVapidPublicKey() {
+    const res = await fetch(`${BASE_URL}/notifications/vapid-public-key`);
+    return res.json();
+  },
+
+  async subscribePush(employeeId, subscription) {
+    const res = await fetch(`${BASE_URL}/notifications/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, subscription, userAgent: navigator.userAgent })
+    });
+    return res.json();
+  },
+
+  async unsubscribePush(endpoint) {
+    const res = await fetch(`${BASE_URL}/notifications/unsubscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint })
     });
     return res.json();
   },

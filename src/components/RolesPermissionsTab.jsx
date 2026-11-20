@@ -22,10 +22,20 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { api } from '../api';
-import { getUserAllowedBranches } from '../utils/userScope';
+import { getUserAllowedBranches, DEFAULT_SECTORS } from '../utils/userScope';
 import { formatArabicDateWithDay } from '../utils/dateHelpers';
 
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
+
+const DAYS_OF_WEEK = [
+  { id: 'saturday', name: 'السبت' },
+  { id: 'sunday', name: 'الأحد' },
+  { id: 'monday', name: 'الإثنين' },
+  { id: 'tuesday', name: 'الثلاثاء' },
+  { id: 'wednesday', name: 'الأربعاء' },
+  { id: 'thursday', name: 'الخميس' },
+  { id: 'friday', name: 'الجمعة' }
+];
 
 const HIERARCHY_ORDER = {
   super_admin: 0,
@@ -42,6 +52,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
   const canManageTitles = Boolean(isSuperAdmin || currentUser?.permissions?.manage_titles_permissions);
   const canManageEmployees = Boolean(isSuperAdmin || currentUser?.permissions?.manage_employees);
+  const canEditEmployeeDetails = Boolean(isSuperAdmin || currentUser?.permissions?.edit_employee_details || currentUser?.permissions?.manage_employees);
 
   const [activeSubTab, setActiveSubTab] = useState(canManageTitles ? 'roles' : 'employees');
 
@@ -81,8 +92,14 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const [empSuccessMsg, setEmpSuccessMsg] = useState('');
   const [empErrorMsg, setEmpErrorMsg] = useState('');
 
-  // Editing Balance modal/inline state
+  // Editing Employee details & balance modal state
   const [editingEmp, setEditingEmp] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTitleCode, setEditTitleCode] = useState('memberships_specialist');
+  const [editBranchId, setEditBranchId] = useState('branch_october2');
+  const [editSectorId, setEditSectorId] = useState('');
+  const [editWeeklyOff, setEditWeeklyOff] = useState(['friday', 'saturday']);
   const [editLeaveBalance, setEditLeaveBalance] = useState(30);
   const [editPermBalance, setEditPermBalance] = useState(2);
 
@@ -140,6 +157,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       key: 'manage_employees',
       label: 'إضافة وتعديل بيانات الموظفين',
       description: 'التحكم في قائمة الموظفين وتعيين مسمياتهم الوظيفية وتعديل بياناتهم',
+      category: 'الإدارة والإعدادات'
+    },
+    {
+      key: 'edit_employee_details',
+      label: 'تعديل مسميات وفروع وأرصدة الموظفين',
+      description: 'صلاحية تغيير المسمى الوظيفي والفرع وأيام الراحة ورصيد الإجازات لأي موظف',
       category: 'الإدارة والإعدادات'
     },
     {
@@ -273,17 +296,23 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     }
   };
 
-  // Open Edit Balances modal
-  const openBalanceModal = (emp) => {
+  // Open Edit Details modal
+  const openEditModal = (emp) => {
     setEditingEmp(emp);
+    setEditName(emp.name || '');
+    setEditPhone(emp.phone || '');
+    setEditTitleCode(emp.titleCode || 'memberships_specialist');
+    setEditBranchId(emp.branchId || 'branch_october2');
+    setEditSectorId(emp.sectorId || (DEFAULT_SECTORS && DEFAULT_SECTORS[0]?.id) || '');
+    setEditWeeklyOff(emp.weeklyOffDays || ['friday', 'saturday']);
     setEditLeaveBalance(emp.leaveBalance !== undefined ? emp.leaveBalance : 30);
     setEditPermBalance(emp.permissionsBalanceHours !== undefined ? emp.permissionsBalanceHours : 2);
     setEmpSuccessMsg('');
     setEmpErrorMsg('');
   };
 
-  // Save Balances
-  const handleSaveBalances = async (e) => {
+  // Save Full Employee Details
+  const handleSaveEmployeeDetails = async (e) => {
     e.preventDefault();
     if (!editingEmp) return;
 
@@ -292,16 +321,24 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     setEmpErrorMsg('');
 
     try {
-      const res = await api.updateEmployeeBalances(editingEmp.id, {
+      const selectedSector = DEFAULT_SECTORS.find(s => s.id === editSectorId);
+      const res = await api.updateEmployeeDetails(editingEmp.id, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        titleCode: editTitleCode,
+        branchId: editBranchId,
+        sectorId: editTitleCode === 'memberships_area_manager' ? editSectorId : '',
+        sectorName: editTitleCode === 'memberships_area_manager' && selectedSector ? selectedSector.name : '',
+        weeklyOffDays: editWeeklyOff,
         leaveBalance: Number(editLeaveBalance),
         permissionsBalanceHours: Number(editPermBalance)
       });
       if (res.success) {
-        setEmpSuccessMsg(`تم تحديث رصيد (${editingEmp.name}): ${editLeaveBalance} يوم إجازة، و ${editPermBalance} ساعات إذن.`);
+        setEmpSuccessMsg(`تم تحديث بيانات الموظف (${editName}) بنجاح.`);
         setEditingEmp(null);
         fetchEmployeesData();
       } else {
-        setEmpErrorMsg(res.error || 'تعذر تحديث الرصيد.');
+        setEmpErrorMsg(res.error || 'تعذر تحديث بيانات الموظف.');
       }
     } catch (err) {
       setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
@@ -536,17 +573,19 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                         <div className="text-[10px] text-zinc-400 flex items-center justify-between">
                           <span className="flex items-center gap-1 font-bold">
                             <Calendar className="w-3 h-3 text-amber-400" />
-                            <span>الأرصدة المعتمدة:</span>
+                            <span>الأرصدة والبيانات:</span>
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => openBalanceModal(emp)}
-                            className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
-                            title="تعديل رصيد الإجازات والأذونات"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                            <span>تعديل ✏️</span>
-                          </button>
+                          {canEditEmployeeDetails && (
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(emp)}
+                              className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                              title="تعديل المسمى الوظيفي والفرع وأيام الراحة والرصيد"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>تعديل البيانات ✏️</span>
+                            </button>
+                          )}
                         </div>
                         <div className="text-amber-300 font-black text-[11px] flex items-center gap-2">
                           <span>إجازات: <b>{emp.leaveBalance !== undefined ? emp.leaveBalance : 30} يوم</b></span>
@@ -561,15 +600,15 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
             )}
           </div>
 
-          {/* Edit Balances Modal */}
+          {/* Edit Details & Balances Modal */}
           {editingEmp && (
             <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-              <div className="w-full max-w-sm bg-zinc-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl space-y-4 text-right">
+              <div className="w-full max-w-md bg-zinc-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-amber-400" />
+                    <Edit2 className="w-5 h-5 text-amber-400" />
                     <div>
-                      <h3 className="text-xs font-black text-zinc-100">تعديل رصيد الإجازات والأذونات</h3>
+                      <h3 className="text-xs font-black text-zinc-100">تعديل بيانات المسمى والفرع والرصيد</h3>
                       <span className="text-[10px] text-amber-400 font-bold block">{editingEmp.name}</span>
                     </div>
                   </div>
@@ -582,41 +621,140 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveBalances} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                      رصيد الإجازات السنوية (أيام):
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="120"
-                      value={editLeaveBalance}
-                      onChange={e => setEditLeaveBalance(e.target.value)}
-                      required
-                      className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
-                    />
-                    <span className="text-[10px] text-zinc-500 block mt-1">
-                      * الرصيد الافتراضي هو 30 يوماً. للموظفين الجدد يمكنك خفضه حسب تاريخ التعيين.
-                    </span>
+                <form onSubmit={handleSaveEmployeeDetails} className="space-y-3">
+                  {/* Name & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">الاسم بالكامل:</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">رقم الهاتف:</label>
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={e => setEditPhone(e.target.value)}
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
                   </div>
 
+                  {/* Position (المسمى الوظيفي) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                      رصيد الأذونات الشهرية (ساعات / شهر):
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="20"
-                      value={editPermBalance}
-                      onChange={e => setEditPermBalance(e.target.value)}
-                      required
-                      className="w-full p-2.5 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
-                    />
-                    <span className="text-[10px] text-zinc-500 block mt-1">
-                      * الرصيد الافتراضي هو ساعتان (2 ساعة) لكل شهر.
-                    </span>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">المسمى الوظيفي (Position):</label>
+                    <select
+                      value={editTitleCode}
+                      onChange={e => setEditTitleCode(e.target.value)}
+                      className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                    >
+                      {titles.map(t => (
+                        <option key={t.code} value={t.code} className="bg-zinc-900 text-zinc-100">
+                          {t.name || t.englishTitle}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Branch (الفرع) */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">فرع العمل الأساسي:</label>
+                    <select
+                      value={editBranchId}
+                      onChange={e => setEditBranchId(e.target.value)}
+                      className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                    >
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                          فرع {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Sector (القطاع) - Only if area manager */}
+                  {editTitleCode === 'memberships_area_manager' && (
+                    <div className="bg-amber-500/10 p-2.5 rounded-2xl border border-amber-500/30">
+                      <label className="block text-[11px] font-black text-amber-300 mb-1">قطاع الإشراف والمتابعة:</label>
+                      <select
+                        value={editSectorId}
+                        onChange={e => setEditSectorId(e.target.value)}
+                        className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                      >
+                        {DEFAULT_SECTORS.map(sec => (
+                          <option key={sec.id} value={sec.id} className="bg-zinc-900 text-zinc-100">
+                            {sec.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Weekly Off Days */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1.5">أيام الإجازة الأسبوعية (الراحة):</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS_OF_WEEK.map(day => {
+                        const isSelected = editWeeklyOff.includes(day.id);
+                        return (
+                          <button
+                            key={day.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (editWeeklyOff.length > 1) {
+                                  setEditWeeklyOff(editWeeklyOff.filter(d => d !== day.id));
+                                }
+                              } else {
+                                setEditWeeklyOff([...editWeeklyOff, day.id]);
+                              }
+                            }}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-xl border transition-all ${
+                              isSelected
+                                ? 'bg-amber-500 text-black border-amber-400 shadow-xs'
+                                : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                            }`}
+                          >
+                            {day.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Balances */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 mb-1">رصيد الإجازات (أيام):</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={editLeaveBalance}
+                        onChange={e => setEditLeaveBalance(e.target.value)}
+                        required
+                        className="w-full p-2 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 mb-1">رصيد الأذونات (ساعات):</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={editPermBalance}
+                        onChange={e => setEditPermBalance(e.target.value)}
+                        required
+                        className="w-full p-2 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 pt-2">
@@ -626,7 +764,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                       className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                     >
                       <Save className="w-4 h-4" />
-                      <span>{empActionLoading ? 'جاري الحفظ...' : 'حفظ الرصيد المعتمد'}</span>
+                      <span>{empActionLoading ? 'جاري الحفظ...' : 'حفظ البيانات المعتمدة'}</span>
                     </button>
                     <button
                       type="button"

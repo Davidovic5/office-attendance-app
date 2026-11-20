@@ -74,12 +74,15 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
     api.getBranches().then(res => {
       if (res.success && res.branches) {
         setBranches(res.branches);
-        if (res.branches.length > 0) {
+        const available = res.branches.filter(b => b.id !== currentUser.branchId);
+        if (available.length > 0) {
+          setMissionBranchId(available[0].id);
+        } else if (res.branches.length > 0) {
           setMissionBranchId(res.branches[0].id);
         }
       }
     }).catch(console.error);
-  }, []);
+  }, [currentUser.branchId]);
 
   const fetchRequests = async () => {
     try {
@@ -158,9 +161,15 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
       return;
     }
 
-    if (requestType === 'leave' && leaveType === 'work_mission' && !missionBranchId) {
-      setErrorMsg('يرجى تحديد الفرع المتوجه إليه في مأمورية العمل.');
-      return;
+    if (requestType === 'leave' && leaveType === 'work_mission') {
+      if (!missionBranchId) {
+        setErrorMsg('يرجى تحديد الفرع المتوجه إليه في مأمورية العمل.');
+        return;
+      }
+      if (missionBranchId === currentUser.branchId) {
+        setErrorMsg('لا يمكن تقديم مأمورية عمل على نفس الفرع المسجل به حالياً. المأمورية تكون لفرع آخر فقط.');
+        return;
+      }
     }
 
     if (requestType === 'leave' && leaveType === 'holiday_compensation' && !holidayName.trim()) {
@@ -266,6 +275,37 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
 
   return (
     <div className="space-y-4 pb-8 text-right font-['Cairo',sans-serif]">
+      {/* Employee Personal Balance Overview Card */}
+      <div className="bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 p-3.5 rounded-3xl border border-amber-500/30 shadow-lg flex items-center justify-between gap-3 text-right">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] text-zinc-400 font-bold block truncate">رصيدك المتاح حالياً</span>
+            <span className="text-xs font-black text-white truncate block">
+              {currentUser.name}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="bg-zinc-950 px-3 py-1.5 rounded-2xl border border-amber-500/20 text-center">
+            <span className="text-[9px] text-zinc-400 font-bold block">رصيد الإجازات</span>
+            <span className="text-xs font-black text-amber-400 font-mono">
+              {currentUser.leaveBalance !== undefined ? currentUser.leaveBalance : 30} يوم
+            </span>
+          </div>
+
+          <div className="bg-zinc-950 px-3 py-1.5 rounded-2xl border border-amber-500/20 text-center">
+            <span className="text-[9px] text-zinc-400 font-bold block">رصيد الأذونات</span>
+            <span className="text-xs font-black text-amber-400 font-mono">
+              {currentUser.permissionsBalanceHours !== undefined ? currentUser.permissionsBalanceHours : 2} س/شهر
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Top Segmented Subtab Switcher */}
       <div className="bg-zinc-900 p-1.5 rounded-2xl border border-zinc-800 shadow-lg flex gap-1">
         <button
@@ -571,12 +611,21 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                         onChange={e => setMissionBranchId(e.target.value)}
                         className="w-full p-2.5 text-xs rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-bold"
                       >
-                        {branches.map(b => (
-                          <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
-                            فرع {b.name}
-                          </option>
-                        ))}
+                        {branches.filter(b => b.id !== currentUser.branchId).length === 0 ? (
+                          <option value="">لا توجد فروع أخرى متاحة</option>
+                        ) : (
+                          branches
+                            .filter(b => b.id !== currentUser.branchId)
+                            .map(b => (
+                              <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                                فرع {b.name}
+                              </option>
+                            ))
+                        )}
                       </select>
+                      <span className="text-[10px] text-zinc-500 block mt-1">
+                        * تم استبعاد فرعك الحالي تلقائياً لأن مأمورية العمل مخصصة للتنقل لفروع أخرى.
+                      </span>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-zinc-300 mb-1">تاريخ يوم المأمورية:</label>

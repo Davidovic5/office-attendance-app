@@ -291,6 +291,21 @@ router.put('/employees/:id/balances', async (req, res) => {
   }
 });
 
+// Update Employee Full Details (تعديل بيانات ومسمى وفرع ورصيد الموظف)
+router.put('/employees/:id/details', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await db.updateEmployeeDetails(id, req.body);
+    res.json({
+      success: true,
+      employee: updated,
+      message: `تم تحديث بيانات الموظف (${updated.name}) بنجاح.`
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // 4. Live Office Presence Dashboard (Filtered by Branch)
 router.get('/status/live', async (req, res) => {
   try {
@@ -412,6 +427,39 @@ router.post('/requests/:id/review', async (req, res) => {
       message: status === 'approved' ? "تم اعتماد الطلب بنجاح" : "تم رفض الطلب",
       request: reviewed
     });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Web Push Notifications
+router.get('/notifications/vapid-public-key', (req, res) => {
+  res.json({
+    success: true,
+    publicKey: process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3cD_bPcugExOm9yLKbZQZ68s0lQADHy-pGzkJ_Mbuf7IlZL0B5elp4MVu8Xy_3LXGSk"
+  });
+});
+
+router.post('/notifications/subscribe', async (req, res) => {
+  try {
+    const { employeeId, subscription, userAgent } = req.body;
+    if (!employeeId || !subscription) {
+      return res.status(400).json({ success: false, error: "employeeId and subscription are required." });
+    }
+    await db.savePushSubscription(employeeId, subscription, userAgent || req.headers['user-agent'] || '');
+    res.json({ success: true, message: "تم تفعيل إشعارات الهاتف بنجاح" });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/notifications/unsubscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) {
+      await db.removePushSubscription(endpoint);
+    }
+    res.json({ success: true, message: "تم إلغاء الاشتراك في الإشعارات" });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

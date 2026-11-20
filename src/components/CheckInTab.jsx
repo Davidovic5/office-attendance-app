@@ -43,21 +43,43 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const [allBranches, setAllBranches] = useState([]);
   const [todayMission, setTodayMission] = useState(null);
 
-  // Employee's regular home branch
-  const homeBranch = currentUser.branchDetails || {
-    id: 'branch_october2',
-    name: 'اكتوبر ٢',
+  // Safe time formatting helper
+  const safeTimeFormat = (timeStr) => {
+    if (!timeStr) return '--:--';
+    try {
+      const clean = typeof timeStr === 'string' ? timeStr.replace(' ', 'T') : timeStr;
+      const d = new Date(clean);
+      if (isNaN(d.getTime())) return '--:--';
+      return d.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '--:--';
+    }
+  };
+
+  // Employee's regular home branch with solid fallbacks
+  const fallbackHome = (allBranches || []).find(b => b.id === currentUser?.branchId) || {
+    id: currentUser?.branchId || 'branch_october2',
+    name: currentUser?.branchName || 'اكتوبر ٢',
     latitude: 29.9652734,
     longitude: 30.9634410,
     radiusMeters: 150
   };
 
+  const homeBranch = currentUser?.branchDetails || fallbackHome;
+
   // If employee has an approved work mission today at another branch, use that branch!
   const missionBranch = todayMission && todayMission.missionBranchId
-    ? allBranches.find(b => b.id === todayMission.missionBranchId)
+    ? (allBranches || []).find(b => b.id === todayMission.missionBranchId)
     : null;
 
-  const branch = missionBranch || homeBranch;
+  const rawBranch = missionBranch || homeBranch;
+  const branch = {
+    id: rawBranch?.id || 'branch_october2',
+    name: rawBranch?.name || currentUser?.branchName || 'فرع وادي دجلة',
+    latitude: Number(rawBranch?.latitude || 29.9652734),
+    longitude: Number(rawBranch?.longitude || 30.9634410),
+    radiusMeters: Number(rawBranch?.radiusMeters || 150)
+  };
   
   // Real Phone GPS State (No Simulation)
   const [userCoords, setUserCoords] = useState(null);
@@ -496,7 +518,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
               تم تسجيل انصرافك لهذا اليوم بنجاح
             </span>
             <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded-lg border border-emerald-700/50">
-              {new Date(completedRecord.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })}
+              {safeTimeFormat(completedRecord.checkOutTime)}
             </span>
           </div>
           <div className="text-xs text-zinc-300 bg-zinc-950/80 p-2.5 rounded-2xl border border-zinc-800 flex justify-between items-center">
@@ -546,7 +568,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
             <h2 className="text-xl font-black text-zinc-100 mb-0.5">وردية العمل جارية</h2>
             <p className="text-xs text-zinc-400 mb-5">
-              مسجل في <b>فرع {branch.name}</b> الساعة {new Date(currentAttendance.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })}
+              مسجل في <b>فرع {branch.name}</b> الساعة {safeTimeFormat(currentAttendance.checkInTime)}
             </p>
 
             {/* Circular Timer Ring */}

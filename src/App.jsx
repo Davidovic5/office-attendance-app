@@ -35,6 +35,7 @@ import { MonthlyReportTab } from './components/MonthlyReportTab';
 import { compressImage } from './utils/imageCompressor';
 import { checkIsInstalledApp } from './utils/appEnvironment';
 import { formatArabicDateWithDay } from './utils/dateHelpers';
+import { registerPushNotifications } from './utils/pushNotifications';
 
 const DAYS_OF_WEEK = [
   { id: 'saturday', name: 'السبت' },
@@ -87,6 +88,24 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled] = useState(() => checkIsInstalledApp());
+
+  // URL tab routing for push notifications & deep linking
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && ['check_in', 'presence', 'leaves', 'reports', 'roles', 'settings'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Register push notifications when user is authenticated (works even when app/phone is closed)
+  useEffect(() => {
+    if (currentUser?.id) {
+      registerPushNotifications(currentUser.id).catch(() => {});
+    }
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const handleBeforeInstall = (e) => {
@@ -398,7 +417,8 @@ export default function App() {
         manage_office_settings: true,
         view_reports: true,
         view_all_branches: true,
-        override_early_checkout: true
+        override_early_checkout: true,
+        edit_employee_details: true
       }
     : basePermissions;
 

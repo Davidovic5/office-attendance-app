@@ -35,7 +35,8 @@ const TitleSchema = new mongoose.Schema({
     manage_office_settings: { type: Boolean, default: false },
     view_reports: { type: Boolean, default: false },
     view_all_branches: { type: Boolean, default: false },
-    override_early_checkout: { type: Boolean, default: false }
+    override_early_checkout: { type: Boolean, default: false },
+    edit_employee_details: { type: Boolean, default: false }
   }
 });
 
@@ -133,12 +134,22 @@ const OfficeSettingsSchema = new mongoose.Schema({
   workEndTime: { type: String, default: '17:00' }
 });
 
+// 7. Push Notification Subscription Schema
+const PushSubscriptionSchema = new mongoose.Schema({
+  employeeId: { type: String, required: true, index: true },
+  endpoint: { type: String, required: true, unique: true },
+  subscription: { type: Object, required: true },
+  userAgent: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const Branch = mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
 const Title = mongoose.models.Title || mongoose.model('Title', TitleSchema);
 const Employee = mongoose.models.Employee || mongoose.model('Employee', EmployeeSchema);
 const AttendanceRecord = mongoose.models.AttendanceRecord || mongoose.model('AttendanceRecord', AttendanceRecordSchema);
 const Request = mongoose.models.Request || mongoose.model('Request', RequestSchema);
 const OfficeSettings = mongoose.models.OfficeSettings || mongoose.model('OfficeSettings', OfficeSettingsSchema);
+const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
 
 module.exports = {
   Branch,
@@ -146,5 +157,6 @@ module.exports = {
   Employee,
   AttendanceRecord,
   Request,
-  OfficeSettings
+  OfficeSettings,
+  PushSubscription
 };

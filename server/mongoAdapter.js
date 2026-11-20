@@ -1,5 +1,17 @@
 const mongoose = require('mongoose');
-const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings } = require('./models');
+const webPush = require('web-push');
+const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription } = require('./models');
+
+// Configure VAPID for Web Push Notifications (Works even when app is closed on mobile)
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3cD_bPcugExOm9yLKbZQZ68s0lQADHy-pGzkJ_Mbuf7IlZL0B5elp4MVu8Xy_3LXGSk";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "-CF2u_m7I2mFHqknnMkYRDkIE0gXvD69zW63PEA0tzM";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@wadidegla.com";
+
+try {
+  webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} catch (e) {
+  console.warn("VAPID setup warning:", e.message);
+}
 
 // Calculate GPS distance using Haversine formula
 function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -102,7 +114,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: true,
       view_reports: true,
       view_all_branches: true,
-      override_early_checkout: true
+      override_early_checkout: true,
+      edit_employee_details: true
     }
   },
   {
@@ -127,7 +140,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: false,
       view_reports: true,
       view_all_branches: false,
-      override_early_checkout: true
+      override_early_checkout: true,
+      edit_employee_details: false
     }
   },
   {
@@ -152,7 +166,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: true,
       view_reports: true,
       view_all_branches: false,
-      override_early_checkout: true
+      override_early_checkout: true,
+      edit_employee_details: false
     }
   },
   {
@@ -177,7 +192,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: false,
       view_reports: true,
       view_all_branches: false,
-      override_early_checkout: false
+      override_early_checkout: false,
+      edit_employee_details: false
     }
   },
   {
@@ -202,7 +218,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: false,
       view_reports: true,
       view_all_branches: false,
-      override_early_checkout: false
+      override_early_checkout: false,
+      edit_employee_details: false
     }
   },
   {
@@ -227,7 +244,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: false,
       view_reports: true,
       view_all_branches: false,
-      override_early_checkout: false
+      override_early_checkout: false,
+      edit_employee_details: false
     }
   },
   {
@@ -252,7 +270,8 @@ const DEFAULT_TITLES = [
       manage_office_settings: false,
       view_reports: false,
       view_all_branches: false,
-      override_early_checkout: false
+      override_early_checkout: false,
+      edit_employee_details: false
     }
   }
 ];
@@ -336,6 +355,10 @@ async function seedMongoData() {
     if (missingTitles.length > 0) {
       await Title.insertMany(missingTitles);
     }
+    await Title.updateOne(
+      { code: "memberships_executive_director", "permissions.edit_employee_details": { $ne: true } },
+      { $set: { "permissions.edit_employee_details": true } }
+    );
 
     // 4. Master Ghost Super Admin
     const existingAdmin = await Employee.findOne({ phone: "01010046078" });
@@ -422,7 +445,18 @@ class MongoDatabaseAdapter {
 
   async getTitles() {
     await this.ensureConnected();
-    return Title.find().lean();
+    const titles = await Title.find().lean();
+    return titles.map(t => {
+      const defaultTitle = DEFAULT_TITLES.find(dt => dt.code === t.code);
+      const defaultPerms = defaultTitle ? defaultTitle.permissions : {};
+      return {
+        ...t,
+        permissions: {
+          ...defaultPerms,
+          ...(t.permissions || {})
+        }
+      };
+    });
   }
 
   async updateTitlePermissions(code, permissions) {
@@ -656,6 +690,107 @@ class MongoDatabaseAdapter {
     if (permissionsBalanceHours !== undefined && permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(permissionsBalanceHours);
     await emp.save();
     return this.getEmployeeById(employeeId);
+  }
+
+  async updateEmployeeDetails(employeeId, data) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود.");
+
+    // Ghost Super Admin Protection
+    if (emp.phone === "01010046078" || emp.isSuperAdmin) {
+      throw new Error("لا يمكن تعديل بيانات مدير النظام العام.");
+    }
+
+    if (data.name && data.name.trim()) {
+      emp.name = data.name.trim();
+    }
+    if (data.phone && data.phone.trim()) {
+      const cleanPhone = data.phone.trim();
+      const existing = await Employee.findOne({ phone: cleanPhone, id: { $ne: employeeId } });
+      if (existing) {
+        throw new Error(`رقم الهاتف (${cleanPhone}) مسجل بالفعل لموظف آخر.`);
+      }
+      emp.phone = cleanPhone;
+    }
+    if (data.titleCode) {
+      const titleObj = await Title.findOne({ code: data.titleCode }).lean();
+      if (titleObj) {
+        emp.titleCode = titleObj.code;
+        emp.jobTitle = titleObj.englishTitle || titleObj.name;
+      }
+    }
+    if (data.branchId) {
+      const branchObj = await Branch.findOne({ id: data.branchId }).lean();
+      if (branchObj) {
+        emp.branchId = branchObj.id;
+      }
+    }
+    if (data.sectorId !== undefined) {
+      emp.sectorId = data.sectorId || '';
+      emp.sectorName = data.sectorName || '';
+    }
+    if (data.weeklyOffDays && Array.isArray(data.weeklyOffDays)) {
+      emp.weeklyOffDays = data.weeklyOffDays;
+    }
+    if (data.leaveBalance !== undefined && data.leaveBalance !== null) {
+      emp.leaveBalance = Number(data.leaveBalance);
+    }
+    if (data.permissionsBalanceHours !== undefined && data.permissionsBalanceHours !== null) {
+      emp.permissionsBalanceHours = Number(data.permissionsBalanceHours);
+    }
+
+    await emp.save();
+    return this.getEmployeeById(employeeId);
+  }
+
+  // Push Notifications Management
+  async savePushSubscription(employeeId, subscription, userAgent = '') {
+    await this.ensureConnected();
+    if (!subscription || !subscription.endpoint) {
+      throw new Error("بيانات الاشتراك في الإشعارات غير مكتملة.");
+    }
+    return PushSubscription.findOneAndUpdate(
+      { endpoint: subscription.endpoint },
+      {
+        employeeId,
+        subscription,
+        userAgent,
+        createdAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+  }
+
+  async removePushSubscription(endpoint) {
+    await this.ensureConnected();
+    return PushSubscription.deleteOne({ endpoint });
+  }
+
+  async sendPushNotification(employeeId, payload) {
+    await this.ensureConnected();
+    const subs = await PushSubscription.find({ employeeId }).lean();
+    if (!subs || subs.length === 0) return { sentCount: 0 };
+
+    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    let sentCount = 0;
+
+    await Promise.allSettled(
+      subs.map(async (sub) => {
+        try {
+          await webPush.sendNotification(sub.subscription, payloadStr);
+          sentCount++;
+        } catch (err) {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await PushSubscription.deleteOne({ endpoint: sub.endpoint }).catch(() => {});
+          } else {
+            console.warn(`Push delivery warning to employee ${employeeId}:`, err.message);
+          }
+        }
+      })
+    );
+
+    return { sentCount };
   }
 
   async updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId }) {
@@ -978,6 +1113,21 @@ class MongoDatabaseAdapter {
 
   async createRequest(requestData) {
     await this.ensureConnected();
+
+    const emp = await Employee.findOne({ id: requestData.employeeId }).lean();
+    if (emp && emp.branchId) {
+      requestData.branchId = emp.branchId;
+    }
+
+    if (requestData.type === 'leave' && requestData.leaveType === 'work_mission') {
+      if (!requestData.missionBranchId) {
+        throw new Error("يرجى تحديد الفرع المتوجه إليه في مأمورية العمل.");
+      }
+      if (emp && emp.branchId && requestData.missionBranchId === emp.branchId) {
+        throw new Error("لا يمكن تقديم مأمورية عمل على نفس فرع العمل الأساسي الخاص بك.");
+      }
+    }
+
     if (requestData.type === 'early_checkout') {
       const today = requestData.date || new Date().toISOString().split('T')[0];
       requestData.date = today;
@@ -1012,6 +1162,54 @@ class MongoDatabaseAdapter {
       ...requestData
     });
     await newReq.save();
+
+    // Send background push notification to managers even when phone/app is closed
+    try {
+      const empName = emp ? emp.name : 'موظف';
+      let title = `طلب جديد: ${empName}`;
+      let body = '';
+
+      if (requestData.type === 'early_checkout') {
+        body = `طلب انصراف طارئ جديد يحتاج إلى موافقة.`;
+      } else if (requestData.type === 'permission') {
+        const pType = requestData.permissionType === 'morning' ? 'إذن تأخير صباحي' : 'إذن انصراف مبكر';
+        body = `طلب ${pType} (${requestData.permissionHours || 2} س) - سبب: ${requestData.reason || ''}`;
+      } else {
+        const leaveNames = {
+          annual: 'إجازة سنوية',
+          sick: 'إجازة مرضية',
+          casual: 'إجازة عارضة',
+          work_mission: `مأمورية عمل بفرع ${requestData.missionBranchName || ''}`,
+          weekly_rest_compensation: 'بدل راحة أسبوعية',
+          holiday_compensation: `بدل إجازة عيد (${requestData.holidayName || ''})`
+        };
+        const lName = leaveNames[requestData.leaveType] || 'إجازة';
+        body = `طلب ${lName} - سبب: ${requestData.reason || ''}`;
+      }
+
+      const managerQuery = {
+        $or: [
+          { branchId: emp?.branchId, titleCode: 'memberships_manager' },
+          { sectorId: emp?.sectorId, titleCode: 'memberships_area_manager' },
+          { titleCode: 'memberships_executive_director' },
+          { phone: '01010046078' }
+        ]
+      };
+      const managers = await Employee.find(managerQuery, { id: 1 }).lean();
+      const targetEmpIds = [...new Set(managers.map(m => m.id).filter(id => id !== requestData.employeeId))];
+
+      for (const mgrId of targetEmpIds) {
+        this.sendPushNotification(mgrId, {
+          title,
+          body,
+          icon: '/icon-192.png',
+          url: '/?tab=leaves'
+        }).catch(() => {});
+      }
+    } catch (pushErr) {
+      console.warn("Push error on createRequest:", pushErr.message);
+    }
+
     return newReq.toObject();
   }
 
@@ -1083,6 +1281,28 @@ class MongoDatabaseAdapter {
     }
 
     await req.save();
+
+    // Send background push notification to the employee
+    try {
+      const isApproved = status === 'approved';
+      const statusTitle = isApproved ? 'تمت الموافقة على طلبك ✅' : 'تم رفض طلبك ❌';
+      let reqTypeText = 'الطلب';
+      if (req.type === 'early_checkout') reqTypeText = 'الانصراف الطارئ';
+      else if (req.type === 'permission') reqTypeText = 'إذن العمل';
+      else reqTypeText = 'الإجازة';
+
+      const bodyText = `تم الرد على طلب (${reqTypeText}) الخاص بك. ${reviewNote ? 'ملاحظة الإدارة: ' + reviewNote : ''}`;
+
+      this.sendPushNotification(req.employeeId, {
+        title: statusTitle,
+        body: bodyText,
+        icon: '/icon-192.png',
+        url: '/?tab=leaves'
+      }).catch(() => {});
+    } catch (pushErr) {
+      console.warn("Push error on reviewRequest:", pushErr.message);
+    }
+
     return req.toObject();
   }
 
