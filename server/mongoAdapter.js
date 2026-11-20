@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const webPush = require('web-push');
 const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription } = require('./models');
 
 // Configure VAPID for Web Push Notifications (Works even when app is closed on mobile)
@@ -7,7 +6,9 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3c
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "-CF2u_m7I2mFHqknnMkYRDkIE0gXvD69zW63PEA0tzM";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@wadidegla.com";
 
+let webPush = null;
 try {
+  webPush = require('web-push');
   webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 } catch (e) {
   console.warn("VAPID setup warning:", e.message);
@@ -777,6 +778,7 @@ class MongoDatabaseAdapter {
   }
 
   async sendPushNotification(employeeId, payload) {
+    if (!webPush) return { sentCount: 0 };
     await this.ensureConnected();
     const subs = await PushSubscription.find({ employeeId }).lean();
     if (!subs || subs.length === 0) return { sentCount: 0 };
