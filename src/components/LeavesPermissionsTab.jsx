@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { getUserAllowedBranches } from '../utils/userScope';
+import { getDayInfoFromDateStr, DAY_ID_TO_ARABIC } from '../utils/dateHelpers';
 
 export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [activeSubTab, setActiveSubTab] = useState('list'); // 'list' | 'new_request'
@@ -66,6 +67,12 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
   const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
   const isBranchMgr = currentUser?.titleCode === 'memberships_manager';
+
+  // Employee weekly off days calculation
+  const userOffDays = currentUser?.weeklyOffDays || ['friday', 'saturday'];
+  const userOffDaysNames = userOffDays.map(id => DAY_ID_TO_ARABIC[id] || id).join(' و ');
+  const startDayInfo = getDayInfoFromDateStr(startDate, userOffDays);
+  const endDayInfo = getDayInfoFromDateStr(endDate, userOffDays);
 
   // Only manager and higher ranks can approve requests
   const canApprove = isSuperAdmin || isExecutive || isAreaMgr || isBranchMgr;
@@ -175,6 +182,30 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
     if (requestType === 'leave' && leaveType === 'holiday_compensation' && !holidayName.trim()) {
       setErrorMsg('يرجى كتابة اسم العيد أو المناسبة الرسمية التي تم العمل بها.');
       return;
+    }
+
+    // Validation: Block taking regular leave on designated weekly off days (exempting work_mission, weekly_rest_compensation, holiday_compensation)
+    if (requestType === 'leave' && ['annual', 'sick', 'casual'].includes(leaveType)) {
+      if (startDate > endDate) {
+        setErrorMsg('تاريخ بداية الإجازة لا يمكن أن يكون بعد تاريخ النهاية.');
+        return;
+      }
+
+      if (startDate === endDate) {
+        if (startDayInfo && startDayInfo.isOff) {
+          setErrorMsg(`عذراً، يوم (${startDayInfo.dayName}) يوافق يوم إجازتك الأسبوعية بالفعل، ولا يتطلب تقديم طلب إجازة.`);
+          return;
+        }
+      } else {
+        if (startDayInfo && startDayInfo.isOff) {
+          setErrorMsg(`عذراً، تاريخ بداية الإجازة يوافق يوم إجازتك الأسبوعية (${startDayInfo.dayName}). يرجى تحديد بداية الإجازة من يوم عمل فعلي.`);
+          return;
+        }
+        if (endDayInfo && endDayInfo.isOff) {
+          setErrorMsg(`عذراً، تاريخ نهاية الإجازة يوافق يوم إجازتك الأسبوعية (${endDayInfo.dayName}). يرجى تحديد نهاية الإجازة بيوم عمل فعلي.`);
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -574,25 +605,51 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
 
               {/* Standard dates for Annual, Sick, Casual */}
               {['annual', 'sick', 'casual'].includes(leaveType) && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">تاريخ البداية:</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      className="w-full p-2.5 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-bold"
-                    />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">تاريخ البداية:</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        className={`w-full p-2.5 text-xs rounded-xl bg-zinc-950 border focus:outline-none font-bold ${
+                          startDayInfo?.isOff
+                            ? 'border-rose-500 text-rose-300 focus:border-rose-400'
+                            : 'border-zinc-800 text-zinc-100 focus:border-amber-500'
+                        }`}
+                      />
+                      {startDayInfo && (
+                        <span className={`text-[10px] block mt-1 font-bold ${startDayInfo.isOff ? 'text-rose-400' : 'text-amber-400'}`}>
+                          {startDayInfo.dayName} {startDayInfo.isOff && '(يوم راحتك الأسبوعية ⚠️)'}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">تاريخ النهاية:</label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        className={`w-full p-2.5 text-xs rounded-xl bg-zinc-950 border focus:outline-none font-bold ${
+                          endDayInfo?.isOff
+                            ? 'border-rose-500 text-rose-300 focus:border-rose-400'
+                            : 'border-zinc-800 text-zinc-100 focus:border-amber-500'
+                        }`}
+                      />
+                      {endDayInfo && (
+                        <span className={`text-[10px] block mt-1 font-bold ${endDayInfo.isOff ? 'text-rose-400' : 'text-amber-400'}`}>
+                          {endDayInfo.dayName} {endDayInfo.isOff && '(يوم راحتك الأسبوعية ⚠️)'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">تاريخ النهاية:</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                      className="w-full p-2.5 text-xs rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-bold"
-                    />
-                  </div>
+
+                  {((startDayInfo && startDayInfo.isOff) || (endDayInfo && endDayInfo.isOff)) && (
+                    <div className="bg-rose-950/70 border border-rose-700/80 p-2.5 rounded-xl text-rose-300 text-[11px] font-bold leading-relaxed">
+                      ⚠️ تنبيه: لا يُسمح بطلب إجازة في أيام راحتك الأسبوعية ({userOffDaysNames}). يرجى تحديد التواريخ في أيام عملك الرسمية.
+                    </div>
+                  )}
                 </div>
               )}
 

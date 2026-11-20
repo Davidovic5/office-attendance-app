@@ -524,7 +524,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
           <div className="text-xs text-zinc-300 bg-zinc-950/80 p-2.5 rounded-2xl border border-zinc-800 flex justify-between items-center">
             <span className="text-zinc-400 font-bold">إجمالي ساعات العمل المسجلة:</span>
             <span className="font-mono font-black text-amber-400">
-              {Math.floor(completedRecord.durationMinutes / 60)} س و {completedRecord.durationMinutes % 60} د
+              {Math.floor((Number(completedRecord.durationMinutes) || 0) / 60)} س و {Math.floor((Number(completedRecord.durationMinutes) || 0) % 60)} د
             </span>
           </div>
           {completedRecord.checkOutNotes && (

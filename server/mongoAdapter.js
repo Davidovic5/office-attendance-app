@@ -1139,6 +1139,47 @@ class MongoDatabaseAdapter {
       }
     }
 
+    // Validation: Prevent taking leave on employee's weekly off days (exempting work_mission, weekly_rest_compensation, holiday_compensation)
+    if (requestData.type === 'leave' && !['work_mission', 'weekly_rest_compensation', 'holiday_compensation'].includes(requestData.leaveType)) {
+      const empOffDays = (emp && emp.weeklyOffDays) || ['friday', 'saturday'];
+      const startDateStr = requestData.startDate || requestData.date;
+      const endDateStr = requestData.endDate || startDateStr;
+
+      if (startDateStr) {
+        const DAY_INDEX_TO_ID = {
+          0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday'
+        };
+        const DAY_NAMES_AR = {
+          sunday: 'الأحد', monday: 'الإثنين', tuesday: 'الثلاثاء', wednesday: 'الأربعاء', thursday: 'الخميس', friday: 'الجمعة', saturday: 'السبت'
+        };
+
+        const parseDay = (dStr) => {
+          const parts = dStr.split('-').map(Number);
+          const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+          return DAY_INDEX_TO_ID[d.getDay()];
+        };
+
+        if (startDateStr === endDateStr) {
+          const dayId = parseDay(startDateStr);
+          if (empOffDays.includes(dayId)) {
+            const dayName = DAY_NAMES_AR[dayId] || dayId;
+            throw new Error(`عذراً، يوم (${dayName}) يوافق يوم إجازتك الأسبوعية بالفعل، لا يمكنك تقديم طلب إجازة فيه.`);
+          }
+        } else {
+          const startDayId = parseDay(startDateStr);
+          const endDayId = parseDay(endDateStr);
+          if (empOffDays.includes(startDayId)) {
+            const startName = DAY_NAMES_AR[startDayId] || startDayId;
+            throw new Error(`عذراً، تاريخ بداية الإجازة يوافق يوم إجازتك الأسبوعية (${startName}). يرجى تحديد البداية من يوم عمل فعلي.`);
+          }
+          if (empOffDays.includes(endDayId)) {
+            const endName = DAY_NAMES_AR[endDayId] || endDayId;
+            throw new Error(`عذراً، تاريخ نهاية الإجازة يوافق يوم إجازتك الأسبوعية (${endName}). يرجى تحديد النهاية بيوم عمل فعلي.`);
+          }
+        }
+      }
+    }
+
     if (requestData.type === 'early_checkout') {
       const today = requestData.date || new Date().toISOString().split('T')[0];
       requestData.date = today;

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { getUserAllowedBranches, DEFAULT_SECTORS } from '../utils/userScope';
+import { formatCairoTime } from '../utils/dateHelpers';
 
 const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
 
@@ -297,29 +298,29 @@ export function OfficePresenceTab({ currentUser }) {
                 <div key={item.employee.id} className="bg-zinc-900 p-3.5 rounded-2xl border border-zinc-800 shadow-md flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img 
-                      src={item.employee.avatar} 
-                      alt={item.employee.name} 
+                      src={item.employee?.avatar || DEFAULT_AVATAR} 
+                      alt={item.employee?.name || 'موظف'} 
                       className="w-11 h-11 rounded-xl object-cover border-2 border-emerald-500"
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-xs text-zinc-100">{item.employee.name}</span>
+                        <span className="font-black text-xs text-zinc-100">{item.employee?.name || 'موظف'}</span>
                         <span className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/80">
                           متواجد
                         </span>
                       </div>
                       <span className="text-[11px] text-amber-400 font-bold block mt-0.5">
-                        {item.employee.jobTitle} • {item.employee.branchName}
+                        {item.employee?.jobTitle || 'موظف'} • {item.employee?.branchName || 'الفرع'}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-left text-xs">
                     <span className="font-bold text-zinc-200 block font-mono">
-                      {new Date(item.checkInTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      {formatCairoTime(item.checkInTime)}
                     </span>
                     <span className="text-[10px] text-zinc-500">
-                      المسافة: {item.attendance.distanceMeters || 12} م
+                      المسافة: {item.attendance?.distanceMeters || 12} م
                     </span>
                   </div>
                 </div>

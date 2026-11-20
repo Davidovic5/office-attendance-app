@@ -23,6 +23,9 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { getUserAllowedBranches } from '../utils/userScope';
+import { formatCairoTime } from '../utils/dateHelpers';
+
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
 
 const MONTH_NAMES = [
   'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
@@ -385,14 +388,12 @@ export function MonthlyReportTab({ currentUser }) {
             attendance
               .filter(rec => 
                 !searchQuery ||
-                rec.employeeName.includes(searchQuery) ||
-                rec.jobTitle.includes(searchQuery) ||
-                rec.branchName.includes(searchQuery) ||
-                rec.date.includes(searchQuery)
+                (rec.employeeName || '').includes(searchQuery) ||
+                (rec.jobTitle || '').includes(searchQuery) ||
+                (rec.branchName || '').includes(searchQuery) ||
+                (rec.date || '').includes(searchQuery)
               )
               .map(rec => {
-                const checkInDate = rec.checkInTime ? new Date(rec.checkInTime) : null;
-                const checkOutDate = rec.checkOutTime ? new Date(rec.checkOutTime) : null;
                 const durationHrs = rec.durationMinutes ? (rec.durationMinutes / 60).toFixed(1) : (rec.checkOutTime ? '8.0' : 'جاري');
 
                 return (
@@ -402,26 +403,26 @@ export function MonthlyReportTab({ currentUser }) {
                   >
                     <div className="flex items-center gap-3">
                       <img 
-                        src={rec.avatar} 
-                        alt={rec.employeeName} 
+                        src={rec.avatar || DEFAULT_AVATAR} 
+                        alt={rec.employeeName || 'موظف'} 
                         className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shrink-0" 
                       />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-black text-sm text-zinc-100">{rec.employeeName}</span>
-                          <span className="text-[10px] text-zinc-400">({rec.jobTitle})</span>
+                          <span className="font-black text-sm text-zinc-100">{rec.employeeName || 'موظف'}</span>
+                          <span className="text-[10px] text-zinc-400">({rec.jobTitle || 'أندية وادي دجلة'})</span>
                         </div>
                         <span className="text-[11px] text-amber-400 block mt-0.5 font-mono">
-                          📅 {rec.date} • فرع {rec.branchName}
+                          📅 {rec.date} • فرع {rec.branchName || 'وادي دجلة'}
                         </span>
                       </div>
                     </div>
 
                     <div className="text-left font-mono">
                       <div className="text-zinc-200 font-bold">
-                        حضور: {checkInDate ? checkInDate.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '--'}
+                        حضور: {formatCairoTime(rec.checkInTime)}
                         {' ➔ '}
-                        انصراف: {checkOutDate ? checkOutDate.toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل'}
+                        انصراف: {rec.checkOutTime ? formatCairoTime(rec.checkOutTime) : 'في العمل'}
                       </div>
                       <div className="text-[11px] text-emerald-400 mt-0.5">
                         إجمالي الوقت: {durationHrs} ساعة {rec.completed8Hours && '• مكتمل 8س ✅'}

@@ -47,6 +47,8 @@ const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' }
 ];
 
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B800'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
+
 export default function App() {
   const [employees, setEmployees] = useState([]);
   const [titles, setTitles] = useState(() => {
@@ -542,7 +544,7 @@ export default function App() {
               <h1 className="text-xs font-black text-amber-400 leading-tight truncate">أندية وادي دجلة</h1>
               <span className="text-[10px] text-zinc-300 font-bold flex items-center gap-1 mt-0.5 truncate">
                 <MapPin className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                <span className="truncate">فرع {currentUser.branchName || 'اكتوبر ٢'}</span>
+                <span className="truncate">فرع {currentUser?.branchName || 'اكتوبر ٢'}</span>
               </span>
             </div>
           </div>
@@ -597,8 +599,8 @@ export default function App() {
           <div className="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
             <div className="relative shrink-0">
               <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name} 
+                src={currentUser?.avatar || DEFAULT_AVATAR} 
+                alt={currentUser?.name || 'صورة الموظف'} 
                 className="w-12 h-12 rounded-2xl object-cover border-2 border-amber-400 shadow-md shrink-0"
               />
               <div className="absolute -bottom-1 -left-1 bg-amber-500 text-black p-0.5 rounded-md shadow-xs">
@@ -608,14 +610,14 @@ export default function App() {
             <div className="min-w-0 flex-1">
               <span className="text-[10px] text-zinc-400 font-bold block leading-tight">مرحباً بك،</span>
               <h2 className="text-sm font-black text-amber-300 leading-tight group-hover:text-amber-400 transition-colors truncate">
-                {currentUser.name}
+                {currentUser?.name || 'المستخدم'}
               </h2>
               <div className="text-[11px] font-bold text-amber-400 truncate mt-0.5 leading-tight">
-                {currentUser.jobTitle}
+                {currentUser?.jobTitle || 'أندية وادي دجلة'}
               </div>
               <div className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5 truncate">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-                <span className="truncate">فرع {currentUser.branchName}</span>
+                <span className="truncate">فرع {currentUser?.branchName || 'وادي دجلة'}</span>
               </div>
             </div>
           </div>
@@ -710,8 +712,8 @@ export default function App() {
                 <label className="cursor-pointer group relative">
                   <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-amber-400 shadow-lg bg-zinc-900 shrink-0">
                     <img 
-                      src={profileAvatar || currentUser.avatar} 
-                      alt={currentUser.name} 
+                      src={profileAvatar || currentUser?.avatar || DEFAULT_AVATAR} 
+                      alt={currentUser?.name || 'صورة الحساب'} 
                       className="w-full h-full object-cover" 
                     />
                   </div>
