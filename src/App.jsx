@@ -22,7 +22,9 @@ import {
   Save,
   Calendar,
   BarChart3,
-  Trash2
+  Trash2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { api } from './api';
 import { AuthScreen } from './components/AuthScreen';
@@ -36,6 +38,7 @@ import { compressImage } from './utils/imageCompressor';
 import { checkIsInstalledApp } from './utils/appEnvironment';
 import { formatArabicDateWithDay } from './utils/dateHelpers';
 import { registerPushNotifications } from './utils/pushNotifications';
+import { getInitialTheme, applyTheme } from './utils/themeHelper';
 
 const DAYS_OF_WEEK = [
   { id: 'saturday', name: 'السبت' },
@@ -90,6 +93,19 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled] = useState(() => checkIsInstalledApp());
+
+  // Theme state: 'dark' | 'light'
+  const [theme, setTheme] = useState(() => getInitialTheme());
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    applyTheme(next);
+  };
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   // URL tab routing for push notifications & deep linking
   useEffect(() => {
@@ -550,7 +566,21 @@ export default function App() {
           </div>
 
           {/* User Controls - Spaced out safely */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Dark / Light Mode Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 sm:p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
+              title={theme === 'dark' ? 'التحويل إلى الوضع الفاتح (Light Mode)' : 'التحويل إلى الوضع الداكن (Dark Mode)'}
+              aria-label={theme === 'dark' ? 'التحويل إلى الوضع الفاتح' : 'التحويل إلى الوضع الداكن'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-amber-500" />
+              )}
+            </button>
+
             {/* Profile Settings Button */}
             <button
               onClick={openProfileSettings}
@@ -591,7 +621,7 @@ export default function App() {
         {/* Profile & Context Card in Wadi Degla Luxury Theme */}
         <div 
           onClick={openProfileSettings}
-          className="cursor-pointer group bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 border border-amber-500/30 hover:border-amber-500/60 text-white rounded-3xl p-3.5 sm:p-4 shadow-xl mb-4 flex items-center justify-between gap-2.5 relative overflow-hidden transition-all"
+          className="cursor-pointer group bg-gradient-to-r from-zinc-900 via-zinc-850 to-zinc-900 border border-amber-500/30 hover:border-amber-500/60 text-zinc-100 rounded-3xl p-3.5 sm:p-4 shadow-xl mb-4 flex items-center justify-between gap-2.5 relative overflow-hidden transition-all"
         >
           {/* Subtle gold accent glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -804,7 +834,41 @@ export default function App() {
               </div>
             </div>
 
-            {/* 3. Change Password Section */}
+            {/* 3. Theme Mode Selection */}
+            <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mb-4 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-zinc-200 block truncate">مظهر التطبيق:</span>
+                <span className="text-[10px] text-zinc-500 block truncate">اختر المظهر المفضل لك</span>
+              </div>
+              <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { setTheme('dark'); applyTheme('dark'); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-amber-500 text-black shadow-xs font-black'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  <span>داكن</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTheme('light'); applyTheme('light'); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-amber-500 text-black shadow-xs font-black'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>فاتح</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Change Password Section */}
             <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">

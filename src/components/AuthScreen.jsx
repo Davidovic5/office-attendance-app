@@ -20,12 +20,15 @@ import {
   Loader2,
   Download,
   Smartphone,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
 import { checkIsInstalledApp } from '../utils/appEnvironment';
 import { DEFAULT_SECTORS } from '../utils/userScope';
+import { getInitialTheme, applyTheme } from '../utils/themeHelper';
 
 const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' },
@@ -50,6 +53,15 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const [photoCompressing, setPhotoCompressing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Theme state: 'dark' | 'light'
+  const [theme, setTheme] = useState(() => getInitialTheme());
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    applyTheme(next);
+  };
 
   // Handle native PWA install prompt
   React.useEffect(() => {
@@ -223,6 +235,17 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
       {/* ================= VIEW A: DOWNLOAD & INSTALL PORTAL (When opened in Web Browser) ================= */}
       {!isInstalledApp && !webBypass ? (
         <div className="w-full max-w-md bg-zinc-900 border border-amber-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative z-10 text-zinc-100 animate-fade-in">
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="absolute top-4 left-4 p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-amber-400 border border-zinc-700/60 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+            title={theme === 'dark' ? 'التحويل إلى الوضع الفاتح (Light Mode)' : 'التحويل إلى الوضع الداكن (Dark Mode)'}
+            aria-label="تبديل الوضع"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-amber-500" />}
+          </button>
+
           {/* Wadi Degla Shield Logo & Brand Header */}
           <div className="text-center mb-5">
             <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">
@@ -340,7 +363,17 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
       ) : (
         /* ================= VIEW B: PURE LOGIN / REGISTER (Inside Installed App or Web Bypass) ================= */
         <div className="w-full max-w-md bg-zinc-900 border border-amber-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative z-10 text-zinc-100 animate-fade-in">
-          
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="absolute top-4 left-4 p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-amber-400 border border-zinc-700/60 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+            title={theme === 'dark' ? 'التحويل إلى الوضع الفاتح (Light Mode)' : 'التحويل إلى الوضع الداكن (Dark Mode)'}
+            aria-label="تبديل الوضع"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-amber-500" />}
+          </button>
+
           {/* Wadi Degla Shield Logo & Brand Header */}
           <div className="text-center mb-5">
             <div className="w-20 h-24 mx-auto mb-2 flex items-center justify-center">

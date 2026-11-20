@@ -1,7 +1,7 @@
 // Service Worker for Wadi Degla Attendance PWA
 // Provides instant app installation, seamless background updates, and Push Notifications
 
-const CACHE_NAME = 'wadi-degla-cache-v9';
+const CACHE_NAME = 'wadi-degla-cache-v10';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
