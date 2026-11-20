@@ -218,7 +218,13 @@ router.post('/auth/webauthn/login-options', async (req, res) => {
 
     if (phone && phone.trim()) {
       const emp = await db.getEmployeeByPhone(phone.trim());
-      if (emp && Array.isArray(emp.passkeys) && emp.passkeys.length > 0) {
+      if (emp) {
+        if (!Array.isArray(emp.passkeys) || emp.passkeys.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: "لم تقم بتفعيل بصمة الوجه (Face ID) لهذا الحساب بعد. يرجى تسجيل الدخول برقم الهاتف وكلمة المرور أولاً لتفعيلها بضغطة واحدة."
+          });
+        }
         allowCredentials = emp.passkeys.map(p => ({
           id: p.id,
           transports: p.transports || []

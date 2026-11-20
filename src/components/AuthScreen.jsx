@@ -555,8 +555,8 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                     </>
                   )}
                 </button>
-                <p className="text-[10px] text-zinc-500 text-center mt-1.5">
-                  💡 تسجيل الدخول التلقائي بلمسة واحدة دون كتابة كلمة المرور
+                <p className="text-[10px] text-zinc-500 text-center mt-2 leading-relaxed">
+                  💡 <b>لأول مرة:</b> يرجى تسجيل الدخول برقمك وكلمة المرور أولاً، ثم الموافقة على تفعيل Face ID عند ظهورها.
                 </p>
               </div>
             )}

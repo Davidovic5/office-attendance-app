@@ -104,7 +104,7 @@ export async function authenticateWithBiometrics(phone = '') {
     credential = await navigator.credentials.get({ publicKey });
   } catch (err) {
     if (err.name === 'NotAllowedError') {
-      throw new Error('تم إلغاء تسجيل الدخول بالبصمة.');
+      throw new Error('لم يتم العثور على بصمة مسجلة في هذا الهاتف. يرجى تسجيل الدخول برقم الهاتف وكلمة المرور أولاً لتفعيل الـ Face ID.');
     }
     if (err.name === 'AbortError') {
       throw new Error('تم إيقاف عملية التحقق من البصمة.');

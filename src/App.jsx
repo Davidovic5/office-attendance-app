@@ -95,6 +95,7 @@ export default function App() {
   // Modals
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled] = useState(() => checkIsInstalledApp());
 
@@ -533,6 +534,11 @@ export default function App() {
           setProfileAvatar(user.avatar);
           setProfileOffDays(user.weeklyOffDays || ['friday', 'saturday']);
           loadInitialData(true);
+          if (biometricsAvailable && (!user.passkeys || user.passkeys.length === 0)) {
+            setTimeout(() => {
+              setShowPasskeyPrompt(true);
+            }, 700);
+          }
         }}
       />
     );
@@ -1213,6 +1219,51 @@ export default function App() {
             >
               إغلاق
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BIOMETRIC PASSKEY PROMOTION MODAL ================= */}
+      {showPasskeyPrompt && biometricsAvailable && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl relative text-zinc-100">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-3.5 text-amber-400">
+              <ScanFace className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-black text-amber-400 mb-1.5">تفعيل الدخول السريع (Face ID)</h3>
+            <p className="text-xs text-zinc-300 mb-5 leading-relaxed">
+              هل ترغب في ربط بصمة الوجه (Face ID / Touch ID) بهاتفك لتسجيل الدخول بلمسة واحدة في المرات القادمة دون كتابة كلمة المرور؟
+            </p>
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleToggleBiometrics();
+                  setShowPasskeyPrompt(false);
+                }}
+                disabled={biometricRegisterLoading}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {biometricRegisterLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>جاري مسح البصمة...</span>
+                  </>
+                ) : (
+                  <>
+                    <ScanFace className="w-4 h-4 text-black" />
+                    <span>نعم، تفعيل Face ID الآن</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPasskeyPrompt(false)}
+                className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-400 hover:text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                تخطي الآن (يمكن تفعيلها لاحقاً من الملف الشخصي)
+              </button>
+            </div>
           </div>
         </div>
       )}
