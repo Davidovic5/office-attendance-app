@@ -24,7 +24,10 @@ import {
   BarChart3,
   Trash2,
   Sun,
-  Moon
+  Moon,
+  Check,
+  ScanFace,
+  Fingerprint
 } from 'lucide-react';
 import { api } from './api';
 import { AuthScreen } from './components/AuthScreen';
@@ -39,6 +42,7 @@ import { checkIsInstalledApp } from './utils/appEnvironment';
 import { formatArabicDateWithDay } from './utils/dateHelpers';
 import { registerPushNotifications } from './utils/pushNotifications';
 import { getInitialTheme, applyTheme } from './utils/themeHelper';
+import { checkBiometricSupport, registerBiometrics } from './utils/biometricHelper';
 
 const DAYS_OF_WEEK = [
   { id: 'saturday', name: 'السبت' },
@@ -96,6 +100,15 @@ export default function App() {
 
   // Theme state: 'dark' | 'light'
   const [theme, setTheme] = useState(() => getInitialTheme());
+
+  // Biometrics (Face ID & Touch ID) state
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [hasPasskey, setHasPasskey] = useState(false);
+  const [biometricRegisterLoading, setBiometricRegisterLoading] = useState(false);
+
+  useEffect(() => {
+    checkBiometricSupport().then(setBiometricsAvailable).catch(() => setBiometricsAvailable(false));
+  }, []);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -268,6 +281,42 @@ export default function App() {
     setNewPassword('');
     setConfirmNewPassword('');
     setShowProfileModal(true);
+
+    // Query WebAuthn status for current user
+    if (currentUser.id) {
+      api.getWebAuthnStatus(currentUser.id).then(res => {
+        if (res && res.success) {
+          setHasPasskey(Boolean(res.hasPasskey));
+        }
+      }).catch(() => {});
+    }
+  };
+
+  // Toggle/Register Face ID / Touch ID
+  const handleToggleBiometrics = async () => {
+    if (!currentUser) return;
+    setProfileErrorMsg('');
+    setProfileSuccessMsg('');
+    setBiometricRegisterLoading(true);
+    try {
+      const res = await registerBiometrics(currentUser.id);
+      if (res.success) {
+        setHasPasskey(true);
+        setProfileSuccessMsg('تم تفعيل الدخول ببصمة الوجه / الإصبع (Face ID / Touch ID) بنجاح!');
+        if (res.employee) {
+          setCurrentUser(res.employee);
+          try {
+            localStorage.setItem('office_auth_user', JSON.stringify(res.employee));
+          } catch (e) {}
+        }
+      } else {
+        setProfileErrorMsg(res.error || 'تعذر تفعيل البصمة');
+      }
+    } catch (err) {
+      setProfileErrorMsg(err.message || 'فشل تفعيل البصمة');
+    } finally {
+      setBiometricRegisterLoading(false);
+    }
   };
 
   // Change Profile Photo
@@ -868,7 +917,54 @@ export default function App() {
               </div>
             </div>
 
-            {/* 4. Change Password Section */}
+            {/* 4. Biometric (Face ID / Touch ID) Section */}
+            {biometricsAvailable && (
+              <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mb-4">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                      <ScanFace className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-zinc-200 block">الدخول ببصمة الوجه / الإصبع:</span>
+                      <span className="text-[10px] text-zinc-400 block">
+                        {hasPasskey ? 'مفعلة على هذا الهاتف بنجاح ✅' : 'تسجيل الدخول السريع (Face ID / Touch ID)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={biometricRegisterLoading}
+                  onClick={handleToggleBiometrics}
+                  className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 ${
+                    hasPasskey
+                      ? 'bg-zinc-900 hover:bg-zinc-850 text-amber-400 border border-amber-500/30'
+                      : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-black shadow-md shadow-amber-500/20'
+                  }`}
+                >
+                  {biometricRegisterLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>جاري التحقق من البصمة...</span>
+                    </>
+                  ) : hasPasskey ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>إعادة ضبط أو ربط بصمة جديدة لهذا الجهاز</span>
+                    </>
+                  ) : (
+                    <>
+                      <ScanFace className="w-4 h-4" />
+                      <span>تفعيل الدخول ببصمة الوجه / الإصبع الآن</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* 5. Change Password Section */}
             <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">

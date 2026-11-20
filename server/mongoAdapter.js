@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription } = require('./models');
+const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription, WebAuthnChallenge } = require('./models');
 
 // Configure VAPID for Web Push Notifications (Works even when app is closed on mobile)
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3cD_bPcugExOm9yLKbZQZ68s0lQADHy-pGzkJ_Mbuf7IlZL0B5elp4MVu8Xy_3LXGSk";
@@ -620,19 +620,8 @@ class MongoDatabaseAdapter {
     };
   }
 
-  async loginEmployee(phone, password, deviceContext = null) {
-    await this.ensureConnected();
-    const cleanPhone = phone.trim();
-    const emp = await Employee.findOne({ phone: cleanPhone });
-    if (!emp) {
-      throw new Error("رقم الهاتف غير مسجل بالنظام.");
-    }
-
-    const expectedPass = emp.password || emp.pin || "";
-    if (expectedPass && expectedPass !== password.trim()) {
-      throw new Error("كلمة المرور غير صحيحة.");
-    }
-
+  async _enrichEmployee(emp, deviceContext = null) {
+    const cleanPhone = emp.phone ? emp.phone.trim() : '';
     const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
 
     // Device binding check (Super Admin can login from any device, no restriction)
@@ -679,6 +668,101 @@ class MongoDatabaseAdapter {
           }
         : (titleObj ? titleObj.permissions : {})
     };
+  }
+
+  async loginEmployee(phone, password, deviceContext = null) {
+    await this.ensureConnected();
+    const cleanPhone = phone.trim();
+    const emp = await Employee.findOne({ phone: cleanPhone });
+    if (!emp) {
+      throw new Error("رقم الهاتف غير مسجل بالنظام.");
+    }
+
+    const expectedPass = emp.password || emp.pin || "";
+    if (expectedPass && expectedPass !== password.trim()) {
+      throw new Error("كلمة المرور غير صحيحة.");
+    }
+
+    return await this._enrichEmployee(emp, deviceContext);
+  }
+
+  async getEmployeeById(employeeId) {
+    await this.ensureConnected();
+    return await Employee.findOne({ id: employeeId });
+  }
+
+  async getEmployeeByPhone(phone) {
+    await this.ensureConnected();
+    return await Employee.findOne({ phone: phone.trim() });
+  }
+
+  async getEmployeeByPasskeyId(credentialId) {
+    await this.ensureConnected();
+    return await Employee.findOne({ 'passkeys.id': credentialId });
+  }
+
+  async addPasskeyToEmployee(employeeId, passkeyData) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود بالنظام.");
+    if (!emp.passkeys) emp.passkeys = [];
+    emp.passkeys = emp.passkeys.filter(p => p.id !== passkeyData.id);
+    emp.passkeys.push(passkeyData);
+    emp.markModified('passkeys');
+    await emp.save();
+    return emp;
+  }
+
+  async removePasskeyFromEmployee(employeeId, credentialId) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود بالنظام.");
+    if (emp.passkeys) {
+      emp.passkeys = emp.passkeys.filter(p => p.id !== credentialId);
+      emp.markModified('passkeys');
+      await emp.save();
+    }
+    return emp;
+  }
+
+  async updatePasskeyCounter(employeeId, credentialId, newCounter) {
+    await this.ensureConnected();
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp || !emp.passkeys) return;
+    const pk = emp.passkeys.find(p => p.id === credentialId);
+    if (pk) {
+      pk.counter = newCounter;
+      emp.markModified('passkeys');
+      await emp.save();
+    }
+  }
+
+  async saveWebAuthnChallenge(challenge, metadata = {}) {
+    await this.ensureConnected();
+    try {
+      await WebAuthnChallenge.create({
+        challenge,
+        userId: metadata.userId || '',
+        phone: metadata.phone || '',
+        type: metadata.type || 'authentication'
+      });
+    } catch (e) {
+      console.warn("Could not persist WebAuthnChallenge:", e.message);
+    }
+  }
+
+  async consumeWebAuthnChallenge(challenge) {
+    await this.ensureConnected();
+    try {
+      return await WebAuthnChallenge.findOneAndDelete({ challenge });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async loginEmployeeByPasskey(emp, deviceContext = null) {
+    await this.ensureConnected();
+    return await this._enrichEmployee(emp, deviceContext);
   }
 
   async resetEmployeeDevice(employeeId) {

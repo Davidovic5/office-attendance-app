@@ -596,6 +596,82 @@ class Database {
     return this.getEmployeeById(emp.id);
   }
 
+  getEmployeeByPhone(phone) {
+    const cleanPhone = phone.trim();
+    return this.data.employees.find(e => e.phone === cleanPhone);
+  }
+
+  getEmployeeByPasskeyId(credentialId) {
+    return this.data.employees.find(e => Array.isArray(e.passkeys) && e.passkeys.some(p => p.id === credentialId));
+  }
+
+  addPasskeyToEmployee(employeeId, passkeyData) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+    if (!Array.isArray(emp.passkeys)) emp.passkeys = [];
+    emp.passkeys = emp.passkeys.filter(p => p.id !== passkeyData.id);
+    emp.passkeys.push(passkeyData);
+    this.save();
+    return emp;
+  }
+
+  removePasskeyFromEmployee(employeeId, credentialId) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+    if (Array.isArray(emp.passkeys)) {
+      emp.passkeys = emp.passkeys.filter(p => p.id !== credentialId);
+      this.save();
+    }
+    return emp;
+  }
+
+  updatePasskeyCounter(employeeId, credentialId, newCounter) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp || !Array.isArray(emp.passkeys)) return;
+    const pk = emp.passkeys.find(p => p.id === credentialId);
+    if (pk) {
+      pk.counter = newCounter;
+      this.save();
+    }
+  }
+
+  saveWebAuthnChallenge(challenge, metadata = {}) {
+    if (!this._challenges) this._challenges = new Map();
+    this._challenges.set(challenge, {
+      ...metadata,
+      createdAt: Date.now()
+    });
+  }
+
+  consumeWebAuthnChallenge(challenge) {
+    if (!this._challenges) return null;
+    const found = this._challenges.get(challenge);
+    if (found) {
+      this._challenges.delete(challenge);
+      return found;
+    }
+    return null;
+  }
+
+  loginEmployeeByPasskey(emp, deviceContext = null) {
+    const cleanPhone = emp.phone ? emp.phone.trim() : '';
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+
+    if (!isSuper && deviceContext && deviceContext.deviceId) {
+      if (!emp.boundDeviceId) {
+        emp.boundDeviceId = deviceContext.deviceId;
+        emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
+        emp.deviceBoundAt = new Date().toISOString();
+        this.save();
+      } else if (emp.boundDeviceId !== deviceContext.deviceId) {
+        const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
+        throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
+      }
+    }
+
+    return this.getEmployeeById(emp.id);
+  }
+
   resetEmployeeDevice(employeeId) {
     const emp = this.data.employees.find(e => e.id === employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");

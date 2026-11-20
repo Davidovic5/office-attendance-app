@@ -254,4 +254,59 @@ export const api = {
     });
     return res.json();
   },
+
+  // WebAuthn / Biometrics (Face ID & Touch ID)
+  async getWebAuthnRegisterOptions(employeeId) {
+    const res = await fetch(`${BASE_URL}/auth/webauthn/register-options`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId }),
+    });
+    return res.json();
+  },
+
+  async verifyWebAuthnRegistration(employeeId, response) {
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = getDeviceSummary();
+    const res = await fetch(`${BASE_URL}/auth/webauthn/register-verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, response, deviceId, deviceInfo }),
+    });
+    return res.json();
+  },
+
+  async getWebAuthnLoginOptions(phone = '') {
+    const res = await fetch(`${BASE_URL}/auth/webauthn/login-options`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    return res.json();
+  },
+
+  async verifyWebAuthnLogin(response, phone = '') {
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = getDeviceSummary();
+    const res = await fetch(`${BASE_URL}/auth/webauthn/login-verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response, phone, deviceId, deviceInfo }),
+    });
+    return res.json();
+  },
+
+  async getWebAuthnStatus(employeeId) {
+    const res = await fetch(`${BASE_URL}/auth/webauthn/status?employeeId=${encodeURIComponent(employeeId)}`);
+    return res.json();
+  },
+
+  async removeWebAuthnCredential(employeeId, credentialId) {
+    const res = await fetch(`${BASE_URL}/auth/webauthn/credentials`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, credentialId }),
+    });
+    return res.json();
+  },
 };

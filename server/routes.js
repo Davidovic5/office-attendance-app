@@ -1,5 +1,31 @@
 const express = require('express');
 const { db, calculateDistanceMeters } = require('./db');
+const {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse
+} = require('@simplewebauthn/server');
+
+// Helpers for Relying Party ID & Origins
+function getRPID(req) {
+  const host = req.get('host') || req.hostname || 'localhost';
+  return host.split(':')[0];
+}
+
+function getExpectedOrigins(req) {
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.get('host') || req.hostname;
+  const origins = new Set([
+    `${proto}://${host}`,
+    `https://${host}`,
+    `http://${host}`,
+    'https://office-attendance-app-sand.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ]);
+  return Array.from(origins);
+}
 
 const router = express.Router();
 
@@ -84,6 +110,244 @@ router.post('/auth/login', async (req, res) => {
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== WEBAUTHN / BIOMETRICS (Face ID & Touch ID) ====================
+
+// 1. Generate Registration Options (when employee enables Face ID/Touch ID in profile)
+router.post('/auth/webauthn/register-options', async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "معرف الموظف مطلوب." });
+    }
+
+    const emp = await db.getEmployeeById(employeeId);
+    if (!emp) {
+      return res.status(404).json({ success: false, error: "الموظف غير موجود بالنظام." });
+    }
+
+    const rpID = getRPID(req);
+    const options = await generateRegistrationOptions({
+      rpName: 'أندية وادي دجلة - الحضور الذكي',
+      rpID,
+      userID: new TextEncoder().encode(emp.id),
+      userName: emp.phone,
+      userDisplayName: emp.name,
+      attestationType: 'none',
+      excludeCredentials: (emp.passkeys || []).map(p => ({
+        id: p.id,
+        transports: p.transports || []
+      })),
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        residentKey: 'preferred',
+        userVerification: 'preferred'
+      }
+    });
+
+    await db.saveWebAuthnChallenge(options.challenge, { userId: emp.id, phone: emp.phone, type: 'registration' });
+    res.json({ success: true, options });
+  } catch (err) {
+    console.error("WebAuthn register-options error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Verify Registration Response (save passkey public key to employee)
+router.post('/auth/webauthn/register-verify', async (req, res) => {
+  try {
+    const { employeeId, response, deviceInfo } = req.body;
+    if (!employeeId || !response) {
+      return res.status(400).json({ success: false, error: "بيانات التحقق غير مكتملة." });
+    }
+
+    const emp = await db.getEmployeeById(employeeId);
+    if (!emp) {
+      return res.status(404).json({ success: false, error: "الموظف غير موجود." });
+    }
+
+    const rpID = getRPID(req);
+    const expectedOrigins = getExpectedOrigins(req);
+
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: async (challenge) => {
+        const doc = await db.consumeWebAuthnChallenge(challenge);
+        return Boolean(doc);
+      },
+      expectedOrigin: expectedOrigins,
+      expectedRPID: rpID,
+      requireUserVerification: false
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ success: false, error: "فشل التحقق من صحة بصمة الوجه / الإصبع." });
+    }
+
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    const passkeyData = {
+      id: credential.id,
+      publicKey: Buffer.from(credential.publicKey).toString('base64url'),
+      counter: credential.counter,
+      deviceType: credentialDeviceType,
+      backedUp: credentialBackedUp,
+      transports: credential.transports || (response.response && response.response.transports) || [],
+      createdAt: new Date().toISOString(),
+      deviceName: deviceInfo || 'Face ID / Touch ID'
+    };
+
+    const updatedEmp = await db.addPasskeyToEmployee(emp.id, passkeyData);
+    res.json({
+      success: true,
+      message: "تم تفعيل تسجيل الدخول ببصمة الوجه / الإصبع (Face ID / Touch ID) بنجاح!",
+      employee: updatedEmp
+    });
+  } catch (err) {
+    console.error("WebAuthn register-verify error:", err);
+    res.status(400).json({ success: false, error: err.message || "حدث خطأ أثناء حفظ البصمة." });
+  }
+});
+
+// 3. Generate Authentication Options (for Face ID / Touch ID login)
+router.post('/auth/webauthn/login-options', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    let allowCredentials = [];
+
+    if (phone && phone.trim()) {
+      const emp = await db.getEmployeeByPhone(phone.trim());
+      if (emp && Array.isArray(emp.passkeys) && emp.passkeys.length > 0) {
+        allowCredentials = emp.passkeys.map(p => ({
+          id: p.id,
+          transports: p.transports || []
+        }));
+      }
+    }
+
+    const rpID = getRPID(req);
+    const options = await generateAuthenticationOptions({
+      rpID,
+      allowCredentials,
+      userVerification: 'preferred'
+    });
+
+    await db.saveWebAuthnChallenge(options.challenge, { phone: phone || '', type: 'authentication' });
+    res.json({ success: true, options });
+  } catch (err) {
+    console.error("WebAuthn login-options error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Verify Authentication Response (Log in employee via Face ID / Touch ID)
+router.post('/auth/webauthn/login-verify', async (req, res) => {
+  try {
+    const { response, deviceId, deviceInfo, phone } = req.body;
+    if (!response || !response.id) {
+      return res.status(400).json({ success: false, error: "استجابة البصمة غير صالحة." });
+    }
+
+    // Look up employee by passkey ID (or by phone)
+    let emp = await db.getEmployeeByPasskeyId(response.id);
+    if (!emp && phone) {
+      emp = await db.getEmployeeByPhone(phone);
+    }
+
+    if (!emp || !Array.isArray(emp.passkeys)) {
+      return res.status(404).json({
+        success: false,
+        error: "بيانات البصمة غير مسجلة أو لم يتم العثور على حساب مرتبط بها. يرجى تسجيل الدخول بالرقم والـ PIN أولاً لتفعيلها."
+      });
+    }
+
+    const passkey = emp.passkeys.find(p => p.id === response.id);
+    if (!passkey) {
+      return res.status(404).json({
+        success: false,
+        error: "مفتاح البصمة غير مسجل لهذا الحساب."
+      });
+    }
+
+    const rpID = getRPID(req);
+    const expectedOrigins = getExpectedOrigins(req);
+
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: async (challenge) => {
+        const doc = await db.consumeWebAuthnChallenge(challenge);
+        return Boolean(doc);
+      },
+      expectedOrigin: expectedOrigins,
+      expectedRPID: rpID,
+      credential: {
+        id: passkey.id,
+        publicKey: Buffer.from(passkey.publicKey, 'base64url'),
+        counter: passkey.counter || 0,
+        transports: passkey.transports || []
+      },
+      requireUserVerification: false
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ success: false, error: "فشل التحقق من البصمة." });
+    }
+
+    // Update signature counter
+    await db.updatePasskeyCounter(emp.id, passkey.id, verification.authenticationInfo.newCounter);
+
+    // Complete login session
+    const loggedInEmployee = await db.loginEmployeeByPasskey(emp, { deviceId, deviceInfo });
+
+    res.json({
+      success: true,
+      message: `مرحباً بك مجدداً يا ${loggedInEmployee.name}`,
+      employee: loggedInEmployee
+    });
+  } catch (err) {
+    console.error("WebAuthn login-verify error:", err);
+    res.status(400).json({ success: false, error: err.message || "فشل التحقق من البصمة." });
+  }
+});
+
+// 5. Check Passkeys Status for an employee
+router.get('/auth/webauthn/status', async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+    if (!employeeId) return res.status(400).json({ success: false, error: "معرف الموظف مطلوب." });
+
+    const emp = await db.getEmployeeById(employeeId);
+    if (!emp) return res.status(404).json({ success: false, error: "الموظف غير موجود." });
+
+    const hasPasskey = Boolean(Array.isArray(emp.passkeys) && emp.passkeys.length > 0);
+    res.json({
+      success: true,
+      hasPasskey,
+      passkeysCount: emp.passkeys ? emp.passkeys.length : 0,
+      passkeys: (emp.passkeys || []).map(p => ({
+        id: p.id,
+        createdAt: p.createdAt,
+        deviceName: p.deviceName || 'الهاتف المعتمد'
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Remove a Passkey from employee profile
+router.delete('/auth/webauthn/credentials', async (req, res) => {
+  try {
+    const { employeeId, credentialId } = req.body;
+    if (!employeeId || !credentialId) {
+      return res.status(400).json({ success: false, error: "البيانات غير مكتملة." });
+    }
+
+    await db.removePasskeyFromEmployee(employeeId, credentialId);
+    res.json({ success: true, message: "تم إزالة البصمة بنجاح." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

@@ -22,13 +22,16 @@ import {
   Smartphone,
   X,
   Sun,
-  Moon
+  Moon,
+  ScanFace,
+  Fingerprint
 } from 'lucide-react';
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
 import { checkIsInstalledApp } from '../utils/appEnvironment';
 import { DEFAULT_SECTORS } from '../utils/userScope';
 import { getInitialTheme, applyTheme } from '../utils/themeHelper';
+import { checkBiometricSupport, authenticateWithBiometrics } from '../utils/biometricHelper';
 
 const DAYS_OF_WEEK = [
   { id: 'friday', name: 'الجمعة' },
@@ -61,6 +64,36 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     applyTheme(next);
+  };
+
+  // Biometrics (Face ID & Touch ID) state
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  React.useEffect(() => {
+    checkBiometricSupport().then(setBiometricsAvailable).catch(() => setBiometricsAvailable(false));
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    setBiometricLoading(true);
+    try {
+      const res = await authenticateWithBiometrics(loginPhone.trim());
+      if (res.success && res.employee) {
+        setSuccessMsg(res.message || 'تم التحقق من البصمة بنجاح!');
+        localStorage.setItem('office_auth_user', JSON.stringify(res.employee));
+        setTimeout(() => {
+          onAuthSuccess(res.employee);
+        }, 500);
+      } else {
+        setErrorMsg(res.error || 'فشل التحقق من البصمة');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'فشل تسجيل الدخول بالبصمة');
+    } finally {
+      setBiometricLoading(false);
+    }
   };
 
   // Handle native PWA install prompt
@@ -452,6 +485,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                 value={loginPhone}
                 onChange={e => setLoginPhone(e.target.value)}
                 placeholder="010xxxxxxxx"
+                autoComplete="username webauthn"
                 dir="ltr"
                 required
                 className="w-full p-3 text-xs font-bold text-left rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-mono"
@@ -492,6 +526,40 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               <LogIn className="w-4 h-4 text-black" />
               <span>{loading ? 'جاري التحقق...' : 'دخول إلى البرنامج'}</span>
             </button>
+
+            {/* Biometric Face ID / Touch ID Button */}
+            {biometricsAvailable && (
+              <div className="pt-1">
+                <div className="relative my-3.5 flex items-center justify-center">
+                  <div className="border-t border-zinc-800 w-full"></div>
+                  <span className="bg-zinc-900 px-3 text-[10px] text-zinc-500 font-bold uppercase tracking-wider absolute">
+                    أو الدخول الذكي
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={loading || biometricLoading}
+                  onClick={handleBiometricLogin}
+                  className="w-full py-3 px-4 rounded-2xl bg-zinc-850 hover:bg-zinc-800 text-amber-400 border border-amber-500/30 hover:border-amber-500/70 font-bold text-xs flex items-center justify-center gap-2.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  {biometricLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                      <span>جاري فحص البصمة...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ScanFace className="w-4 h-4 text-amber-400" />
+                      <span>الدخول السريع بواسطة Face ID / بصمة الإصبع</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-[10px] text-zinc-500 text-center mt-1.5">
+                  💡 تسجيل الدخول التلقائي بلمسة واحدة دون كتابة كلمة المرور
+                </p>
+              </div>
+            )}
           </form>
         ) : (
           /* ================= REGISTER FORM ================= */

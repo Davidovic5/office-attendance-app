@@ -61,6 +61,7 @@ const EmployeeSchema = new mongoose.Schema({
   deviceBoundAt: { type: String, default: null },
   isSuperAdmin: { type: Boolean, default: false },
   isGhost: { type: Boolean, default: false },
+  passkeys: { type: Array, default: [] },
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
@@ -143,6 +144,15 @@ const PushSubscriptionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// 8. WebAuthn Challenge Schema (5-minute TTL for serverless passkey flows)
+const WebAuthnChallengeSchema = new mongoose.Schema({
+  challenge: { type: String, required: true, unique: true },
+  userId: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  type: { type: String, enum: ['registration', 'authentication'], default: 'authentication' },
+  createdAt: { type: Date, default: Date.now, expires: 300 }
+});
+
 const Branch = mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
 const Title = mongoose.models.Title || mongoose.model('Title', TitleSchema);
 const Employee = mongoose.models.Employee || mongoose.model('Employee', EmployeeSchema);
@@ -150,6 +160,7 @@ const AttendanceRecord = mongoose.models.AttendanceRecord || mongoose.model('Att
 const Request = mongoose.models.Request || mongoose.model('Request', RequestSchema);
 const OfficeSettings = mongoose.models.OfficeSettings || mongoose.model('OfficeSettings', OfficeSettingsSchema);
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
+const WebAuthnChallenge = mongoose.models.WebAuthnChallenge || mongoose.model('WebAuthnChallenge', WebAuthnChallengeSchema);
 
 module.exports = {
   Branch,
@@ -158,5 +169,6 @@ module.exports = {
   AttendanceRecord,
   Request,
   OfficeSettings,
-  PushSubscription
+  PushSubscription,
+  WebAuthnChallenge
 };
