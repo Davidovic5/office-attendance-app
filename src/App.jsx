@@ -372,39 +372,11 @@ export default function App() {
     }
   };
 
-  if (loading && !currentUser && branches.length === 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center font-['Cairo',sans-serif]">
-        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <img src="/logo.png?v=4.0" alt="Wadi Degla" className="w-14 h-18 object-contain mb-2" />
-        <h1 className="text-sm font-black text-amber-400">أندية وادي دجلة</h1>
-        <p className="text-xs text-zinc-400 mt-1">جاري تحميل النظام...</p>
-      </div>
-    );
-  }
-
-  // If not logged in, render the AuthScreen
-  if (!currentUser) {
-    return (
-      <AuthScreen
-        titles={titles}
-        branches={branches}
-        officeSettings={officeSettings}
-        onAuthSuccess={(user) => {
-          setCurrentUser(user);
-          setProfileAvatar(user.avatar);
-          setProfileOffDays(user.weeklyOffDays || ['friday', 'saturday']);
-          loadInitialData(true);
-        }}
-      />
-    );
-  }
-
   const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
 
   // Look up current user's title dynamically from titles list, falling back to currentUser.permissions
-  const userTitleObj = (titles || []).find(t => t.code === currentUser.titleCode);
-  const basePermissions = userTitleObj?.permissions || currentUser.permissions || {};
+  const userTitleObj = (titles || []).find(t => t.code === currentUser?.titleCode);
+  const basePermissions = userTitleObj?.permissions || currentUser?.permissions || {};
   const permissions = isSuperAdmin
     ? {
         check_in_out: true,
@@ -424,7 +396,7 @@ export default function App() {
       }
     : basePermissions;
 
-  const liveUser = { ...currentUser, isSuperAdmin, permissions };
+  const liveUser = currentUser ? { ...currentUser, isSuperAdmin, permissions } : null;
 
   // Tabs configuration strictly based on permissions without hardcoded role bypasses!
   const tabs = [
@@ -466,12 +438,40 @@ export default function App() {
     }
   ].filter(t => t.enabled);
 
-  // Auto fallback activeTab if current tab was disabled
+  // Auto fallback activeTab if current tab was disabled - MUST be called unconditionally before any early returns!
   useEffect(() => {
-    if (tabs.length > 0 && !tabs.some(t => t.id === activeTab)) {
+    if (currentUser && tabs.length > 0 && !tabs.some(t => t.id === activeTab)) {
       setActiveTab(tabs[0].id);
     }
-  }, [tabs, activeTab]);
+  }, [currentUser, tabs, activeTab]);
+
+  if (loading && !currentUser && branches.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center font-['Cairo',sans-serif]">
+        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <img src="/logo.png?v=4.0" alt="Wadi Degla" className="w-14 h-18 object-contain mb-2" />
+        <h1 className="text-sm font-black text-amber-400">أندية وادي دجلة</h1>
+        <p className="text-xs text-zinc-400 mt-1">جاري تحميل النظام...</p>
+      </div>
+    );
+  }
+
+  // If not logged in, render the AuthScreen
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        titles={titles}
+        branches={branches}
+        officeSettings={officeSettings}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setProfileAvatar(user.avatar);
+          setProfileOffDays(user.weeklyOffDays || ['friday', 'saturday']);
+          loadInitialData(true);
+        }}
+      />
+    );
+  }
 
   const renderTabContent = () => {
     switch (activeTab) {
