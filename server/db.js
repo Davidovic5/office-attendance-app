@@ -802,6 +802,18 @@ class Database {
       throw new Error("لا يوجد تسجيل حضور نشط لهذا الموظف اليوم.");
     }
 
+    if (latitude == null || longitude == null) {
+      throw new Error("لا يمكن تسجيل الانصراف بدون إرسال إحداثيات موقعك الجغرافي الحقيقي (GPS).");
+    }
+
+    const branch = this.data.branches.find(b => b.id === record.branchId) || this.data.branches[0];
+    const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
+    if (distanceMeters > branch.radiusMeters) {
+      throw new Error(
+        `عذراً، أنت خارج النطاق الجغرافي لفرع (${branch.name}) بمسافة ${distanceMeters} متر! (الحد الأقصى المسموح به: ${branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`
+      );
+    }
+
     const checkInDate = new Date(record.checkInTime);
     const now = new Date();
     const durationMs = now - checkInDate;

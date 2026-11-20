@@ -321,22 +321,40 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     setSuccessMsg('');
 
     try {
-      let lat = userCoords?.lat || branch.latitude;
-      let lng = userCoords?.lng || branch.longitude;
-
+      // 1. Must read fresh real GPS from phone hardware
+      let coords = null;
       try {
-        const liveCoords = await getCurrentLocation();
-        lat = liveCoords.lat;
-        lng = liveCoords.lng;
-        setUserCoords(liveCoords);
-      } catch (e) {
-        console.warn('Checkout GPS fallback:', e.message);
+        coords = await getCurrentLocation();
+        setUserCoords(coords);
+      } catch (gpsErr) {
+        setErrorMsg('لا يمكن تسجيل الانصراف بدون تفعيل الـ GPS والسماح للمتصفح بالوصول لموقعك الحالي: ' + gpsErr.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Verify live distance against branch coordinates
+      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      if (distRes.success) {
+        setDistanceInfo({
+          distanceMeters: distRes.distanceMeters,
+          isWithinOffice: distRes.isWithinOffice,
+          checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
+        });
+
+        // 3. STRICT GEOFENCE: Block check-out if outside the branch radius!
+        if (!distRes.isWithinOffice) {
+          setErrorMsg(
+            `عذراً، لا يمكنك تسجيل الانصراف لأنك خارج النطاق الجغرافي لنادي وادي دجلة - فرع (${branch.name}) بمسافة ${distRes.distanceMeters} متر! (الحد الأقصى المسموح به ${branch.radiusMeters} متر فقط). لا يُسمح بتسجيل الانصراف إلا وأنت متواجد داخل حدود الفرع.`
+          );
+          setLoading(false);
+          return;
+        }
       }
 
       const res = await api.checkOut(
         currentUser.id,
-        lat,
-        lng,
+        coords.lat,
+        coords.lng,
         forceOverride,
         reason
       );

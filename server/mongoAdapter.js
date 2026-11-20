@@ -1014,6 +1014,23 @@ class MongoDatabaseAdapter {
       throw new Error("لا يوجد تسجيل حضور نشط لهذا الموظف اليوم.");
     }
 
+    if (latitude == null || longitude == null) {
+      throw new Error("لا يمكن تسجيل الانصراف بدون إرسال إحداثيات موقعك الجغرافي الحقيقي (GPS).");
+    }
+
+    const branch = await Branch.findOne({ id: record.branchId });
+    if (!branch) {
+      throw new Error("بيانات فرع الحضور غير متوفرة.");
+    }
+
+    // STRICT GEOFENCE ENFORCEMENT ON CHECKOUT
+    const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
+    if (distanceMeters > branch.radiusMeters) {
+      throw new Error(
+        `عذراً، أنت خارج النطاق الجغرافي لفرع (${branch.name}) بمسافة ${distanceMeters} متر! (الحد الأقصى المسموح به: ${branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`
+      );
+    }
+
     const now = new Date();
     const checkInTime = new Date(record.checkInTime);
     const durationMinutes = Math.max(0, Math.floor((now - checkInTime) / 60000));
@@ -1062,6 +1079,9 @@ class MongoDatabaseAdapter {
     record.durationMinutes = durationMinutes;
     record.completed8Hours = durationHours >= effectiveRequiredHours;
     record.status = "checked_out";
+    record.checkOutLatitude = latitude;
+    record.checkOutLongitude = longitude;
+    record.checkOutDistanceMeters = distanceMeters;
     record.checkOutNotes = forceOverride ? `انصراف استثنائي / مبكر: ${reason}` : "انصراف نظامي بعد إتمام ساعات العمل";
     if (forceOverride && reason) {
       record.earlyCheckoutReason = reason;

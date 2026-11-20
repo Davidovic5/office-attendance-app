@@ -622,11 +622,14 @@ router.post('/attendance/check-out', async (req, res) => {
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب" });
     }
+    if (latitude == null || longitude == null || isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
+      return res.status(400).json({ success: false, error: "إحداثيات الموقع (GPS) مطلوبة لتسجيل الانصراف، ولا يمكن تسجيل الانصراف بدون تفعيل الموقع." });
+    }
 
     const record = await db.checkOut(
       employeeId,
-      latitude != null ? parseFloat(latitude) : null,
-      longitude != null ? parseFloat(longitude) : null,
+      parseFloat(latitude),
+      parseFloat(longitude),
       Boolean(forceOverride),
       reason || ""
     );

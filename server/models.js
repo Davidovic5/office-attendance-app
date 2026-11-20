@@ -77,6 +77,9 @@ const AttendanceRecordSchema = new mongoose.Schema({
   latitude: { type: Number },
   longitude: { type: Number },
   distanceMeters: { type: Number, default: 0 },
+  checkOutLatitude: { type: Number },
+  checkOutLongitude: { type: Number },
+  checkOutDistanceMeters: { type: Number, default: 0 },
   durationMinutes: { type: Number, default: 0 },
   completed8Hours: { type: Boolean, default: false },
   checkOutNotes: { type: String, default: '' }
