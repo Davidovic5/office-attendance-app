@@ -278,33 +278,42 @@ const DEFAULT_TITLES = [
 
 // Serverless Mongoose connection caching
 let cachedDb = global._mongoConnection || null;
+let connectingPromise = null;
 let isSeeding = false;
 
 async function connectToMongo(uri) {
   if (cachedDb && mongoose.connection.readyState === 1) {
     return cachedDb;
   }
-  const conn = await mongoose.connect(uri, {
-    bufferCommands: false,
-    serverSelectionTimeoutMS: 5000,
+  if (connectingPromise) {
+    return connectingPromise;
+  }
+
+  connectingPromise = mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 8000,
     maxPoolSize: 10,
     minPoolSize: 1,
     socketTimeoutMS: 20000,
     connectTimeoutMS: 10000
+  }).then(conn => {
+    global._mongoConnection = conn;
+    cachedDb = conn;
+    connectingPromise = null;
+
+    if (!global._mongoSeeded) {
+      global._mongoSeeded = true;
+      checkAndSeedIfEmpty().catch(err => {
+        console.error("Background seed check warning:", err.message);
+      });
+    }
+
+    return conn;
+  }).catch(err => {
+    connectingPromise = null;
+    throw err;
   });
-  global._mongoConnection = conn;
-  cachedDb = conn;
 
-  // Non-blocking background seed check:
-  // NEVER block API requests or logins with 40+ sequential database round-trips!
-  if (!global._mongoSeeded) {
-    global._mongoSeeded = true;
-    checkAndSeedIfEmpty().catch(err => {
-      console.error("Background seed check error:", err.message);
-    });
-  }
-
-  return conn;
+  return connectingPromise;
 }
 
 async function checkAndSeedIfEmpty() {
