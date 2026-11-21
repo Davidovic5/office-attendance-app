@@ -395,6 +395,10 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('office_auth_user');
+    localStorage.removeItem('office_auth_token');
+    try {
+      sessionStorage.clear();
+    } catch (e) {}
     setCurrentUser(null);
   };
 

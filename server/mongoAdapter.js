@@ -727,6 +727,15 @@ class MongoDatabaseAdapter {
       }
     }
 
+    // Strict 1 Device = 1 Employee: Prevent creating an account on a device already bound to an employee
+    const incomingDeviceId = empData.deviceId ? String(empData.deviceId).trim() : "";
+    if (incomingDeviceId) {
+      const existingDevice = await Employee.findOne({ boundDeviceId: incomingDeviceId }).lean();
+      if (existingDevice) {
+        throw new Error("هذا الهاتف مسجل عليه حساب موظف بالفعل. يرجى تسجيل الدخول بحسابك أو مراجعة الإدارة.");
+      }
+    }
+
     if (empData.weeklyOffDays && Array.isArray(empData.weeklyOffDays)) {
       if (empData.weeklyOffDays.length === 0 || empData.weeklyOffDays.length > 2) {
         throw new Error("يجب اختيار يوم أو يومين فقط كحد أقصى للإجازة الأسبوعية.");
@@ -780,12 +789,24 @@ class MongoDatabaseAdapter {
 
     // Device binding check (Super Admin can login from any device, no restriction)
     if (!isSuper && deviceContext && deviceContext.deviceId) {
+      const incomingDeviceId = String(deviceContext.deviceId).trim();
+
+      // Strict 1 Device = 1 Employee: Check if device belongs to ANOTHER employee
+      const existingDeviceOwner = await Employee.findOne({
+        boundDeviceId: incomingDeviceId,
+        id: { $ne: emp.id }
+      }).lean();
+
+      if (existingDeviceOwner) {
+        throw new Error("هذا الهاتف مسجل عليه حساب موظف بالفعل. يرجى تسجيل الدخول بحسابك أو مراجعة الإدارة.");
+      }
+
       if (!emp.boundDeviceId) {
-        emp.boundDeviceId = deviceContext.deviceId;
+        emp.boundDeviceId = incomingDeviceId;
         emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
         emp.deviceBoundAt = new Date().toISOString();
         await emp.save();
-      } else if (emp.boundDeviceId !== deviceContext.deviceId) {
+      } else if (emp.boundDeviceId !== incomingDeviceId) {
         const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
         throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
       }

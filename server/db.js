@@ -591,6 +591,14 @@ class Database {
       }
     }
 
+    const incomingDeviceId = deviceId ? String(deviceId).trim() : "";
+    if (incomingDeviceId) {
+      const existingDevice = this.data.employees.find(e => e.boundDeviceId === incomingDeviceId);
+      if (existingDevice) {
+        throw new Error("هذا الهاتف مسجل عليه حساب موظف بالفعل. يرجى تسجيل الدخول بحسابك أو مراجعة الإدارة.");
+      }
+    }
+
     const titleObj = this.data.titles.find(t => t.code === titleCode) || this.data.titles[this.data.titles.length - 1];
     const branchObj = this.data.branches.find(b => b.id === branchId || b.code === branchId) || this.data.branches[0];
 
@@ -640,12 +648,17 @@ class Database {
 
     // Device binding check (Super Admin can login from any device, no restriction)
     if (!isSuper && deviceContext && deviceContext.deviceId) {
+      const incomingDeviceId = String(deviceContext.deviceId).trim();
+      const existingDeviceOwner = this.data.employees.find(e => e.boundDeviceId === incomingDeviceId && e.id !== emp.id);
+      if (existingDeviceOwner) {
+        throw new Error("هذا الهاتف مسجل عليه حساب موظف بالفعل. يرجى تسجيل الدخول بحسابك أو مراجعة الإدارة.");
+      }
       if (!emp.boundDeviceId) {
-        emp.boundDeviceId = deviceContext.deviceId;
+        emp.boundDeviceId = incomingDeviceId;
         emp.deviceInfo = deviceContext.deviceInfo || 'جهاز الهاتف المسجل';
         emp.deviceBoundAt = new Date().toISOString();
         this.save();
-      } else if (emp.boundDeviceId !== deviceContext.deviceId) {
+      } else if (emp.boundDeviceId !== incomingDeviceId) {
         const boundDate = emp.deviceBoundAt ? new Date(emp.deviceBoundAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }) : '';
         throw new Error(`عذراً، هذا الحساب مرتبط بجهاز آخر بالفعل (${emp.deviceInfo || 'الهاتف المعتمد الأول'} - ${boundDate}). لا يُسمح بتسجيل الدخول من أكثر من جهاز. يرجى مراجعة إدارة النادي (Memberships Executive Director) لفك ارتباط جهازك القديم ونقله للجهاز الجديد.`);
       }
