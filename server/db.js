@@ -753,6 +753,21 @@ class Database {
     return { success: true, message: `تم فك ارتباط الجهاز للموظف (${emp.name}) بنجاح. يمكنه الآن تسجيل الدخول من جهازه الجديد وسيتم اعتماده تلقائياً.` };
   }
 
+  resetEmployeePassword(employeeId, newPassword = '1234') {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+    const cleanPass = String(newPassword || '').trim() || '1234';
+    if (cleanPass.length < 3) throw new Error("كلمة المرور يجب ألا تقل عن 3 خانات.");
+    emp.password = cleanPass;
+    emp.pin = cleanPass;
+    this.save();
+    return { 
+      success: true, 
+      message: `تمت إعادة تعيين كلمة مرور الموظف (${emp.name}) بنجاح إلى "${cleanPass}".`,
+      newPassword: cleanPass
+    };
+  }
+
   updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }) {
     const emp = this.data.employees.find(e => e.id === employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
@@ -864,6 +879,12 @@ class Database {
     }
     if (data.leaveBalance !== undefined && data.leaveBalance !== null) emp.leaveBalance = Number(data.leaveBalance);
     if (data.permissionsBalanceHours !== undefined && data.permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(data.permissionsBalanceHours);
+    if (data.newPassword && String(data.newPassword).trim()) {
+      const cleanPass = String(data.newPassword).trim();
+      if (cleanPass.length < 3) throw new Error("كلمة المرور الجديدة يجب ألا تقل عن 3 خانات.");
+      emp.password = cleanPass;
+      emp.pin = cleanPass;
+    }
 
     this.save();
     return this.getEmployeeById(employeeId);

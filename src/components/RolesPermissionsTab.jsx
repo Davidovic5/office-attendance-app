@@ -103,12 +103,18 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editSapNumber, setEditSapNumber] = useState('');
+  const [editNewPassword, setEditNewPassword] = useState('');
   const [editTitleCode, setEditTitleCode] = useState('memberships_specialist');
   const [editBranchId, setEditBranchId] = useState('branch_october2');
   const [editSectorId, setEditSectorId] = useState('');
   const [editWeeklyOff, setEditWeeklyOff] = useState(['friday', 'saturday']);
   const [editLeaveBalance, setEditLeaveBalance] = useState(30);
   const [editPermBalance, setEditPermBalance] = useState(2);
+
+  // Quick Reset Password modal state
+  const [resetPasswordEmp, setResetPasswordEmp] = useState(null);
+  const [resetPassInput, setResetPassInput] = useState('1234');
+  const [resetPassLoading, setResetPassLoading] = useState(false);
 
   // Add Employee modal state
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
@@ -356,6 +362,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     setEditName(emp.name || '');
     setEditPhone(emp.phone || '');
     setEditSapNumber(emp.sapNumber || '');
+    setEditNewPassword('');
     setEditTitleCode(emp.titleCode || 'memberships_specialist');
     setEditBranchId(emp.branchId || 'branch_october2');
     setEditSectorId(emp.sectorId || (DEFAULT_SECTORS && DEFAULT_SECTORS[0]?.id) || '');
@@ -382,7 +389,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
 
     try {
       const selectedSector = DEFAULT_SECTORS.find(s => s.id === editSectorId);
-      const res = await api.updateEmployeeDetails(editingEmp.id, {
+      const updateData = {
         name: editName.trim(),
         phone: editPhone.trim(),
         sapNumber: editSapNumber.trim(),
@@ -393,7 +400,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
         weeklyOffDays: editWeeklyOff,
         leaveBalance: Number(editLeaveBalance),
         permissionsBalanceHours: Number(editPermBalance)
-      });
+      };
+      if (editNewPassword.trim()) {
+        updateData.newPassword = editNewPassword.trim();
+      }
+
+      const res = await api.updateEmployeeDetails(editingEmp.id, updateData);
       if (res.success) {
         setEmpSuccessMsg(`تم تحديث بيانات الموظف (${editName}) بنجاح.`);
         setEditingEmp(null);
@@ -405,6 +417,29 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
     } finally {
       setEmpActionLoading(false);
+    }
+  };
+
+  // Quick Password Reset Handler (إعادة تعيين كلمة المرور السريعة)
+  const handleResetPasswordSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!resetPasswordEmp) return;
+    setResetPassLoading(true);
+    setEmpErrorMsg('');
+    setEmpSuccessMsg('');
+    try {
+      const res = await api.resetEmployeePassword(resetPasswordEmp.id, resetPassInput.trim() || '1234');
+      if (res.success) {
+        setEmpSuccessMsg(res.message || `تم تعيين كلمة المرور للموظف (${resetPasswordEmp.name}) بنجاح.`);
+        setResetPasswordEmp(null);
+        await fetchEmployeesData();
+      } else {
+        setEmpErrorMsg(res.error || 'تعذر إعادة تعيين كلمة المرور.');
+      }
+    } catch (err) {
+      setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
+    } finally {
+      setResetPassLoading(false);
     }
   };
 
@@ -712,7 +747,21 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                             <Calendar className="w-3 h-3 text-amber-400" />
                             <span>الأرصدة والبيانات:</span>
                           </span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {canEditEmployeeDetails && !isProtectedEmp && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setResetPasswordEmp(emp);
+                                  setResetPassInput('1234');
+                                }}
+                                className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="إعادة تعيين كلمة مرور الموظف بضغطة زر"
+                              >
+                                <KeyRound className="w-3 h-3" />
+                                <span>الباسورد 🔑</span>
+                              </button>
+                            )}
                             {canEditEmployeeDetails && (
                               <button
                                 type="button"
@@ -1036,6 +1085,31 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                     />
                   </div>
 
+                  {/* Reset / Change Password (تغيير أو إعادة تعيين كلمة المرور) */}
+                  <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
+                        <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                        <span>تعيين كلمة مرور جديدة للموظف:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setEditNewPassword('1234')}
+                        className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 cursor-pointer"
+                      >
+                        وضع 1234 الافتراضية
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editNewPassword}
+                      onChange={e => setEditNewPassword(e.target.value)}
+                      placeholder="اتركها فارغة للإبقاء على كلمته الحالية (أو اكتب كلمة جديدة)"
+                      className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-mono text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
                   {/* Position (المسمى الوظيفي) */}
                   <div>
                     <label className="block text-[11px] font-bold text-zinc-300 mb-1">المسمى الوظيفي (Position):</label>
@@ -1231,6 +1305,93 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                     إلغاء
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Reset Password Modal */}
+          {resetPasswordEmp && (
+            <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-sm bg-zinc-900 border border-amber-500/50 rounded-3xl p-5 shadow-2xl space-y-4 text-right">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black text-zinc-100">إعادة تعيين كلمة المرور</h3>
+                      <span className="text-[10px] text-amber-400 font-bold block">{resetPasswordEmp.name}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordEmp(null)}
+                    disabled={resetPassLoading}
+                    className="p-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 space-y-2">
+                  <div className="text-[11px] text-zinc-400 flex items-center justify-between">
+                    <span>رقم الهاتف:</span>
+                    <span className="font-mono text-zinc-200 font-bold" dir="ltr">{resetPasswordEmp.phone}</span>
+                  </div>
+                  {resetPasswordEmp.sapNumber ? (
+                    <div className="text-[11px] text-zinc-400 flex items-center justify-between">
+                      <span>كود الـ SAP:</span>
+                      <span className="font-mono text-amber-400 font-bold" dir="ltr">{resetPasswordEmp.sapNumber}</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-zinc-300">كلمة المرور الجديدة:</label>
+                      <button
+                        type="button"
+                        onClick={() => setResetPassInput('1234')}
+                        className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 cursor-pointer"
+                      >
+                        استخدام 1234 الافتراضية
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={resetPassInput}
+                      onChange={e => setResetPassInput(e.target.value)}
+                      placeholder="1234"
+                      required
+                      className="w-full p-2.5 text-sm font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-mono text-center tracking-widest"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-zinc-400 leading-normal">
+                    💡 بمجرد الحفظ، سيتمكن الموظف من تسجيل الدخول بكلمة المرور هذه فوراً برقم هاتفه أو كود الـ SAP.
+                  </p>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={resetPassLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>{resetPassLoading ? 'جاري التعيين...' : 'تأكيد وحفظ كلمة المرور'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResetPasswordEmp(null)}
+                      disabled={resetPassLoading}
+                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

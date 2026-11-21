@@ -160,6 +160,16 @@ export const api = {
     return res.json();
   },
 
+  // Reset Employee Password by Admin/Manager (إعادة تعيين كلمة مرور الموظف)
+  async resetEmployeePassword(employeeId, newPassword = '1234') {
+    const res = await fetch(`${BASE_URL}/employees/${employeeId}/reset-password`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ newPassword }),
+    });
+    return res.json();
+  },
+
   // Balance & Details Management (تعديل بيانات ومسمى وفرع ورصيد الموظف)
   async updateEmployeeBalances(employeeId, balances) {
     const res = await fetch(`${BASE_URL}/employees/${employeeId}/balances`, {

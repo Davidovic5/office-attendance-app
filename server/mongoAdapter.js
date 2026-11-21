@@ -966,6 +966,47 @@ class MongoDatabaseAdapter {
     return { success: true, message: `تم فك ارتباط الجهاز للموظف (${emp.name}) بنجاح. يمكنه الآن تسجيل الدخول من جهازه الجديد وسيتم اعتماده تلقائياً.` };
   }
 
+  async resetEmployeePassword(employeeId, newPassword = '1234', tenantId = 'wadi-degla', actorContext = null) {
+    await this.ensureConnected();
+    const resolvedTenant = tenantId || 'wadi-degla';
+    const emp = await Employee.findOne({ tenantId: resolvedTenant, id: employeeId });
+    if (!emp) throw new Error("الموظف غير موجود.");
+
+    // Super Admin Protection: Only super admin can reset super admin password
+    const isTargetSuper = emp.phone === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains";
+    const isActorSuper = actorContext?.isSuperAdmin || actorContext?.phone === "01010046078" || actorContext?.titleCode === "he_who_remains";
+    if (isTargetSuper && !isActorSuper) {
+      throw new Error("غير مصرح: لا يمكن تعديل كلمة مرور مدير النظام العام.");
+    }
+
+    const cleanPass = String(newPassword || '').trim() || '1234';
+    if (cleanPass.length < 3) {
+      throw new Error("كلمة المرور يجب ألا تقل عن 3 خانات.");
+    }
+
+    emp.password = cleanPass;
+    emp.pin = cleanPass;
+    await emp.save();
+
+    logAudit({
+      tenantId: resolvedTenant,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'reset_employee_password',
+      targetId: employeeId,
+      targetType: 'employee',
+      oldValue: null,
+      newValue: { passwordChanged: true },
+      req: null
+    });
+
+    return { 
+      success: true, 
+      message: `تمت إعادة تعيين كلمة مرور الموظف (${emp.name}) بنجاح إلى "${cleanPass}".`,
+      newPassword: cleanPass
+    };
+  }
+
   async updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
     const resolvedTenant = tenantId || 'wadi-degla';
@@ -1076,6 +1117,14 @@ class MongoDatabaseAdapter {
     }
     if (data.permissionsBalanceHours !== undefined && data.permissionsBalanceHours !== null) {
       emp.permissionsBalanceHours = Number(data.permissionsBalanceHours);
+    }
+    if (data.newPassword && String(data.newPassword).trim()) {
+      const cleanPass = String(data.newPassword).trim();
+      if (cleanPass.length < 3) {
+        throw new Error("كلمة المرور الجديدة يجب ألا تقل عن 3 خانات.");
+      }
+      emp.password = cleanPass;
+      emp.pin = cleanPass;
     }
 
     await emp.save();

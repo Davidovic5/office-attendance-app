@@ -659,6 +659,18 @@ router.post('/employees/:id/reset-device', requireAuth, requirePermission('manag
   }
 });
 
+// Reset Employee Password by Admin/Manager (إعادة تعيين كلمة مرور الموظف بواسطة الإدارة)
+router.post('/employees/:id/reset-password', requireAuth, requirePermission(['manage_employees', 'edit_employee_details']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body || {};
+    const result = await db.resetEmployeePassword(id, newPassword, req.tenantId, req.user);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Update Employee Balances (تعديل رصيد الإجازات والأذونات للموظف)
 router.put('/employees/:id/balances', requireAuth, requirePermission(['manage_employees', 'edit_employee_details']), async (req, res) => {
   try {
