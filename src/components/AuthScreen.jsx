@@ -125,6 +125,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   // Register Form
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regSapNumber, setRegSapNumber] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -170,7 +171,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!loginPhone.trim()) {
-      setErrorMsg('يرجى كتابة رقم الهاتف.');
+      setErrorMsg('يرجى إدخال رقم الهاتف أو كود الـ SAP.');
       return;
     }
     if (!loginPassword.trim()) {
@@ -187,7 +188,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
         localStorage.setItem('office_auth_user', JSON.stringify(res.employee));
         onAuthSuccess(res.employee);
       } else {
-        setErrorMsg(res.error || 'فشل تسجيل الدخول، تأكد من صحة رقم الهاتف وكلمة المرور.');
+        setErrorMsg(res.error || 'فشل تسجيل الدخول، تأكد من صحة رقم الهاتف أو كود SAP وكلمة المرور.');
       }
     } catch (err) {
       setErrorMsg(err.message || 'فشل الاتصال بالخادم');
@@ -202,6 +203,11 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
 
     if (!regName.trim() || !regPhone.trim()) {
       setErrorMsg('الاسم بالكامل ورقم الهاتف مطلوبان.');
+      return;
+    }
+
+    if (!regSapNumber.trim()) {
+      setErrorMsg('كود الـ SAP مطلوب لتسجيل الموظف في النظام.');
       return;
     }
 
@@ -232,6 +238,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
       const res = await api.register({
         name: regName.trim(),
         phone: regPhone.trim(),
+        sapNumber: regSapNumber.trim(),
         pin: regPassword.trim(),
         titleCode: regTitleCode,
         jobTitle: selectedTitle ? selectedTitle.englishTitle : 'Memberships Specialist',
@@ -476,15 +483,20 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
         {authMode === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-amber-400" />
-                <span>رقم الهاتف:</span>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-amber-400" />
+                  <span>رقم الهاتف أو كود الـ SAP:</span>
+                </span>
+                <span className="text-[10px] text-amber-400/90 font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                  Phone / SAP
+                </span>
               </label>
               <input
-                type="tel"
+                type="text"
                 value={loginPhone}
                 onChange={e => setLoginPhone(e.target.value)}
-                placeholder="010xxxxxxxx"
+                placeholder="أدخل رقم الموبايل أو كود الـ SAP (مثال: 4547)"
                 autoComplete="username webauthn"
                 dir="ltr"
                 required
@@ -656,7 +668,26 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
               </div>
             </div>
 
-            {/* 3. Password & Confirm Password */}
+            {/* 3. SAP Number */}
+            <div>
+              <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center justify-between">
+                <span>كود الـ SAP (الرقم الوظيفي في SAP):</span>
+                <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  أساسي للربط مع SAP
+                </span>
+              </label>
+              <input
+                type="text"
+                value={regSapNumber}
+                onChange={e => setRegSapNumber(e.target.value)}
+                placeholder="أدخل كود الـ SAP الخاص بالموظف (مثال: 4547)"
+                dir="ltr"
+                required
+                className="w-full p-2.5 text-xs font-bold text-left rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            {/* 4. Password & Confirm Password */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center justify-between">

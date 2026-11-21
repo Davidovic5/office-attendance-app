@@ -19,7 +19,8 @@ import {
   Search,
   Building2,
   Edit2,
-  RotateCcw
+  RotateCcw,
+  UserPlus
 } from 'lucide-react';
 import { api } from '../api';
 import { getUserAllowedBranches, DEFAULT_SECTORS } from '../utils/userScope';
@@ -97,12 +98,26 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const [editingEmp, setEditingEmp] = useState(null);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editSapNumber, setEditSapNumber] = useState('');
   const [editTitleCode, setEditTitleCode] = useState('memberships_specialist');
   const [editBranchId, setEditBranchId] = useState('branch_october2');
   const [editSectorId, setEditSectorId] = useState('');
   const [editWeeklyOff, setEditWeeklyOff] = useState(['friday', 'saturday']);
   const [editLeaveBalance, setEditLeaveBalance] = useState(30);
   const [editPermBalance, setEditPermBalance] = useState(2);
+
+  // Add Employee modal state
+  const [showAddEmpModal, setShowAddEmpModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newSapNumber, setNewSapNumber] = useState('');
+  const [newPassword, setNewPassword] = useState('1234');
+  const [newTitleCode, setNewTitleCode] = useState('memberships_specialist');
+  const [newBranchId, setNewBranchId] = useState('branch_october2');
+  const [newSectorId, setNewSectorId] = useState((DEFAULT_SECTORS && DEFAULT_SECTORS[0]?.id) || '');
+  const [newWeeklyOff, setNewWeeklyOff] = useState(['friday', 'saturday']);
+  const [newLeaveBalance, setNewLeaveBalance] = useState(30);
+  const [newPermBalance, setNewPermBalance] = useState(2);
 
   // Dictionary of permission labels & descriptions
   const permissionDefs = [
@@ -304,6 +319,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     setEditingEmp(emp);
     setEditName(emp.name || '');
     setEditPhone(emp.phone || '');
+    setEditSapNumber(emp.sapNumber || '');
     setEditTitleCode(emp.titleCode || 'memberships_specialist');
     setEditBranchId(emp.branchId || 'branch_october2');
     setEditSectorId(emp.sectorId || (DEFAULT_SECTORS && DEFAULT_SECTORS[0]?.id) || '');
@@ -328,6 +344,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       const res = await api.updateEmployeeDetails(editingEmp.id, {
         name: editName.trim(),
         phone: editPhone.trim(),
+        sapNumber: editSapNumber.trim(),
         titleCode: editTitleCode,
         branchId: editBranchId,
         sectorId: editTitleCode === 'memberships_area_manager' ? editSectorId : '',
@@ -342,6 +359,58 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
         fetchEmployeesData();
       } else {
         setEmpErrorMsg(res.error || 'تعذر تحديث بيانات الموظف.');
+      }
+    } catch (err) {
+      setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
+    } finally {
+      setEmpActionLoading(false);
+    }
+  };
+
+  // Create New Employee
+  const handleCreateEmployee = async (e) => {
+    e.preventDefault();
+    if (!newName.trim() || !newPhone.trim()) {
+      setEmpErrorMsg('الاسم ورقم الهاتف مطلوبان.');
+      return;
+    }
+    if (!newSapNumber.trim()) {
+      setEmpErrorMsg('كود الـ SAP مطلوب لتسجيل الموظف في النظام.');
+      return;
+    }
+
+    setEmpActionLoading(true);
+    setEmpSuccessMsg('');
+    setEmpErrorMsg('');
+
+    try {
+      const selectedTitle = titles.find(t => t.code === newTitleCode);
+      const selectedSector = DEFAULT_SECTORS.find(s => s.id === newSectorId);
+      const res = await api.addEmployee({
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        sapNumber: newSapNumber.trim(),
+        password: newPassword.trim() || '1234',
+        pin: newPassword.trim() || '1234',
+        titleCode: newTitleCode,
+        jobTitle: selectedTitle ? selectedTitle.englishTitle : 'Memberships Specialist',
+        branchId: newBranchId,
+        sectorId: newTitleCode === 'memberships_area_manager' ? newSectorId : '',
+        sectorName: newTitleCode === 'memberships_area_manager' && selectedSector ? selectedSector.name : '',
+        weeklyOffDays: newWeeklyOff,
+        leaveBalance: Number(newLeaveBalance),
+        permissionsBalanceHours: Number(newPermBalance)
+      });
+      if (res.success) {
+        setEmpSuccessMsg(`تمت إضافة الموظف الجديد (${newName}) بنجاح.`);
+        setShowAddEmpModal(false);
+        setNewName('');
+        setNewPhone('');
+        setNewSapNumber('');
+        setNewPassword('1234');
+        fetchEmployeesData();
+      } else {
+        setEmpErrorMsg(res.error || 'تعذر إضافة الموظف.');
       }
     } catch (err) {
       setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
@@ -374,7 +443,8 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       const nameMatch = emp.name && emp.name.toLowerCase().includes(q);
       const phoneMatch = emp.phone && emp.phone.includes(q);
       const titleMatch = emp.jobTitle && emp.jobTitle.toLowerCase().includes(q);
-      return nameMatch || phoneMatch || titleMatch;
+      const sapMatch = emp.sapNumber && emp.sapNumber.toString().toLowerCase().includes(q);
+      return nameMatch || phoneMatch || titleMatch || sapMatch;
     }
     return true;
   });
@@ -429,13 +499,25 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                 <Users className="w-4 h-4 text-amber-400" />
                 <span>إدارة ارتباط الأجهزة وأرصدة الإجازات للموظفين</span>
               </h2>
-              <button
-                type="button"
-                onClick={fetchEmployeesData}
-                className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-500/30 transition-colors"
-              >
-                تحديث
-              </button>
+              <div className="flex items-center gap-2">
+                {canEditEmployeeDetails && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEmpModal(true)}
+                    className="text-[11px] font-black text-black bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>إضافة موظف جديد</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={fetchEmployeesData}
+                  className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-xl border border-amber-500/30 transition-colors cursor-pointer"
+                >
+                  تحديث
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
               كل حساب موظف <b>مقفل على جهازه فقط</b> لمنع فتح الحساب من هاتفين. في حال قام الموظف بتغيير هاتفه، اضغط "فك ارتباط الجهاز" ليتمكن من ربط هاتفه الجديد. كما يمكنك تعديل رصيد الإجازات السنوية (الافتراضي 30 يوماً) وساعتين أذن شهرياً للموظفين الجدد.
@@ -514,9 +596,14 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                           onError={e => { e.target.src = DEFAULT_AVATAR; }}
                         />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-black text-xs text-zinc-100 truncate">{emp.name}</span>
                             <span className="text-[10px] text-zinc-500 font-mono" dir="ltr">({emp.phone})</span>
+                            {emp.sapNumber ? (
+                              <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono font-bold" dir="ltr">
+                                SAP: {emp.sapNumber}
+                              </span>
+                            ) : null}
                           </div>
                           <div className="text-[10px] font-bold text-amber-400 truncate mt-0.5">
                             {emp.jobTitle} • فرع {emp.branchName || 'اكتوبر ٢'}
@@ -603,7 +690,217 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
             )}
           </div>
 
-          {/* Edit Details & Balances Modal */}
+          {/* Add New Employee Modal */}
+          {showAddEmpModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-md bg-zinc-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h3 className="text-xs font-black text-zinc-100">إضافة موظف جديد بالنظام</h3>
+                      <span className="text-[10px] text-zinc-400 block">تسجيل بيانات الموظف وكود SAP</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEmpModal(false)}
+                    className="p-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateEmployee} className="space-y-3">
+                  {/* Name & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">الاسم بالكامل:</label>
+                      <input
+                        type="text"
+                        value={newName}
+                        onChange={e => setNewName(e.target.value)}
+                        placeholder="محمد علي"
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">رقم الهاتف:</label>
+                      <input
+                        type="tel"
+                        value={newPhone}
+                        onChange={e => setNewPhone(e.target.value)}
+                        placeholder="01xxxxxxxxx"
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SAP Code & Initial Password */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center justify-between">
+                        <span>كود الـ SAP:</span>
+                        <span className="text-[10px] text-amber-400 font-bold">مطلوب</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newSapNumber}
+                        onChange={e => setNewSapNumber(e.target.value)}
+                        placeholder="مثال: 4547"
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">كلمة المرور:</label>
+                      <input
+                        type="text"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="1234"
+                        required
+                        className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 focus:outline-none focus:border-amber-500 font-mono text-left"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Position (المسمى الوظيفي) */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">المسمى الوظيفي (Position):</label>
+                    <select
+                      value={newTitleCode}
+                      onChange={e => setNewTitleCode(e.target.value)}
+                      className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                    >
+                      {titles.map(t => (
+                        <option key={t.code} value={t.code} className="bg-zinc-900 text-zinc-100">
+                          {t.name || t.englishTitle}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Branch (الفرع) */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">فرع العمل الأساسي:</label>
+                    <select
+                      value={newBranchId}
+                      onChange={e => setNewBranchId(e.target.value)}
+                      className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                    >
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id} className="bg-zinc-900 text-zinc-100">
+                          فرع {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Sector (القطاع) - Only if area manager */}
+                  {newTitleCode === 'memberships_area_manager' && (
+                    <div className="bg-amber-500/10 p-2.5 rounded-2xl border border-amber-500/30">
+                      <label className="block text-[11px] font-black text-amber-300 mb-1">قطاع الإشراف والمتابعة:</label>
+                      <select
+                        value={newSectorId}
+                        onChange={e => setNewSectorId(e.target.value)}
+                        className="w-full p-2 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500"
+                      >
+                        {DEFAULT_SECTORS.map(sec => (
+                          <option key={sec.id} value={sec.id} className="bg-zinc-900 text-zinc-100">
+                            {sec.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Weekly Off Days */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1.5">أيام الإجازة الأسبوعية (الراحة):</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS_OF_WEEK.map(day => {
+                        const isSelected = newWeeklyOff.includes(day.id);
+                        return (
+                          <button
+                            key={day.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (newWeeklyOff.length > 1) {
+                                  setNewWeeklyOff(newWeeklyOff.filter(d => d !== day.id));
+                                }
+                              } else {
+                                setNewWeeklyOff([...newWeeklyOff, day.id]);
+                              }
+                            }}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-xl border transition-all ${
+                              isSelected
+                                ? 'bg-amber-500 text-black border-amber-400 shadow-xs'
+                                : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                            }`}
+                          >
+                            {day.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Balances */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 mb-1">رصيد الإجازات (أيام):</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={newLeaveBalance}
+                        onChange={e => setNewLeaveBalance(e.target.value)}
+                        required
+                        className="w-full p-2 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-300 mb-1">رصيد الأذونات (ساعات):</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={newPermBalance}
+                        onChange={e => setNewPermBalance(e.target.value)}
+                        required
+                        className="w-full p-2 text-xs font-black rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 text-center font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={empActionLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>{empActionLoading ? 'جاري الإضافة...' : 'إضافة الموظف الآن'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddEmpModal(false)}
+                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
           {editingEmp && (
             <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
               <div className="w-full max-w-md bg-zinc-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto">
@@ -648,6 +945,24 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                         dir="ltr"
                       />
                     </div>
+                  </div>
+
+                  {/* SAP Code */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center justify-between">
+                      <span>كود الـ SAP:</span>
+                      <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        الربط المستقبلي مع SAP
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editSapNumber}
+                      onChange={e => setEditSapNumber(e.target.value)}
+                      placeholder="أدخل كود الـ SAP (مثال: 4547)"
+                      className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-mono text-left"
+                      dir="ltr"
+                    />
                   </div>
 
                   {/* Position (المسمى الوظيفي) */}

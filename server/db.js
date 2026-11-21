@@ -570,9 +570,10 @@ class Database {
   }
 
   registerEmployee(data) {
-    const { name, phone, password, pin, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo, leaveBalance, permissionsBalanceHours } = data;
+    const { name, phone, sapNumber, password, pin, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo, leaveBalance, permissionsBalanceHours } = data;
     
     const cleanPhone = phone.trim();
+    const cleanSap = sapNumber ? String(sapNumber).trim() : "";
     if (titleCode === 'he_who_remains' || (jobTitle && jobTitle.toUpperCase().includes('HE WHO REMAINS'))) {
       if (cleanPhone !== '01010046078') {
         throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
@@ -583,6 +584,12 @@ class Database {
     if (existing) {
       throw new Error("رقم الهاتف مسجل بالفعل لموظف آخر.");
     }
+    if (cleanSap) {
+      const existingSap = this.data.employees.find(e => e.sapNumber === cleanSap);
+      if (existingSap) {
+        throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existingSap.name}).`);
+      }
+    }
 
     const titleObj = this.data.titles.find(t => t.code === titleCode) || this.data.titles[this.data.titles.length - 1];
     const branchObj = this.data.branches.find(b => b.id === branchId || b.code === branchId) || this.data.branches[0];
@@ -592,7 +599,8 @@ class Database {
     const newEmp = {
       id: "emp_" + Date.now(),
       name: name.trim(),
-      phone: phone.trim(),
+      phone: cleanPhone,
+      sapNumber: cleanSap,
       password: pass,
       pin: pass,
       titleCode: titleObj ? titleObj.code : "memberships_specialist",
@@ -615,11 +623,11 @@ class Database {
     return this.getEmployeeById(newEmp.id);
   }
 
-  loginEmployee(phone, password, deviceContext = null) {
-    const cleanPhone = phone.trim();
-    const emp = this.data.employees.find(e => e.phone === cleanPhone);
+  loginEmployee(identifier, password, deviceContext = null) {
+    const clean = String(identifier || "").trim();
+    const emp = this.data.employees.find(e => e.phone === clean || (e.sapNumber && e.sapNumber === clean));
     if (!emp) {
-      throw new Error("رقم الهاتف غير مسجل بالنظام.");
+      throw new Error("رقم الهاتف أو كود SAP غير مسجل بالنظام.");
     }
 
     const expectedPass = emp.password || emp.pin || "";
@@ -627,7 +635,7 @@ class Database {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
-    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains");
+    const isSuper = (clean === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains");
 
     // Device binding check (Super Admin can login from any device, no restriction)
     if (!isSuper && deviceContext && deviceContext.deviceId) {
@@ -796,6 +804,14 @@ class Database {
       const existing = this.data.employees.find(e => e.phone === cleanPhone && e.id !== employeeId);
       if (existing) throw new Error(`رقم الهاتف (${cleanPhone}) مسجل بالفعل لموظف آخر.`);
       emp.phone = cleanPhone;
+    }
+    if (data.sapNumber !== undefined) {
+      const cleanSap = String(data.sapNumber || '').trim();
+      if (cleanSap) {
+        const existingSap = this.data.employees.find(e => e.sapNumber === cleanSap && e.id !== employeeId);
+        if (existingSap) throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existingSap.name}).`);
+      }
+      emp.sapNumber = cleanSap;
     }
     if (data.titleCode) {
       if (data.titleCode === 'he_who_remains') {

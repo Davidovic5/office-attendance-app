@@ -624,6 +624,7 @@ class MongoDatabaseAdapter {
   async registerEmployee(empData) {
     await this.ensureConnected();
     const cleanPhone = empData.phone.trim();
+    const cleanSap = empData.sapNumber ? String(empData.sapNumber).trim() : "";
     if (empData.titleCode === 'he_who_remains' || (empData.jobTitle && empData.jobTitle.toUpperCase().includes('HE WHO REMAINS'))) {
       if (cleanPhone !== '01010046078') {
         throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
@@ -633,11 +634,18 @@ class MongoDatabaseAdapter {
     if (existing) {
       throw new Error(`رقم الهاتف (${empData.phone}) مسجل بالفعل لموظف آخر.`);
     }
+    if (cleanSap) {
+      const existingSap = await Employee.findOne({ sapNumber: cleanSap });
+      if (existingSap) {
+        throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existingSap.name}).`);
+      }
+    }
 
     const newEmp = new Employee({
       id: "emp_" + Date.now(),
       name: empData.name.trim(),
-      phone: empData.phone.trim(),
+      phone: cleanPhone,
+      sapNumber: cleanSap,
       password: (empData.password || empData.pin || "1234").trim(),
       pin: (empData.pin || empData.password || "1234").trim(),
       titleCode: empData.titleCode || "memberships_specialist",
@@ -723,12 +731,18 @@ class MongoDatabaseAdapter {
     };
   }
 
-  async loginEmployee(phone, password, deviceContext = null) {
+  async loginEmployee(identifier, password, deviceContext = null) {
     await this.ensureConnected();
-    const cleanPhone = phone.trim();
-    const emp = await Employee.findOne({ phone: cleanPhone });
+    const clean = String(identifier || "").trim();
+    // Allow login by either phone number or SAP code
+    const emp = await Employee.findOne({
+      $or: [
+        { phone: clean },
+        { sapNumber: clean }
+      ]
+    });
     if (!emp) {
-      throw new Error("رقم الهاتف غير مسجل بالنظام.");
+      throw new Error("رقم الهاتف أو كود SAP غير مسجل بالنظام.");
     }
 
     const expectedPass = emp.password || emp.pin || "";
@@ -854,6 +868,16 @@ class MongoDatabaseAdapter {
         throw new Error(`رقم الهاتف (${cleanPhone}) مسجل بالفعل لموظف آخر.`);
       }
       emp.phone = cleanPhone;
+    }
+    if (data.sapNumber !== undefined) {
+      const cleanSap = String(data.sapNumber || '').trim();
+      if (cleanSap) {
+        const existingSap = await Employee.findOne({ sapNumber: cleanSap, id: { $ne: employeeId } });
+        if (existingSap) {
+          throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existingSap.name}).`);
+        }
+      }
+      emp.sapNumber = cleanSap;
     }
     if (data.titleCode) {
       if (data.titleCode === 'he_who_remains') {

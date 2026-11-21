@@ -45,6 +45,7 @@ const EmployeeSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   phone: { type: String, required: true, unique: true, index: true },
+  sapNumber: { type: String, trim: true, default: '', index: true },
   password: { type: String, required: true },
   pin: { type: String, default: '' },
   titleCode: { type: String, required: true, default: 'memberships_specialist' },

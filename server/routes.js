@@ -97,12 +97,13 @@ router.post('/auth/register', async (req, res) => {
 
 router.post('/auth/login', async (req, res) => {
   try {
-    const { phone, pin, password, deviceId, deviceInfo } = req.body;
-    if (!phone) {
-      return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف." });
+    const { phone, identifier, sapNumber, pin, password, deviceId, deviceInfo } = req.body;
+    const loginIdentifier = String(identifier || phone || sapNumber || "").trim();
+    if (!loginIdentifier) {
+      return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف أو كود SAP." });
     }
 
-    const employee = await db.loginEmployee(phone, password || pin || "", { deviceId, deviceInfo });
+    const employee = await db.loginEmployee(loginIdentifier, password || pin || "", { deviceId, deviceInfo });
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${employee.name}`,
