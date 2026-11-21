@@ -28,7 +28,8 @@ import {
   Check,
   ScanFace,
   Fingerprint,
-  Bell
+  Bell,
+  Lock
 } from 'lucide-react';
 import { api } from './api';
 import { AuthScreen } from './components/AuthScreen';
@@ -476,31 +477,55 @@ export default function App() {
     }
   };
 
+  // Lock status of weekly off days for current user
+  const isWeeklyOffLocked = !currentUser?.isSuperAdmin && (
+    currentUser?.weeklyOffDaysLocked || (currentUser?.weeklyOffDays && currentUser?.weeklyOffDays.length > 0)
+  );
+
   // Toggle Weekly Off in Profile
   const toggleProfileOffDay = (dayId) => {
+    if (isWeeklyOffLocked) {
+      setProfileErrorMsg('أيام إجازتك الأسبوعية مثبتة رسمياً في النظام ولا يمكن تعديلها.');
+      return;
+    }
     if (profileOffDays.includes(dayId)) {
       if (profileOffDays.length === 1) {
         setProfileErrorMsg('يجب اختيار يوم إجازة واحد على الأقل.');
         return;
       }
+      setProfileErrorMsg('');
       setProfileOffDays(profileOffDays.filter(d => d !== dayId));
     } else {
+      if (profileOffDays.length >= 2) {
+        setProfileErrorMsg('الحد الأقصى للإجازة الأسبوعية هو يومان فقط في الأسبوع.');
+        return;
+      }
+      setProfileErrorMsg('');
       setProfileOffDays([...profileOffDays, dayId]);
     }
   };
 
   // Save Off Days
   const handleSaveOffDays = async () => {
+    if (isWeeklyOffLocked) {
+      setProfileErrorMsg('أيام إجازتك الأسبوعية مثبتة رسمياً ولا يمكن تغييرها.');
+      return;
+    }
+    if (profileOffDays.length === 0 || profileOffDays.length > 2) {
+      setProfileErrorMsg('يجب اختيار يوم أو يومين فقط كحد أقصى للإجازة الأسبوعية.');
+      return;
+    }
+
     setProfileErrorMsg('');
     setProfileSuccessMsg('');
 
     try {
       const res = await api.updateProfile(currentUser.id, { weeklyOffDays: profileOffDays });
       if (res.success) {
-        const updated = { ...currentUser, weeklyOffDays: profileOffDays };
+        const updated = { ...currentUser, weeklyOffDays: profileOffDays, weeklyOffDaysLocked: true };
         setCurrentUser(updated);
         localStorage.setItem('office_auth_user', JSON.stringify(updated));
-        setProfileSuccessMsg('تم تحديث أيام الإجازة الأسبوعية بنجاح!');
+        setProfileSuccessMsg('تم حفظ وتثبيت أيام الإجازة الأسبوعية بنجاح!');
       } else {
         setProfileErrorMsg(res.error || 'حدث خطأ في حفظ الإجازات');
       }
@@ -1132,28 +1157,54 @@ export default function App() {
                   <Calendar className="w-3.5 h-3.5 text-amber-400" />
                   <span>أيام الإجازة الأسبوعية:</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleSaveOffDays}
-                  className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
-                >
-                  <Save className="w-3 h-3" />
-                  <span>حفظ الإجازات</span>
-                </button>
+                {isWeeklyOffLocked ? (
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    <span>مُثبتة رسميًا</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSaveOffDays}
+                    className="text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Save className="w-3 h-3" />
+                    <span>حفظ وتثبيت الإجازات</span>
+                  </button>
+                )}
               </div>
+
+              {isWeeklyOffLocked ? (
+                <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 mb-2.5 flex items-start gap-2 text-zinc-300">
+                  <Lock className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] leading-relaxed">
+                    تم اعتماد وتثبيت أيام إجازتك الأسبوعية رسميًا (يومان كحد أقصى). لا يمكن تعديلها بعد التثبيت إلا من قِبل إدارة الفرع أو الموارد البشرية.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-amber-400/80 mb-2 font-medium">
+                  اختر يومين كحد أقصى. بمجرد الحفظ يتم تثبيت الأيام رسميًا ولا يمكن تعديلها لاحقًا إلا من الإدارة.
+                </p>
+              )}
 
               <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
                 {DAYS_OF_WEEK.map(day => {
                   const isChecked = profileOffDays.includes(day.id);
+                  const isMaxReached = !isChecked && profileOffDays.length >= 2;
                   return (
                     <button
                       key={day.id}
                       type="button"
+                      disabled={isWeeklyOffLocked}
                       onClick={() => toggleProfileOffDay(day.id)}
                       className={`py-1.5 px-1 rounded-xl text-center text-[10px] font-bold transition-all border ${
                         isChecked
-                          ? 'bg-amber-500 text-black border-amber-500 shadow-xs'
-                          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                          ? isWeeklyOffLocked
+                            ? 'bg-amber-500 text-black border-amber-500 shadow-xs cursor-default'
+                            : 'bg-amber-500 text-black border-amber-500 shadow-xs cursor-pointer'
+                          : isWeeklyOffLocked || isMaxReached
+                          ? 'bg-zinc-900/40 text-zinc-600 border-zinc-900 opacity-40 cursor-not-allowed'
+                          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700 cursor-pointer'
                       }`}
                     >
                       {day.name}

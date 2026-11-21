@@ -161,8 +161,14 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
         setErrorMsg('يجب اختيار يوم إجازة واحد على الأقل.');
         return;
       }
+      setErrorMsg('');
       setRegWeeklyOff(regWeeklyOff.filter(d => d !== dayId));
     } else {
+      if (regWeeklyOff.length >= 2) {
+        setErrorMsg('الحد الأقصى للإجازة الأسبوعية هو يومان فقط في الأسبوع.');
+        return;
+      }
+      setErrorMsg('');
       setRegWeeklyOff([...regWeeklyOff, dayId]);
     }
   };
@@ -223,6 +229,11 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
 
     if (regWeeklyOff.length === 0) {
       setErrorMsg('يرجى تحديد أيام الإجازة الأسبوعية.');
+      return;
+    }
+
+    if (regWeeklyOff.length > 2) {
+      setErrorMsg('الحد الأقصى للإجازة الأسبوعية هو يومان فقط في الأسبوع.');
       return;
     }
 
@@ -814,13 +825,19 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
 
             {/* 6. Weekly Off Days */}
             <div>
-              <label className="block text-[11px] font-bold text-zinc-300 mb-1 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-amber-400" />
-                <span>أيام الإجازة الأسبوعية:</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-amber-400" />
+                  <span>أيام الإجازة الأسبوعية:</span>
+                </label>
+                <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                  يومان كحد أقصى (تُثبت رسميًا)
+                </span>
+              </div>
               <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
                 {DAYS_OF_WEEK.map(day => {
                   const isChecked = regWeeklyOff.includes(day.id);
+                  const isMaxReached = !isChecked && regWeeklyOff.length >= 2;
                   return (
                     <button
                       key={day.id}
@@ -829,6 +846,8 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                       className={`py-1.5 px-1 rounded-xl text-center text-[10px] font-bold transition-all border ${
                         isChecked
                           ? 'bg-amber-500 text-black border-amber-500 shadow-xs'
+                          : isMaxReached
+                          ? 'bg-zinc-950/50 text-zinc-600 border-zinc-900 opacity-50 cursor-not-allowed'
                           : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
                       }`}
                     >

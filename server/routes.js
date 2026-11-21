@@ -80,6 +80,12 @@ router.post('/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
     }
 
+    if (weeklyOffDays && Array.isArray(weeklyOffDays)) {
+      if (weeklyOffDays.length === 0 || weeklyOffDays.length > 2) {
+        return res.status(400).json({ success: false, error: "يجب اختيار أيام الإجازة الأسبوعية (يومان كحد أقصى)." });
+      }
+    }
+
     const employee = await db.registerEmployee({
       name,
       phone,
@@ -405,6 +411,12 @@ router.put('/auth/profile', async (req, res) => {
     const { employeeId, name, avatar, weeklyOffDays, jobTitle, branchId } = req.body;
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب." });
+    }
+
+    if (weeklyOffDays !== undefined) {
+      if (!Array.isArray(weeklyOffDays) || weeklyOffDays.length === 0 || weeklyOffDays.length > 2) {
+        return res.status(400).json({ success: false, error: "لا يمكن اختيار أكثر من يومين للإجازة الأسبوعية (الحد الأقصى يومان فقط)." });
+      }
     }
 
     const updated = await db.updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId });

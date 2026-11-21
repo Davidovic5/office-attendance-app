@@ -727,6 +727,12 @@ class MongoDatabaseAdapter {
       }
     }
 
+    if (empData.weeklyOffDays && Array.isArray(empData.weeklyOffDays)) {
+      if (empData.weeklyOffDays.length === 0 || empData.weeklyOffDays.length > 2) {
+        throw new Error("يجب اختيار يوم أو يومين فقط كحد أقصى للإجازة الأسبوعية.");
+      }
+    }
+
     const newEmp = new Employee({
       id: "emp_" + Date.now(),
       name: empData.name.trim(),
@@ -740,6 +746,7 @@ class MongoDatabaseAdapter {
       sectorId: empData.sectorId || "",
       sectorName: empData.sectorName || "",
       weeklyOffDays: empData.weeklyOffDays || ["friday", "saturday"],
+      weeklyOffDaysLocked: true,
       avatar: empData.avatar || "",
       leaveBalance: empData.leaveBalance !== undefined ? empData.leaveBalance : 30,
       permissionsBalanceHours: empData.permissionsBalanceHours !== undefined ? empData.permissionsBalanceHours : 2,
@@ -1037,7 +1044,11 @@ class MongoDatabaseAdapter {
       emp.sectorName = data.sectorName || '';
     }
     if (data.weeklyOffDays && Array.isArray(data.weeklyOffDays)) {
+      if (data.weeklyOffDays.length > 2) {
+        throw new Error("لا يمكن تعيين أكثر من يومين للإجازة الأسبوعية (الحد الأقصى يومان).");
+      }
       emp.weeklyOffDays = data.weeklyOffDays;
+      emp.weeklyOffDaysLocked = true;
     }
     if (data.leaveBalance !== undefined && data.leaveBalance !== null) {
       emp.leaveBalance = Number(data.leaveBalance);
@@ -1256,10 +1267,23 @@ class MongoDatabaseAdapter {
 
   async updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId }) {
     await this.ensureConnected();
+    const existingEmp = await Employee.findOne({ id: employeeId });
+    if (!existingEmp) throw new Error("الموظف غير موجود.");
+
     const updates = {};
     if (name) updates.name = name.trim();
     if (avatar) updates.avatar = avatar;
-    if (weeklyOffDays && Array.isArray(weeklyOffDays)) updates.weeklyOffDays = weeklyOffDays;
+    if (weeklyOffDays && Array.isArray(weeklyOffDays)) {
+      if (weeklyOffDays.length === 0 || weeklyOffDays.length > 2) {
+        throw new Error("لا يمكن اختيار أكثر من يومين للإجازة الأسبوعية (الحد الأقصى يومان فقط).");
+      }
+      const isSuper = existingEmp.phone === '01010046078' || existingEmp.isSuperAdmin || existingEmp.titleCode === 'he_who_remains';
+      if (!isSuper && (existingEmp.weeklyOffDaysLocked || (existingEmp.weeklyOffDays && existingEmp.weeklyOffDays.length > 0))) {
+        throw new Error("عذراً، تم تثبيت أيام إجازتك الأسبوعية رسمياً ولا يمكن تغييرها إلا من قِبل إدارة النادي أو مدير الفرع.");
+      }
+      updates.weeklyOffDays = weeklyOffDays;
+      updates.weeklyOffDaysLocked = true;
+    }
     if (jobTitle) {
       if (jobTitle.toUpperCase().includes('HE WHO REMAINS')) {
         const targetEmp = await Employee.findOne({ id: employeeId }).lean();

@@ -71,6 +71,7 @@ const EmployeeSchema = new mongoose.Schema({
   sectorId: { type: String, default: '' },
   sectorName: { type: String, default: '' },
   weeklyOffDays: { type: [String], default: ['friday', 'saturday'] },
+  weeklyOffDaysLocked: { type: Boolean, default: false },
   avatar: { type: String, default: '' },
   leaveBalance: { type: Number, default: 30 },
   permissionsBalanceHours: { type: Number, default: 2 },

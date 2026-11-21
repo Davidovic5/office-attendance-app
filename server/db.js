@@ -608,7 +608,8 @@ class Database {
       branchId: branchObj ? branchObj.id : "branch_october2",
       sectorId: sectorId || "",
       sectorName: sectorName || "",
-      weeklyOffDays: Array.isArray(weeklyOffDays) && weeklyOffDays.length > 0 ? weeklyOffDays : ["friday", "saturday"],
+      weeklyOffDays: Array.isArray(weeklyOffDays) && weeklyOffDays.length > 0 ? weeklyOffDays.slice(0, 2) : ["friday", "saturday"],
+      weeklyOffDaysLocked: true,
       avatar: avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80`,
       leaveBalance: leaveBalance !== undefined ? Number(leaveBalance) : 30,
       permissionsBalanceHours: permissionsBalanceHours !== undefined ? Number(permissionsBalanceHours) : 2,
@@ -773,7 +774,17 @@ class Database {
 
     if (profileData.name) emp.name = profileData.name.trim();
     if (profileData.avatar) emp.avatar = profileData.avatar;
-    if (profileData.weeklyOffDays) emp.weeklyOffDays = profileData.weeklyOffDays;
+    if (profileData.weeklyOffDays && Array.isArray(profileData.weeklyOffDays)) {
+      if (profileData.weeklyOffDays.length === 0 || profileData.weeklyOffDays.length > 2) {
+        throw new Error("لا يمكن اختيار أكثر من يومين للإجازة الأسبوعية (الحد الأقصى يومان فقط).");
+      }
+      const isDavid = emp.phone === '01010046078' || emp.id === 'emp_1792955351678';
+      if (!isDavid && (emp.weeklyOffDaysLocked || (emp.weeklyOffDays && emp.weeklyOffDays.length > 0))) {
+        throw new Error("عذراً، تم تثبيت أيام إجازتك الأسبوعية رسمياً ولا يمكن تغييرها إلا من قِبل إدارة النادي أو مدير الفرع.");
+      }
+      emp.weeklyOffDays = profileData.weeklyOffDays;
+      emp.weeklyOffDaysLocked = true;
+    }
     if (profileData.jobTitle) {
       if (profileData.jobTitle.toUpperCase().includes('HE WHO REMAINS')) {
         const isDavid = emp.phone === '01010046078' || emp.id === 'emp_1792955351678';
@@ -831,7 +842,13 @@ class Database {
       emp.sectorId = data.sectorId || '';
       emp.sectorName = data.sectorName || '';
     }
-    if (data.weeklyOffDays && Array.isArray(data.weeklyOffDays)) emp.weeklyOffDays = data.weeklyOffDays;
+    if (data.weeklyOffDays && Array.isArray(data.weeklyOffDays)) {
+      if (data.weeklyOffDays.length > 2) {
+        throw new Error("لا يمكن تعيين أكثر من يومين للإجازة الأسبوعية (الحد الأقصى يومان).");
+      }
+      emp.weeklyOffDays = data.weeklyOffDays;
+      emp.weeklyOffDaysLocked = true;
+    }
     if (data.leaveBalance !== undefined && data.leaveBalance !== null) emp.leaveBalance = Number(data.leaveBalance);
     if (data.permissionsBalanceHours !== undefined && data.permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(data.permissionsBalanceHours);
 

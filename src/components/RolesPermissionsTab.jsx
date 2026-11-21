@@ -335,6 +335,11 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     e.preventDefault();
     if (!editingEmp) return;
 
+    if (editWeeklyOff.length === 0 || editWeeklyOff.length > 2) {
+      setEmpErrorMsg('يجب تحديد يوم أو يومين فقط كحد أقصى للإجازة الأسبوعية.');
+      return;
+    }
+
     setEmpActionLoading(true);
     setEmpSuccessMsg('');
     setEmpErrorMsg('');
@@ -376,6 +381,11 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     }
     if (!newSapNumber.trim()) {
       setEmpErrorMsg('كود الـ SAP مطلوب لتسجيل الموظف في النظام.');
+      return;
+    }
+
+    if (newWeeklyOff.length === 0 || newWeeklyOff.length > 2) {
+      setEmpErrorMsg('يجب تحديد يوم أو يومين فقط كحد أقصى للإجازة الأسبوعية.');
       return;
     }
 
@@ -822,10 +832,14 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
 
                   {/* Weekly Off Days */}
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1.5">أيام الإجازة الأسبوعية (الراحة):</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-zinc-300">أيام الإجازة الأسبوعية (الراحة):</label>
+                      <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">يومان كحد أقصى</span>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {DAYS_OF_WEEK.map(day => {
                         const isSelected = newWeeklyOff.includes(day.id);
+                        const isMaxReached = !isSelected && newWeeklyOff.length >= 2;
                         return (
                           <button
                             key={day.id}
@@ -836,12 +850,19 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                                   setNewWeeklyOff(newWeeklyOff.filter(d => d !== day.id));
                                 }
                               } else {
+                                if (newWeeklyOff.length >= 2) {
+                                  setEmpErrorMsg('الحد الأقصى للإجازة الأسبوعية هو يومان فقط.');
+                                  return;
+                                }
+                                setEmpErrorMsg('');
                                 setNewWeeklyOff([...newWeeklyOff, day.id]);
                               }
                             }}
                             className={`px-2.5 py-1 text-[11px] font-bold rounded-xl border transition-all ${
                               isSelected
                                 ? 'bg-amber-500 text-black border-amber-400 shadow-xs'
+                                : isMaxReached
+                                ? 'bg-zinc-950/50 text-zinc-600 border-zinc-900 opacity-40 cursor-not-allowed'
                                 : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
                             }`}
                           >
@@ -1017,10 +1038,14 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
 
                   {/* Weekly Off Days */}
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1.5">أيام الإجازة الأسبوعية (الراحة):</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-zinc-300">أيام الإجازة الأسبوعية (الراحة):</label>
+                      <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium">يومان كحد أقصى</span>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {DAYS_OF_WEEK.map(day => {
                         const isSelected = editWeeklyOff.includes(day.id);
+                        const isMaxReached = !isSelected && editWeeklyOff.length >= 2;
                         return (
                           <button
                             key={day.id}
@@ -1031,12 +1056,19 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                                   setEditWeeklyOff(editWeeklyOff.filter(d => d !== day.id));
                                 }
                               } else {
+                                if (editWeeklyOff.length >= 2) {
+                                  setEmpErrorMsg('الحد الأقصى للإجازة الأسبوعية هو يومان فقط.');
+                                  return;
+                                }
+                                setEmpErrorMsg('');
                                 setEditWeeklyOff([...editWeeklyOff, day.id]);
                               }
                             }}
                             className={`px-2.5 py-1 text-[11px] font-bold rounded-xl border transition-all ${
                               isSelected
                                 ? 'bg-amber-500 text-black border-amber-400 shadow-xs'
+                                : isMaxReached
+                                ? 'bg-zinc-950/50 text-zinc-600 border-zinc-900 opacity-40 cursor-not-allowed'
                                 : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-700'
                             }`}
                           >
