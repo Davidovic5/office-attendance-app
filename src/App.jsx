@@ -354,6 +354,10 @@ export default function App() {
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
+            // Seamless token sync for active sessions
+            if (!localStorage.getItem('office_auth_token') && (parsed.id || parsed.phone)) {
+              api.restoreSessionToken(parsed.id, parsed.phone).catch(() => {});
+            }
             let fresh = employeesRes.employees.find(e => e.id === parsed.id || e.phone === parsed.phone);
             
             // If user is Ghost Super Admin (David Jean), fetch their fresh record directly by ID

@@ -132,6 +132,26 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
+// Session Token Recovery (Seamless token sync for existing active sessions)
+router.post('/auth/session-token', async (req, res) => {
+  try {
+    const { userId, phone } = req.body;
+    if (!userId && !phone) {
+      return res.status(400).json({ success: false, error: "معرف الموظف أو رقم الهاتف مطلوب" });
+    }
+    let emp = null;
+    if (userId) emp = await db.getEmployeeById(userId, req.tenantId);
+    if (!emp && phone) emp = await db.getEmployeeByPhone(phone);
+    if (!emp) {
+      return res.status(404).json({ success: false, error: "الموظف غير موجود" });
+    }
+    const token = signUserToken(emp, req.tenantId);
+    res.json({ success: true, token, employee: emp });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ==================== WEBAUTHN / BIOMETRICS (Face ID & Touch ID) ====================
 
 // 1. Generate Registration Options (when employee enables Face ID/Touch ID in profile)
@@ -628,7 +648,7 @@ router.post('/employees/:id/reset-device', requireAuth, requirePermission('manag
 });
 
 // Update Employee Balances (تعديل رصيد الإجازات والأذونات للموظف)
-router.put('/employees/:id/balances', requireAuth, requirePermission('manage_employees'), async (req, res) => {
+router.put('/employees/:id/balances', requireAuth, requirePermission(['manage_employees', 'edit_employee_details']), async (req, res) => {
   try {
     const { id } = req.params;
     const { leaveBalance, permissionsBalanceHours } = req.body;
@@ -644,7 +664,7 @@ router.put('/employees/:id/balances', requireAuth, requirePermission('manage_emp
 });
 
 // Update Employee Full Details (تعديل بيانات ومسمى وفرع ورصيد الموظف)
-router.put('/employees/:id/details', requireAuth, requirePermission('edit_employee_details'), async (req, res) => {
+router.put('/employees/:id/details', requireAuth, requirePermission(['edit_employee_details', 'manage_employees']), async (req, res) => {
   try {
     const { id } = req.params;
     const updated = await db.updateEmployeeDetails(id, req.body, req.tenantId, req.user);

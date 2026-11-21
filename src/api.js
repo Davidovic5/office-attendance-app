@@ -4,7 +4,22 @@ import { getOrCreateDeviceId, getDeviceSummary } from './utils/deviceHelper';
 const BASE_URL = '/api';
 
 function getAuthHeaders(extraHeaders = {}) {
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('office_auth_token') : null;
+  let token = typeof localStorage !== 'undefined' ? localStorage.getItem('office_auth_token') : null;
+  const userStr = typeof localStorage !== 'undefined' ? localStorage.getItem('office_auth_user') : null;
+  let userId = '';
+  let userPhone = '';
+  if (userStr) {
+    try {
+      const u = JSON.parse(userStr);
+      userId = u.id || '';
+      userPhone = u.phone || '';
+      if (!token && u.token) {
+        token = u.token;
+        localStorage.setItem('office_auth_token', token);
+      }
+    } catch (e) {}
+  }
+
   const deviceId = getOrCreateDeviceId();
   const headers = {
     'Content-Type': 'application/json',
@@ -13,6 +28,12 @@ function getAuthHeaders(extraHeaders = {}) {
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (userId) {
+    headers['x-user-id'] = userId;
+  }
+  if (userPhone) {
+    headers['x-user-phone'] = userPhone;
   }
   return headers;
 }
@@ -52,6 +73,23 @@ export const api = {
       localStorage.setItem('office_auth_token', data.token);
     }
     return data;
+  },
+
+  async restoreSessionToken(userId, phone) {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/session-token`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ userId, phone }),
+      });
+      const data = await res.json();
+      if (data.success && data.token && typeof localStorage !== 'undefined') {
+        localStorage.setItem('office_auth_token', data.token);
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
   },
 
   async register(data) {

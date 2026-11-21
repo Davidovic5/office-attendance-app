@@ -26,6 +26,7 @@ if ('serviceWorker' in navigator) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('⚡ New update installed, activating in background...');
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
               }
             });
           }
