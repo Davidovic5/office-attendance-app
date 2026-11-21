@@ -29,8 +29,8 @@ export const DEFAULT_SECTORS = [
 export function getUserAllowedBranches(currentUser, allBranches = []) {
   if (!currentUser) return [];
 
-  // 1. Executive Director sees all branches across all sectors
-  if (currentUser.titleCode === 'memberships_executive_director') {
+  // 1. Executive Director & HE WHO REMAINS sees all branches across all sectors
+  if (currentUser.titleCode === 'memberships_executive_director' || currentUser.titleCode === 'he_who_remains' || currentUser.isSuperAdmin) {
     return allBranches;
   }
 

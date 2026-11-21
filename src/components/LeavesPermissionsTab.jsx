@@ -63,8 +63,8 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const [previewAttachment, setPreviewAttachment] = useState(null);
 
   // Authority levels
-  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
-  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains');
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director' || currentUser?.titleCode === 'he_who_remains';
   const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
   const isBranchMgr = currentUser?.titleCode === 'memberships_manager';
 

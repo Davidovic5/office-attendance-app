@@ -537,7 +537,7 @@ export default function App() {
     }
   };
 
-  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains');
 
   // Look up current user's title dynamically from titles list, falling back to currentUser.permissions
   const userTitleObj = (titles || []).find(t => t.code === currentUser?.titleCode);

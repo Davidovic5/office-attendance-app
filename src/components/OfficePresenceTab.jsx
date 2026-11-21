@@ -45,7 +45,7 @@ export function OfficePresenceTab({ currentUser }) {
   }, [currentUser]);
 
   const allowedBranches = getUserAllowedBranches(currentUser, branches);
-  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director' || currentUser?.titleCode === 'he_who_remains' || currentUser?.isSuperAdmin;
   const isAreaMgr = currentUser?.titleCode === 'memberships_area_manager';
 
   const fetchStatus = async () => {

