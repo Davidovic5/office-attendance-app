@@ -733,7 +733,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
             
             <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
               {isExecutiveOrManager 
-                ? `بصفتك (${currentUser.jobTitle})، يحق لك إنهاء ورديتك مبكراً مع كتابة سبب الانصراف.`
+                ? `بصفتك (${currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains' ? 'HE WHO REMAINS' : currentUser.jobTitle})، يحق لك إنهاء ورديتك مبكراً مع كتابة سبب الانصراف.`
                 : 'وفقاً للائحة أندية وادي دجلة، يتطلب الانصراف قبل إتمام الـ 8 ساعات تقديم طلب طارئ وموافقة مدير العضويات (Memberships Manager).'}
             </p>
 

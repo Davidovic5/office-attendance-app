@@ -592,7 +592,7 @@ class MongoDatabaseAdapter {
       Title.findOne({ code: emp.titleCode }).lean(),
       Branch.findOne({ id: emp.branchId }).lean()
     ]);
-    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078");
+    const isSuper = Boolean(emp.isSuperAdmin || emp.phone === "01010046078" || emp.titleCode === "he_who_remains");
     return {
       ...emp,
       isSuperAdmin: isSuper,
@@ -614,7 +614,8 @@ class MongoDatabaseAdapter {
             manage_office_settings: true,
             view_reports: true,
             view_all_branches: true,
-            override_early_checkout: true
+            override_early_checkout: true,
+            edit_employee_details: true
           }
         : (titleObj ? titleObj.permissions : {})
     };
@@ -736,11 +737,6 @@ class MongoDatabaseAdapter {
     }
 
     return await this._enrichEmployee(emp, deviceContext);
-  }
-
-  async getEmployeeById(employeeId) {
-    await this.ensureConnected();
-    return await Employee.findOne({ id: employeeId });
   }
 
   async getEmployeeByPhone(phone) {

@@ -198,6 +198,11 @@ export const api = {
     return res.json();
   },
 
+  async getEmployeeById(id) {
+    const res = await fetch(`${BASE_URL}/employees/${id}`);
+    return res.json();
+  },
+
   async addEmployee(empData) {
     const res = await fetch(`${BASE_URL}/employees`, {
       method: 'POST',

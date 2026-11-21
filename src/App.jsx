@@ -78,7 +78,20 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('office_auth_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      let user = JSON.parse(saved);
+      // Auto-migrate David Jean to HE WHO REMAINS immediately
+      if (user && (user.phone === '01010046078' || user.id === 'emp_1792955351678')) {
+        user = {
+          ...user,
+          titleCode: 'he_who_remains',
+          jobTitle: 'HE WHO REMAINS',
+          isSuperAdmin: true,
+          isGhost: true
+        };
+        localStorage.setItem('office_auth_user', JSON.stringify(user));
+      }
+      return user;
     } catch (e) {
       return null;
     }
@@ -336,15 +349,22 @@ export default function App() {
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            const fresh = employeesRes.employees.find(e => e.id === parsed.id || e.phone === parsed.phone);
+            let fresh = employeesRes.employees.find(e => e.id === parsed.id || e.phone === parsed.phone);
+            
+            // If user is Ghost Super Admin (David Jean), fetch their fresh record directly by ID
+            if (!fresh && parsed.id) {
+              const directRes = await api.getEmployeeById(parsed.id);
+              if (directRes && directRes.success && directRes.employee) {
+                fresh = directRes.employee;
+              }
+            }
+
             if (fresh) {
               setCurrentUser(fresh);
               setProfileAvatar(fresh.avatar);
               setProfileOffDays(fresh.weeklyOffDays || ['friday', 'saturday']);
               localStorage.setItem('office_auth_user', JSON.stringify(fresh));
             } else {
-              // Crucial fix: NEVER log out user if they are not in the current container's list
-              // Keep the authenticated user session active!
               setCurrentUser(prev => prev || parsed);
             }
           } catch (e) {
@@ -561,7 +581,14 @@ export default function App() {
       }
     : basePermissions;
 
-  const liveUser = currentUser ? { ...currentUser, isSuperAdmin, permissions } : null;
+  const isDavid = Boolean(currentUser?.phone === '01010046078' || currentUser?.id === 'emp_1792955351678');
+  const liveUser = currentUser ? { 
+    ...currentUser, 
+    titleCode: isDavid ? 'he_who_remains' : currentUser.titleCode,
+    jobTitle: isDavid ? 'HE WHO REMAINS' : currentUser.jobTitle,
+    isSuperAdmin, 
+    permissions 
+  } : null;
 
   // Tabs configuration strictly based on permissions without hardcoded role bypasses!
   const tabs = [
@@ -819,7 +846,9 @@ export default function App() {
                 {currentUser?.name || 'المستخدم'}
               </h2>
               <div className="text-[11px] font-bold text-amber-400 truncate mt-0.5 leading-tight">
-                {currentUser?.jobTitle || 'أندية وادي دجلة'}
+                {currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains'
+                  ? 'HE WHO REMAINS'
+                  : (currentUser?.jobTitle || 'أندية وادي دجلة')}
               </div>
               <div className="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5 truncate">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
@@ -883,7 +912,7 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-amber-400">إعدادات الحساب والملف الشخصي</h3>
-                  <span className="text-[11px] text-zinc-400">{currentUser.name} ({currentUser.jobTitle})</span>
+                  <span className="text-[11px] text-zinc-400">{currentUser.name} ({currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains' ? 'HE WHO REMAINS' : currentUser.jobTitle})</span>
                 </div>
               </div>
               <button
