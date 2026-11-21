@@ -1160,6 +1160,7 @@ class Database {
         ...req,
         employeeName: emp ? emp.name : "موظف غير معروف",
         employeeJobTitle: emp ? emp.jobTitle : "",
+        employeeTitleCode: emp ? emp.titleCode : "",
         employeeBranch: emp ? emp.branchName : "",
         employeeAvatar: emp ? emp.avatar : ""
       };
@@ -1334,14 +1335,63 @@ class Database {
         body = `طلب ${lName} - سبب: ${requestData.reason || ''}`;
       }
 
-      const managerTargetIds = this.data.employees.filter(e =>
-        e.id !== requestData.employeeId && (
-          (e.branchId === emp?.branchId && ['memberships_section_head', 'memberships_manager'].includes(e.titleCode)) ||
-          (e.sectorId === emp?.sectorId && e.titleCode === 'memberships_area_manager') ||
-          e.titleCode === 'memberships_executive_director' ||
-          e.phone === '01010046078'
-        )
-      ).map(e => e.id);
+      let managerTargetIds = [];
+      const requesterTitle = emp?.titleCode;
+
+      if (requesterTitle === 'memberships_area_manager') {
+        // Area Manager's requests go directly to Memberships Executive Director
+        managerTargetIds = this.data.employees
+          .filter(e => e.titleCode === 'memberships_executive_director' || e.phone === '01010046078')
+          .map(e => e.id);
+      } else if (['memberships_manager', 'memberships_section_head', 'memberships_deputy_manager'].includes(requesterTitle)) {
+        // Branch leadership requests go directly to their Sector's Area Manager
+        let branchSectorId = emp?.sectorId;
+        if (!branchSectorId && emp?.branchId) {
+          const bDoc = this.data.branches.find(b => b.id === emp.branchId);
+          if (bDoc) branchSectorId = bDoc.sectorId;
+        }
+        let areaManagers = [];
+        if (branchSectorId) {
+          areaManagers = this.data.employees.filter(e => e.sectorId === branchSectorId && e.titleCode === 'memberships_area_manager');
+        }
+        if (areaManagers.length > 0) {
+          managerTargetIds = areaManagers.map(e => e.id);
+        } else {
+          managerTargetIds = this.data.employees
+            .filter(e => e.titleCode === 'memberships_executive_director' || e.phone === '01010046078')
+            .map(e => e.id);
+        }
+      } else {
+        // Regular branch employee request:
+        // 1. Try to find memberships_manager in this branch
+        let branchManagers = [];
+        if (emp?.branchId) {
+          branchManagers = this.data.employees.filter(e => e.branchId === emp.branchId && e.titleCode === 'memberships_manager');
+        }
+        if (branchManagers.length > 0) {
+          managerTargetIds = branchManagers.map(e => e.id);
+        } else {
+          // If branch does not have memberships_manager, send to the Area Manager responsible for this branch
+          let branchSectorId = emp?.sectorId;
+          if (!branchSectorId && emp?.branchId) {
+            const bDoc = this.data.branches.find(b => b.id === emp.branchId);
+            if (bDoc) branchSectorId = bDoc.sectorId;
+          }
+          let areaManagers = [];
+          if (branchSectorId) {
+            areaManagers = this.data.employees.filter(e => e.sectorId === branchSectorId && e.titleCode === 'memberships_area_manager');
+          }
+          if (areaManagers.length > 0) {
+            managerTargetIds = areaManagers.map(e => e.id);
+          } else {
+            managerTargetIds = this.data.employees
+              .filter(e => e.titleCode === 'memberships_executive_director' || e.phone === '01010046078')
+              .map(e => e.id);
+          }
+        }
+      }
+
+      managerTargetIds = [...new Set(managerTargetIds.filter(id => id && id !== requestData.employeeId))];
 
       for (const mgrId of managerTargetIds) {
         this.createInAppNotification({

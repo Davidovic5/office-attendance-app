@@ -115,6 +115,32 @@ export default function App() {
   const [pushEnabling, setPushEnabling] = useState(false);
   const [pushSuccessMsg, setPushSuccessMsg] = useState('');
   const [pushErrorMsg, setPushErrorMsg] = useState('');
+  const [isPushGranted, setIsPushGranted] = useState(() => {
+    return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+  });
+
+  // Track Notification permission changes dynamically
+  useEffect(() => {
+    const updatePushStatus = () => {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setIsPushGranted(Notification.permission === 'granted');
+      }
+    };
+    updatePushStatus();
+    window.addEventListener('focus', updatePushStatus);
+
+    if (typeof navigator !== 'undefined' && 'permissions' in navigator && navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'notifications' }).then(permissionStatus => {
+        permissionStatus.onchange = () => {
+          updatePushStatus();
+        };
+      }).catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('focus', updatePushStatus);
+    };
+  }, []);
 
   const fetchNotifications = async () => {
     if (!currentUser?.id) return;
@@ -151,6 +177,7 @@ export default function App() {
       const res = await registerPushNotifications(currentUser.id);
       if (res && res.success) {
         setPushSuccessMsg("تم تفعيل إشعارات الهاتف بنجاح 🔔");
+        setIsPushGranted(true);
         setTimeout(() => setPushSuccessMsg(''), 4000);
       } else {
         const errorText = res?.reason === 'user_gesture_required' 
@@ -164,6 +191,9 @@ export default function App() {
       setTimeout(() => setPushErrorMsg(''), 5000);
     } finally {
       setPushEnabling(false);
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setIsPushGranted(Notification.permission === 'granted');
+      }
     }
   };
 
@@ -705,23 +735,27 @@ export default function App() {
               )}
             </button>
 
-            {/* Notifications Bell */}
-            <button
-              onClick={() => {
-                setShowNotificationsModal(true);
-                fetchNotifications();
-              }}
-              className="relative p-2 sm:p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
-              title="مركز الإشعارات والتنبيهات"
-              aria-label="مركز الإشعارات"
-            >
-              <Bell className="w-4 h-4 text-amber-400" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-md">
-                  {unreadNotificationsCount > 9 ? '+9' : unreadNotificationsCount}
-                </span>
-              )}
-            </button>
+            {/* Notifications Bell - Only shown for users who have NOT granted push notification permissions yet */}
+            {!isPushGranted && (
+              <button
+                onClick={handleEnablePush}
+                disabled={pushEnabling}
+                className="relative p-2 sm:p-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/50 transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95 animate-pulse"
+                title="اضغط هنا لتفعيل إشعارات الهاتف الفورية"
+                aria-label="تفعيل إشعارات الهاتف"
+              >
+                {pushEnabling ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                ) : (
+                  <>
+                    <Bell className="w-4 h-4 text-amber-400" />
+                    <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
+                      !
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Profile Settings Button */}
             <button
@@ -1142,6 +1176,30 @@ export default function App() {
                   <span>{passwordLoading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}</span>
                 </button>
               </form>
+            </div>
+
+            {/* Notification Center Access */}
+            <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-zinc-200">مركز وسجل الإشعارات:</span>
+                {unreadNotificationsCount > 0 && (
+                  <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                    {unreadNotificationsCount} غير مقروء
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setShowNotificationsModal(true);
+                  fetchNotifications();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+              >
+                <Bell className="w-4 h-4 text-amber-400" />
+                <span>عرض سجل الإشعارات والتنبيهات 🔔</span>
+              </button>
             </div>
 
             {/* 6. Push Notifications Section */}

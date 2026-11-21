@@ -80,7 +80,7 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   );
 
   // Only manager and higher ranks can approve requests
-  const canApprove = isSuperAdmin || isExecutive || isAreaMgr || isBranchMgr;
+  const canApprove = isSuperAdmin || isExecutive || isAreaMgr || isBranchMgr || Boolean(currentUser?.permissions?.approve_leaves_permissions);
 
   useEffect(() => {
     api.getBranches().then(res => {
@@ -416,8 +416,30 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
               const isPending = req.status === 'pending';
               const isRejected = req.status === 'rejected';
 
-              // Manager can review subordinate requests
-              const canUserReviewThis = canApprove && (req.employeeId !== currentUser.id);
+              // Manager can review subordinate requests according to organizational hierarchy
+              const requesterTitle = req.employeeTitleCode;
+              let canUserReviewThis = false;
+              if (canApprove && req.employeeId !== currentUser.id) {
+                if (requesterTitle === 'memberships_area_manager') {
+                  // Only Executive Director or Super Admin can review Area Manager requests
+                  canUserReviewThis = isSuperAdmin || isExecutive;
+                } else if (['memberships_manager', 'memberships_section_head', 'memberships_deputy_manager'].includes(requesterTitle)) {
+                  // Area Manager (or Executive Director / Super Admin) can review Branch Manager/Section Head requests
+                  canUserReviewThis = isSuperAdmin || isExecutive || isAreaMgr;
+                } else {
+                  // Regular branch employees:
+                  // 1. Branch Manager can review if within same branch
+                  if (isBranchMgr && req.branchId === currentUser.branchId) {
+                    canUserReviewThis = true;
+                  } else if (isAreaMgr) {
+                    // 2. Area Manager can review if branch belongs to their sector
+                    const allowed = getUserAllowedBranches(currentUser, branches);
+                    canUserReviewThis = allowed.some(b => b.id === req.branchId);
+                  } else if (isSuperAdmin || isExecutive) {
+                    canUserReviewThis = true;
+                  }
+                }
+              }
 
               return (
                 <div 

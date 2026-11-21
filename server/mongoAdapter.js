@@ -1405,6 +1405,7 @@ class MongoDatabaseAdapter {
         ...req,
         employeeName: emp ? emp.name : "موظف غير معروف",
         employeeJobTitle: emp ? emp.jobTitle : "",
+        employeeTitleCode: emp ? emp.titleCode : "",
         employeeBranch: branch ? branch.name : "",
         employeeAvatar: emp ? emp.avatar : ""
       };
@@ -1590,17 +1591,87 @@ class MongoDatabaseAdapter {
         body = `طلب ${lName} - سبب: ${requestData.reason || ''}`;
       }
 
-      const managerQuery = {
-        $or: [
-          { branchId: emp?.branchId, titleCode: 'memberships_section_head' },
-          { branchId: emp?.branchId, titleCode: 'memberships_manager' },
-          { sectorId: emp?.sectorId, titleCode: 'memberships_area_manager' },
-          { titleCode: 'memberships_executive_director' },
-          { phone: '01010046078' }
-        ]
-      };
-      const managers = await Employee.find(managerQuery, { id: 1 }).lean();
-      const targetEmpIds = [...new Set(managers.map(m => m.id).filter(id => id !== requestData.employeeId))];
+      let targetEmpIds = [];
+      const requesterTitle = emp?.titleCode;
+
+      if (requesterTitle === 'memberships_area_manager') {
+        // Area Manager's requests go directly to Memberships Executive Director
+        const execs = await Employee.find({
+          $or: [
+            { titleCode: 'memberships_executive_director' },
+            { phone: '01010046078' }
+          ]
+        }, { id: 1 }).lean();
+        targetEmpIds = execs.map(e => e.id);
+      } else if (['memberships_manager', 'memberships_section_head', 'memberships_deputy_manager'].includes(requesterTitle)) {
+        // Branch leadership requests go directly to their Sector's Area Manager
+        let branchSectorId = emp?.sectorId;
+        if (!branchSectorId && emp?.branchId) {
+          const bDoc = await Branch.findOne({ id: emp.branchId }).lean();
+          if (bDoc) branchSectorId = bDoc.sectorId;
+        }
+        let areaManagers = [];
+        if (branchSectorId) {
+          areaManagers = await Employee.find({
+            sectorId: branchSectorId,
+            titleCode: 'memberships_area_manager'
+          }, { id: 1 }).lean();
+        }
+        if (areaManagers.length > 0) {
+          targetEmpIds = areaManagers.map(e => e.id);
+        } else {
+          // Fallback to Executive Director
+          const execs = await Employee.find({
+            $or: [
+              { titleCode: 'memberships_executive_director' },
+              { phone: '01010046078' }
+            ]
+          }, { id: 1 }).lean();
+          targetEmpIds = execs.map(e => e.id);
+        }
+      } else {
+        // Regular branch employee request:
+        // 1. Try to find memberships_manager in this branch
+        let branchManagers = [];
+        if (emp?.branchId) {
+          branchManagers = await Employee.find({
+            branchId: emp.branchId,
+            titleCode: 'memberships_manager'
+          }, { id: 1 }).lean();
+        }
+
+        if (branchManagers.length > 0) {
+          targetEmpIds = branchManagers.map(e => e.id);
+        } else {
+          // If branch does not have memberships_manager, send to the Area Manager responsible for this branch
+          let branchSectorId = emp?.sectorId;
+          if (!branchSectorId && emp?.branchId) {
+            const bDoc = await Branch.findOne({ id: emp.branchId }).lean();
+            if (bDoc) branchSectorId = bDoc.sectorId;
+          }
+          let areaManagers = [];
+          if (branchSectorId) {
+            areaManagers = await Employee.find({
+              sectorId: branchSectorId,
+              titleCode: 'memberships_area_manager'
+            }, { id: 1 }).lean();
+          }
+          if (areaManagers.length > 0) {
+            targetEmpIds = areaManagers.map(e => e.id);
+          } else {
+            // Fallback to Executive Director
+            const execs = await Employee.find({
+              $or: [
+                { titleCode: 'memberships_executive_director' },
+                { phone: '01010046078' }
+              ]
+            }, { id: 1 }).lean();
+            targetEmpIds = execs.map(e => e.id);
+          }
+        }
+      }
+
+      targetEmpIds = [...new Set(targetEmpIds.filter(id => id && id !== requestData.employeeId))];
 
       for (const mgrId of targetEmpIds) {
         // 1. In-App Notification
