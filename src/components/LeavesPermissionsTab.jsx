@@ -73,6 +73,11 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
   const userOffDaysNames = userOffDays.map(id => DAY_ID_TO_ARABIC[id] || id).join(' و ');
   const startDayInfo = getDayInfoFromDateStr(startDate, userOffDays);
   const endDayInfo = getDayInfoFromDateStr(endDate, userOffDays);
+  const permDayInfo = getDayInfoFromDateStr(startDate, userOffDays);
+  const permConflictingLeave = (requests || []).find(
+    r => r.employeeId === currentUser?.id && r.type === 'leave' && r.status === 'approved' &&
+    (r.date === startDate || (r.startDate <= startDate && r.endDate >= startDate))
+  );
 
   // Only manager and higher ranks can approve requests
   const canApprove = isSuperAdmin || isExecutive || isAreaMgr || isBranchMgr;
@@ -254,6 +259,23 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           payload.endDate = endDate;
         }
       } else if (requestType === 'permission') {
+        const pDayInfo = getDayInfoFromDateStr(startDate, currentUser?.weeklyOffDays || ['friday', 'saturday']);
+        if (pDayInfo && pDayInfo.isOff) {
+          setErrorMsg(`عذراً، يوم (${pDayInfo.dayName}) يوافق يوم إجازتك الأسبوعية. لا يمكن تقديم طلب إذن ساعتين في أيام العطلات.`);
+          setLoading(false);
+          return;
+        }
+
+        const conflictingLeave = (requests || []).find(
+          r => r.employeeId === currentUser?.id && r.type === 'leave' && r.status === 'approved' &&
+          (r.date === startDate || (r.startDate <= startDate && r.endDate >= startDate))
+        );
+        if (conflictingLeave) {
+          setErrorMsg(`عذراً، لديك إجازة معتمدة بالفعل في هذا التاريخ (${startDate}). لا يمكن تقديم إذن ساعتين في أيام الإجازات.`);
+          setLoading(false);
+          return;
+        }
+
         payload.permissionType = permissionType;
         payload.permissionHours = 2; // ثابت ساعتين
         payload.date = startDate;
@@ -882,6 +904,21 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
                   />
                 </div>
               </div>
+
+              {/* Warnings for Permission on Off Days or Leave Days */}
+              {permDayInfo?.isOff && (
+                <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-xs text-rose-300 font-bold flex items-start gap-2 animate-fade-in leading-relaxed">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span>عذراً، يوم ({permDayInfo.dayName}) يوافق يوم إجازتك الأسبوعية. إذن الساعتين مخصص لأيام العمل الفعلية فقط ولا يجوز طلبه في يوم عطلة.</span>
+                </div>
+              )}
+
+              {permConflictingLeave && (
+                <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-xs text-rose-300 font-bold flex items-start gap-2 animate-fade-in leading-relaxed">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span>عذراً، لديك إجازة معتمدة بالفعل في هذا التاريخ ({startDate}). لا يمكن تقديم إذن ساعتين في أيام الإجازات.</span>
+                </div>
+              )}
             </>
           )}
 
@@ -900,11 +937,11 @@ export function LeavesPermissionsTab({ currentUser, onStatusChanged }) {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            disabled={loading || (requestType === 'permission' && (permDayInfo?.isOff || Boolean(permConflictingLeave)))}
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 disabled:from-zinc-800 disabled:to-zinc-800 disabled:text-zinc-500 text-black font-black text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            <Send className="w-4 h-4 ml-1 text-black" />
-            <span>{loading ? 'جاري إرسال الطلب...' : 'إرسال الطلب للاعتماد'}</span>
+            <Send className="w-4 h-4 ml-1 text-current" />
+            <span>{loading ? 'جاري إرسال الطلب...' : (requestType === 'permission' && (permDayInfo?.isOff || permConflictingLeave) ? 'غير متاح في أيام الإجازات' : 'إرسال الطلب للاعتماد')}</span>
           </button>
         </form>
       )}

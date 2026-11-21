@@ -27,7 +27,8 @@ import {
   Moon,
   Check,
   ScanFace,
-  Fingerprint
+  Fingerprint,
+  Bell
 } from 'lucide-react';
 import { api } from './api';
 import { AuthScreen } from './components/AuthScreen';
@@ -107,6 +108,74 @@ export default function App() {
   const [hasPasskey, setHasPasskey] = useState(false);
   const [biometricRegisterLoading, setBiometricRegisterLoading] = useState(false);
 
+  // In-App Notifications state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [pushEnabling, setPushEnabling] = useState(false);
+  const [pushSuccessMsg, setPushSuccessMsg] = useState('');
+  const [pushErrorMsg, setPushErrorMsg] = useState('');
+
+  const fetchNotifications = async () => {
+    if (!currentUser?.id) return;
+    try {
+      const res = await api.getNotifications(currentUser.id);
+      if (res && res.success) {
+        setNotifications(res.notifications || []);
+        setUnreadNotificationsCount(res.unreadCount || 0);
+      }
+    } catch (e) {
+      console.warn("Error fetching notifications:", e);
+    }
+  };
+
+  const handleMarkNotificationsAsRead = async (ids = null) => {
+    if (!currentUser?.id) return;
+    try {
+      const res = await api.markNotificationsAsRead(currentUser.id, ids);
+      if (res && res.success) {
+        setNotifications(res.notifications || []);
+        setUnreadNotificationsCount(res.unreadCount || 0);
+      }
+    } catch (e) {
+      console.warn("Error marking notifications read:", e);
+    }
+  };
+
+  const handleEnablePush = async () => {
+    if (!currentUser?.id) return;
+    setPushEnabling(true);
+    setPushErrorMsg('');
+    setPushSuccessMsg('');
+    try {
+      const res = await registerPushNotifications(currentUser.id);
+      if (res && res.success) {
+        setPushSuccessMsg("تم تفعيل إشعارات الهاتف بنجاح 🔔");
+        setTimeout(() => setPushSuccessMsg(''), 4000);
+      } else {
+        const errorText = res?.reason === 'user_gesture_required' 
+          ? 'يرجى الضغط مجدداً لتأكيد السماح بالإشعارات من المتصفح.'
+          : (res?.error || res?.reason || 'تعذر تفعيل إشعارات الهاتف. تأكد من السماح بالإشعارات في إعدادات جهازك.');
+        setPushErrorMsg(errorText);
+        setTimeout(() => setPushErrorMsg(''), 5000);
+      }
+    } catch (err) {
+      setPushErrorMsg(err?.message || 'حدث خطأ أثناء طلب إذن الإشعارات');
+      setTimeout(() => setPushErrorMsg(''), 5000);
+    } finally {
+      setPushEnabling(false);
+    }
+  };
+
+  // Poll in-app notifications
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 25000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser?.id]);
+
   useEffect(() => {
     checkBiometricSupport().then(setBiometricsAvailable).catch(() => setBiometricsAvailable(false));
   }, []);
@@ -132,7 +201,7 @@ export default function App() {
     } catch (e) {}
   }, []);
 
-  // Register push notifications when user is authenticated (works even when app/phone is closed)
+  // Register push notifications when user is authenticated
   useEffect(() => {
     if (currentUser?.id) {
       registerPushNotifications(currentUser.id).catch(() => {});
@@ -636,6 +705,24 @@ export default function App() {
               )}
             </button>
 
+            {/* Notifications Bell */}
+            <button
+              onClick={() => {
+                setShowNotificationsModal(true);
+                fetchNotifications();
+              }}
+              className="relative p-2 sm:p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-amber-500/30 transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
+              title="مركز الإشعارات والتنبيهات"
+              aria-label="مركز الإشعارات"
+            >
+              <Bell className="w-4 h-4 text-amber-400" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-md">
+                  {unreadNotificationsCount > 9 ? '+9' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+
             {/* Profile Settings Button */}
             <button
               onClick={openProfileSettings}
@@ -1057,7 +1144,56 @@ export default function App() {
               </form>
             </div>
 
-            {/* 4. Delete Account Danger Section */}
+            {/* 6. Push Notifications Section */}
+            <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mt-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-zinc-200 block">إشعارات الهاتف (Web Push):</span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      إشعارات فورية على الهاتف حتى والتطبيق مغلق
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {pushSuccessMsg && (
+                <div className="bg-emerald-950/70 border border-emerald-700/80 p-2.5 rounded-xl text-emerald-300 text-xs font-bold mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{pushSuccessMsg}</span>
+                </div>
+              )}
+              {pushErrorMsg && (
+                <div className="bg-rose-950/70 border border-rose-700/80 p-2.5 rounded-xl text-rose-300 text-xs font-bold mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{pushErrorMsg}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={pushEnabling}
+                onClick={handleEnablePush}
+                className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-amber-400 border border-amber-500/30 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+              >
+                {pushEnabling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                    <span>جاري تفعيل إشعارات الهاتف...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-4 h-4 text-amber-400" />
+                    <span>تفعيل / إعادة ربط إشعارات الهاتف (Web Push) 🔔</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 7. Delete Account Danger Section */}
             <div className="bg-zinc-950 p-4 rounded-2xl border border-rose-950/80 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
@@ -1264,6 +1400,160 @@ export default function App() {
                 تخطي الآن (يمكن تفعيلها لاحقاً من الملف الشخصي)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= IN-APP NOTIFICATIONS MODAL ================= */}
+      {showNotificationsModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+          <div className="bg-zinc-900 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-amber-500/30 max-h-[90vh] overflow-hidden flex flex-col text-zinc-100 text-right">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 relative">
+                  <Bell className="w-4 h-4" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-zinc-900 animate-ping"></span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-amber-400">مركز الإشعارات والتنبيهات</h3>
+                  <span className="text-[10px] text-zinc-400">
+                    {unreadNotificationsCount > 0 ? `${unreadNotificationsCount} إشعار غير مقروء` : 'جميع الإشعارات مقروءة'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {unreadNotificationsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarkNotificationsAsRead()}
+                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline px-2 py-1 rounded-lg bg-zinc-800/80 transition-colors"
+                  >
+                    تحديد الكل كمقروء
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotificationsModal(false)}
+                  className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Web Push Banner (Explicit User Gesture for iOS / Android) */}
+            <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-amber-500/10 border border-amber-500/30 p-3 rounded-2xl mb-3 space-y-1.5 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                  <Bell className="w-3.5 h-3.5 text-amber-400" />
+                  <span>تفعيل إشعارات الهاتف الفورية (Web Push)</span>
+                </span>
+                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">
+                  حتى لو التطبيق مغلق
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                اضغط لتفعيل إشعارات الهاتف لتصلك رسائل فورية باعتماد طلبات الإجازات والأذونات وتنبيهات الحضور.
+              </p>
+
+              {pushSuccessMsg && (
+                <div className="bg-emerald-950/90 border border-emerald-700 p-2 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-1.5 animate-fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>{pushSuccessMsg}</span>
+                </div>
+              )}
+              {pushErrorMsg && (
+                <div className="bg-rose-950/90 border border-rose-700 p-2 rounded-xl text-rose-300 text-xs font-bold flex items-center gap-1.5 animate-fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>{pushErrorMsg}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={pushEnabling}
+                onClick={handleEnablePush}
+                className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {pushEnabling ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                    <span>جاري طلب الإذن...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-3.5 h-3.5 text-black" />
+                    <span>🔔 تفعيل إشعارات الهاتف الآن</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Notifications Scrollable List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 divide-y divide-zinc-800/40">
+              {notifications.length === 0 ? (
+                <div className="text-center py-10 space-y-2 text-zinc-500">
+                  <Bell className="w-8 h-8 mx-auto text-zinc-700" />
+                  <p className="text-xs font-bold">لا توجد إشعارات حتى الآن</p>
+                  <p className="text-[11px] text-zinc-600">ستظهر هنا أي طلبات جديدة، موافقات أو رفض، وتنبيهات الانصراف</p>
+                </div>
+              ) : (
+                notifications.map(n => {
+                  const isUnread = !n.read;
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        if (isUnread) handleMarkNotificationsAsRead([n.id]);
+                        setShowNotificationsModal(false);
+                        if (n.type === 'auto_checkout') {
+                          setActiveTab('check_in');
+                        } else {
+                          setActiveTab('leaves');
+                        }
+                      }}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer pt-3 ${
+                        isUnread
+                          ? 'bg-amber-500/10 border-amber-500/40 hover:bg-amber-500/15'
+                          : 'bg-zinc-950/60 border-zinc-850 hover:bg-zinc-900/80 opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-1.5">
+                          {n.type === 'request_created' && <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                          {n.type === 'request_reviewed' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                          {n.type === 'auto_checkout' && <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+                          {n.type === 'system' && <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                          <span className={`text-xs ${isUnread ? 'font-black text-amber-300' : 'font-bold text-zinc-200'}`}>
+                            {n.title}
+                          </span>
+                        </div>
+                        {isUnread && (
+                          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1 shadow-[0_0_8px_rgba(245,184,0,0.8)]"></span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed font-medium mb-1.5">
+                        {n.body}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                        <span>{new Date(n.createdAt).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })} • {new Date(n.createdAt).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo', month: 'short', day: 'numeric' })}</span>
+                        <span className="text-amber-500/80 font-bold">عرض التفاصيل ←</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowNotificationsModal(false)}
+              className="w-full mt-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs cursor-pointer"
+            >
+              إغلاق
+            </button>
           </div>
         </div>
       )}

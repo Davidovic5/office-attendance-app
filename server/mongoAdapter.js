@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription, WebAuthnChallenge } = require('./models');
+const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription, WebAuthnChallenge, InAppNotification } = require('./models');
 
 // Configure VAPID for Web Push Notifications (Works even when app is closed on mobile)
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3cD_bPcugExOm9yLKbZQZ68s0lQADHy-pGzkJ_Mbuf7IlZL0B5elp4MVu8Xy_3LXGSk";
@@ -40,6 +40,17 @@ const DAY_MAP = {
   6: 'saturday'
 };
 
+function getCairoDateString(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+function getCairoHourMinute(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(d);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  return { hour, minute };
+}
+
 const DEFAULT_SECTORS = [
   {
     id: 'sector_west_cairo',
@@ -71,7 +82,7 @@ const DEFAULT_SECTORS = [
 const DEFAULT_BRANCHES = [
   // قطاع غرب القاهرة
   { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
-  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9760767, longitude: 31.0076652, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
   { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
 
   // قطاع شرق القاهرة
@@ -888,6 +899,119 @@ class MongoDatabaseAdapter {
     return { sentCount };
   }
 
+  // In-App Notifications
+  async createInAppNotification({ recipientId, title, body, type = 'system', relatedId = '', url = '/?tab=leaves' }) {
+    await this.ensureConnected();
+    try {
+      const notif = new InAppNotification({
+        id: "notif_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+        recipientId,
+        title,
+        body,
+        type,
+        relatedId,
+        url,
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+      await notif.save();
+      return notif.toObject();
+    } catch (err) {
+      console.warn("Failed to create in-app notification:", err.message);
+      return null;
+    }
+  }
+
+  async getInAppNotifications(recipientId, limit = 40) {
+    await this.ensureConnected();
+    const notifications = await InAppNotification.find({ recipientId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    const unreadCount = await InAppNotification.countDocuments({ recipientId, read: false });
+    return { notifications, unreadCount };
+  }
+
+  async markInAppNotificationsAsRead(recipientId, notificationIds = null) {
+    await this.ensureConnected();
+    const query = { recipientId };
+    if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
+      query.id = { $in: notificationIds };
+    }
+    await InAppNotification.updateMany(query, { $set: { read: true } });
+    return this.getInAppNotifications(recipientId);
+  }
+
+  // Active Work Mission for today
+  async getActiveWorkMission(employeeId, dateStr = null) {
+    await this.ensureConnected();
+    const targetDate = dateStr || getCairoDateString();
+    return Request.findOne({
+      employeeId,
+      type: 'leave',
+      leaveType: 'work_mission',
+      status: 'approved',
+      $or: [
+        { missionDate: targetDate },
+        { date: targetDate },
+        { startDate: { $lte: targetDate }, endDate: { $gte: targetDate } }
+      ]
+    }).lean();
+  }
+
+  // Auto Forced Check-out at 23:59:
+  // If an employee checked in and forgot to check out, system automatically checks them out
+  // at 23:59:59 of that day and marks autoCheckedOut: true.
+  async closeExpiredAttendanceRecords() {
+    await this.ensureConnected();
+    const today = getCairoDateString();
+    const { hour, minute } = getCairoHourMinute();
+
+    // Past open records (date < today) or today's record if 23:59 or later
+    const expiredQuery = {
+      checkOutTime: null,
+      $or: [
+        { date: { $lt: today } }
+      ]
+    };
+
+    if (hour === 23 && minute >= 59) {
+      expiredQuery.$or.push({ date: today });
+    }
+
+    const openRecords = await AttendanceRecord.find(expiredQuery);
+    if (!openRecords || openRecords.length === 0) return 0;
+
+    let closedCount = 0;
+    for (const rec of openRecords) {
+      const autoOutTime = `${rec.date}T23:59:59.000Z`;
+      const inTime = new Date(rec.checkInTime).getTime();
+      const outTime = new Date(autoOutTime).getTime();
+      const durationMinutes = Math.max(0, Math.floor((outTime - inTime) / 60000));
+
+      rec.checkOutTime = autoOutTime;
+      rec.durationMinutes = durationMinutes;
+      rec.completed8Hours = false;
+      rec.autoCheckedOut = true;
+      rec.status = 'checked_out';
+      rec.checkOutNotes = 'انصراف تلقائي إجباري من السيستم (لم يسجل الموظف انصرافه من موقع الفرع قبل 11:59 مساءً)';
+      await rec.save();
+      closedCount++;
+
+      // Create an In-App notification alerting the employee
+      this.createInAppNotification({
+        recipientId: rec.employeeId,
+        title: 'تنبيه انصراف تلقائي ⚠️',
+        body: `تم إغلاق سجل الحضور ليوم (${rec.date}) تلقائياً في 11:59 م لعدم تسجيل الانصراف من داخل الفرع، وتم توثيق عدم تسجيل الخروج يدوياً.`,
+        type: 'auto_checkout',
+        relatedId: rec.id,
+        url: '/?tab=attendance'
+      }).catch(() => {});
+    }
+
+    return closedCount;
+  }
+
   async updateProfile(employeeId, { name, avatar, weeklyOffDays, jobTitle, branchId }) {
     await this.ensureConnected();
     const updates = {};
@@ -941,7 +1065,8 @@ class MongoDatabaseAdapter {
 
   async getTodayAttendance(dateStr = null, branchId = null) {
     await this.ensureConnected();
-    const today = dateStr || new Date().toISOString().split('T')[0];
+    await this.closeExpiredAttendanceRecords();
+    const today = dateStr || getCairoDateString();
     const query = { date: today };
     if (branchId && branchId !== 'all') {
       query.branchId = branchId;
@@ -951,7 +1076,9 @@ class MongoDatabaseAdapter {
 
   async checkIn(employeeId, latitude, longitude) {
     await this.ensureConnected();
-    const today = new Date().toISOString().split('T')[0];
+    await this.closeExpiredAttendanceRecords();
+
+    const today = getCairoDateString();
     const emp = await this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
 
@@ -961,45 +1088,74 @@ class MongoDatabaseAdapter {
     }
 
     // Check if employee has an approved work_mission for today
-    const missionReq = await Request.findOne({
-      employeeId,
-      type: 'leave',
-      leaveType: 'work_mission',
-      status: 'approved',
-      $or: [
-        { missionDate: today },
-        { date: today },
-        { startDate: { $lte: today }, endDate: { $gte: today } }
-      ]
-    }).lean();
+    const missionReq = await this.getActiveWorkMission(employeeId, today);
 
-    const activeBranchId = (missionReq && missionReq.missionBranchId) ? missionReq.missionBranchId : emp.branchId;
-    const branch = await this.getBranchById(activeBranchId);
-    if (!branch) {
-      throw new Error("الفرع المحدد غير موجود بالنظام.");
+    const homeBranch = await this.getBranchById(emp.branchId);
+    let missionBranch = null;
+    if (missionReq && missionReq.missionBranchId) {
+      missionBranch = await this.getBranchById(missionReq.missionBranchId);
     }
 
-    const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
-    if (distanceMeters > branch.radiusMeters) {
-      const missionText = missionReq ? ` (مأمورية عمل معتمدة بفرع ${branch.name})` : '';
-      throw new Error(
-        `أنت خارج نطاق فرع (${branch.name})${missionText}! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
-      );
+    if (!homeBranch && !missionBranch) {
+      throw new Error("بيانات فرع الحضور غير متوفرة بالنظام.");
+    }
+
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    let chosenBranch = null;
+    let chosenDistance = 0;
+    let isWorkMission = false;
+
+    // Check distance to home branch
+    let distHome = 999999;
+    if (homeBranch) {
+      distHome = calculateDistanceMeters(lat, lon, homeBranch.latitude, homeBranch.longitude);
+      if (distHome <= homeBranch.radiusMeters) {
+        chosenBranch = homeBranch;
+        chosenDistance = distHome;
+      }
+    }
+
+    // Check distance to mission branch (dual geofence enabled)
+    let distMission = 999999;
+    if (missionBranch) {
+      distMission = calculateDistanceMeters(lat, lon, missionBranch.latitude, missionBranch.longitude);
+      if (distMission <= missionBranch.radiusMeters) {
+        chosenBranch = missionBranch;
+        chosenDistance = distMission;
+        isWorkMission = true;
+      }
+    }
+
+    if (!chosenBranch) {
+      if (missionBranch && homeBranch) {
+        throw new Error(
+          `عذراً، أنت خارج النطاق الجغرافي! لديك مأمورية معتمدة: المسافة لفرعك الأساسي (${homeBranch.name}): ${distHome}م (المسموح ${homeBranch.radiusMeters}م)، ولفرع المأمورية (${missionBranch.name}): ${distMission}م (المسموح ${missionBranch.radiusMeters}م). يجب التواجد داخل أحد الفرعين لإثبات الحضور.`
+        );
+      } else {
+        const b = homeBranch || missionBranch;
+        throw new Error(
+          `أنت خارج نطاق فرع (${b.name})! المسافة بينك وبين الفرع ${distHome !== 999999 ? distHome : distMission} متر (المسموح به ${b.radiusMeters} متر فقط).`
+        );
+      }
     }
 
     const newRecord = new AttendanceRecord({
       id: "att_" + Date.now(),
       employeeId,
-      branchId: branch.id,
+      branchId: chosenBranch.id,
       date: today,
       checkInTime: new Date().toISOString(),
       checkOutTime: null,
       status: "in_office",
-      latitude,
-      longitude,
-      distanceMeters,
+      latitude: lat,
+      longitude: lon,
+      distanceMeters: chosenDistance,
       durationMinutes: 0,
-      completed8Hours: false
+      completed8Hours: false,
+      autoCheckedOut: false,
+      isWorkMissionCheckIn: isWorkMission
     });
 
     await newRecord.save();
@@ -1008,7 +1164,9 @@ class MongoDatabaseAdapter {
 
   async checkOut(employeeId, latitude, longitude, forceOverride = false, reason = "") {
     await this.ensureConnected();
-    const today = new Date().toISOString().split('T')[0];
+    await this.closeExpiredAttendanceRecords();
+
+    const today = getCairoDateString();
     const record = await AttendanceRecord.findOne({ employeeId, date: today, checkOutTime: null });
     if (!record) {
       throw new Error("لا يوجد تسجيل حضور نشط لهذا الموظف اليوم.");
@@ -1018,17 +1176,44 @@ class MongoDatabaseAdapter {
       throw new Error("لا يمكن تسجيل الانصراف بدون إرسال إحداثيات موقعك الجغرافي الحقيقي (GPS).");
     }
 
-    const branch = await Branch.findOne({ id: record.branchId });
-    if (!branch) {
-      throw new Error("بيانات فرع الحضور غير متوفرة.");
+    const emp = await this.getEmployeeById(employeeId);
+    const missionReq = await this.getActiveWorkMission(employeeId, today);
+
+    // Eligible branches for checkout: Check-in branch, Home branch, and Mission branch
+    const eligibleBranchIds = new Set();
+    if (record.branchId) eligibleBranchIds.add(record.branchId);
+    if (emp && emp.branchId) eligibleBranchIds.add(emp.branchId);
+    if (missionReq && missionReq.missionBranchId) eligibleBranchIds.add(missionReq.missionBranchId);
+
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    let matchedBranch = null;
+    let matchedDistance = 0;
+    const branchesChecked = [];
+
+    for (const bId of eligibleBranchIds) {
+      const b = await this.getBranchById(bId);
+      if (b) {
+        const d = calculateDistanceMeters(lat, lon, b.latitude, b.longitude);
+        branchesChecked.push({ branch: b, distance: d });
+        if (d <= b.radiusMeters && !matchedBranch) {
+          matchedBranch = b;
+          matchedDistance = d;
+        }
+      }
     }
 
-    // STRICT GEOFENCE ENFORCEMENT ON CHECKOUT
-    const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
-    if (distanceMeters > branch.radiusMeters) {
-      throw new Error(
-        `عذراً، أنت خارج النطاق الجغرافي لفرع (${branch.name}) بمسافة ${distanceMeters} متر! (الحد الأقصى المسموح به: ${branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`
-      );
+    if (!matchedBranch) {
+      if (branchesChecked.length > 1) {
+        const details = branchesChecked.map(bc => `(${bc.branch.name}): ${bc.distance}م (المسموح ${bc.branch.radiusMeters}م)`).join('، ');
+        throw new Error(`عذراً، أنت خارج النطاق الجغرافي للفروع المسموحة لك بالانصراف! المسافات: ${details}. لا يُسمح بتسجيل الانصراف إلا من داخل حدود فرعك أو فرع المأمورية.`);
+      } else if (branchesChecked.length === 1) {
+        const bc = branchesChecked[0];
+        throw new Error(`عذراً، أنت خارج النطاق الجغرافي لفرع (${bc.branch.name}) بمسافة ${bc.distance} متر! (الحد الأقصى المسموح به: ${bc.branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`);
+      } else {
+        throw new Error("تعذر التحقق من فرع الحضور.");
+      }
     }
 
     const now = new Date();
@@ -1308,6 +1493,68 @@ class MongoDatabaseAdapter {
       }
     }
 
+    // Validation: 2-Hour Permission cannot be taken on weekly off days or days with approved leaves
+    if (requestData.type === 'permission') {
+      const permDate = requestData.date;
+      if (!permDate) {
+        throw new Error("تاريخ الإذن مطلوب.");
+      }
+
+      // Check weekly off days
+      const empOffDays = (emp && emp.weeklyOffDays) || ['friday', 'saturday'];
+      const DAY_INDEX_TO_ID = {
+        0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday'
+      };
+      const DAY_NAMES_AR = {
+        sunday: 'الأحد', monday: 'الإثنين', tuesday: 'الثلاثاء', wednesday: 'الأربعاء', thursday: 'الخميس', friday: 'الجمعة', saturday: 'السبت'
+      };
+      const parts = permDate.split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+      const dayId = DAY_INDEX_TO_ID[d.getDay()];
+
+      if (empOffDays.includes(dayId)) {
+        const dayName = DAY_NAMES_AR[dayId] || dayId;
+        throw new Error(`عذراً، يوم (${dayName} ${permDate}) يوافق يوم إجازتك الأسبوعية. لا يمكن تقديم طلب إذن ساعتين في أيام الإجازات.`);
+      }
+
+      // Check approved leaves on this date
+      const existingLeave = await Request.findOne({
+        employeeId: requestData.employeeId,
+        type: 'leave',
+        status: 'approved',
+        $or: [
+          { date: permDate },
+          { missionDate: permDate },
+          { startDate: { $lte: permDate }, endDate: { $gte: permDate } }
+        ]
+      }).lean();
+
+      if (existingLeave) {
+        const leaveNames = {
+          annual: 'إجازة سنوية',
+          sick: 'إجازة مرضية',
+          casual: 'إجازة عارضة',
+          work_mission: 'مأمورية عمل',
+          weekly_rest_compensation: 'بدل راحة أسبوعية',
+          holiday_compensation: 'بدل إجازة عيد'
+        };
+        const lName = leaveNames[existingLeave.leaveType] || 'إجازة معتمدة';
+        throw new Error(`عذراً، لديك (${lName}) معتمدة بالفعل في هذا التاريخ (${permDate}). لا يمكن تقديم إذن ساعتين في أيام الإجازات.`);
+      }
+
+      // Check duplicate permission on this date
+      const existingPerm = await Request.findOne({
+        employeeId: requestData.employeeId,
+        type: 'permission',
+        date: permDate,
+        status: { $in: ['pending', 'approved'] }
+      }).lean();
+
+      if (existingPerm) {
+        throw new Error(`لديك بالفعل طلب إذن ساعتين (${existingPerm.status === 'approved' ? 'معتمد' : 'قيد المراجعة'}) لنفس هذا اليوم (${permDate}).`);
+      }
+    }
+
     const newReq = new Request({
       id: "req_" + Date.now(),
       status: "pending",
@@ -1345,6 +1592,7 @@ class MongoDatabaseAdapter {
 
       const managerQuery = {
         $or: [
+          { branchId: emp?.branchId, titleCode: 'memberships_section_head' },
           { branchId: emp?.branchId, titleCode: 'memberships_manager' },
           { sectorId: emp?.sectorId, titleCode: 'memberships_area_manager' },
           { titleCode: 'memberships_executive_director' },
@@ -1355,6 +1603,17 @@ class MongoDatabaseAdapter {
       const targetEmpIds = [...new Set(managers.map(m => m.id).filter(id => id !== requestData.employeeId))];
 
       for (const mgrId of targetEmpIds) {
+        // 1. In-App Notification
+        this.createInAppNotification({
+          recipientId: mgrId,
+          title,
+          body,
+          type: 'request_created',
+          relatedId: newReq.id,
+          url: '/?tab=leaves'
+        }).catch(() => {});
+
+        // 2. Web Push Notification
         this.sendPushNotification(mgrId, {
           title,
           body,
@@ -1363,7 +1622,7 @@ class MongoDatabaseAdapter {
         }).catch(() => {});
       }
     } catch (pushErr) {
-      console.warn("Push error on createRequest:", pushErr.message);
+      console.warn("Notification error on createRequest:", pushErr.message);
     }
 
     return newReq.toObject();
@@ -1438,7 +1697,7 @@ class MongoDatabaseAdapter {
 
     await req.save();
 
-    // Send background push notification to the employee
+    // Send background push notification & in-app notification to the employee
     try {
       const isApproved = status === 'approved';
       const statusTitle = isApproved ? 'تمت الموافقة على طلبك ✅' : 'تم رفض طلبك ❌';
@@ -1449,6 +1708,17 @@ class MongoDatabaseAdapter {
 
       const bodyText = `تم الرد على طلب (${reqTypeText}) الخاص بك. ${reviewNote ? 'ملاحظة الإدارة: ' + reviewNote : ''}`;
 
+      // 1. In-App Notification
+      this.createInAppNotification({
+        recipientId: req.employeeId,
+        title: statusTitle,
+        body: bodyText,
+        type: 'request_reviewed',
+        relatedId: req.id,
+        url: '/?tab=leaves'
+      }).catch(() => {});
+
+      // 2. Web Push Notification
       this.sendPushNotification(req.employeeId, {
         title: statusTitle,
         body: bodyText,
@@ -1464,11 +1734,12 @@ class MongoDatabaseAdapter {
 
   async getMonthlyReport({ year, month, branchId = null, employeeId = null }) {
     await this.ensureConnected();
+    await this.closeExpiredAttendanceRecords();
     const targetYear = parseInt(year, 10) || new Date().getFullYear();
     const targetMonth = parseInt(month, 10) || (new Date().getMonth() + 1);
     const monthStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
     const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getCairoDateString();
 
     let employees = await this.getEmployees(branchId);
     if (employeeId && employeeId !== 'all') {
@@ -1576,10 +1847,15 @@ class MongoDatabaseAdapter {
         } else if (dayAtt) {
           status = 'present';
           const hrs = (dayAtt.durationMinutes ? (dayAtt.durationMinutes / 60).toFixed(1) : 0);
-          label = `حاضر (${hrs}س)`;
           const inTime = dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '';
           const outTime = dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل';
-          detail = `${inTime} - ${outTime}`;
+          if (dayAtt.autoCheckedOut) {
+            label = `انصراف تلقائي (${hrs}س)`;
+            detail = `${inTime} - انصراف إجباري 11:59م (لم يبصم خروج)`;
+          } else {
+            label = `حاضر (${hrs}س)`;
+            detail = `${inTime} - ${outTime}`;
+          }
         } else if (dayLeave) {
           status = 'leave';
           label = dayLeave.leaveType === 'sick' ? 'مرضي' : (dayLeave.leaveType === 'travel' ? 'سفر' : (dayLeave.leaveType === 'annual' ? 'سنوي' : 'إجازة'));

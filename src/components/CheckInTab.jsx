@@ -67,18 +67,17 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
   const homeBranch = currentUser?.branchDetails || fallbackHome;
 
-  // If employee has an approved work mission today at another branch, use that branch!
+  // If employee has an approved work mission today at another branch, dual-geofence applies!
   const missionBranch = todayMission && todayMission.missionBranchId
     ? (allBranches || []).find(b => b.id === todayMission.missionBranchId)
     : null;
 
-  const rawBranch = missionBranch || homeBranch;
   const branch = {
-    id: rawBranch?.id || 'branch_october2',
-    name: rawBranch?.name || currentUser?.branchName || 'فرع وادي دجلة',
-    latitude: Number(rawBranch?.latitude || 29.9652734),
-    longitude: Number(rawBranch?.longitude || 30.9634410),
-    radiusMeters: Number(rawBranch?.radiusMeters || 150)
+    id: homeBranch?.id || 'branch_october2',
+    name: homeBranch?.name || currentUser?.branchName || 'فرع وادي دجلة',
+    latitude: Number(homeBranch?.latitude || 29.9652734),
+    longitude: Number(homeBranch?.longitude || 30.9634410),
+    radiusMeters: Number(homeBranch?.radiusMeters || 150)
   };
   
   // Real Phone GPS State (No Simulation)
@@ -86,6 +85,9 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
   const [distanceInfo, setDistanceInfo] = useState({
     distanceMeters: null,
     isWithinOffice: false,
+    activeBranchName: null,
+    isWorkMission: false,
+    message: null,
     checkedAt: null
   });
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -137,11 +139,14 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
       const coords = await getCurrentLocation();
       setUserCoords(coords);
 
-      const res = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      const res = await api.verifyDistance(coords.lat, coords.lng, branch.id, currentUser?.id);
       if (res.success) {
         setDistanceInfo({
           distanceMeters: res.distanceMeters,
           isWithinOffice: res.isWithinOffice,
+          activeBranchName: res.branch?.name,
+          isWorkMission: res.isWorkMission,
+          message: res.message,
           checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
         });
       }
@@ -278,19 +283,22 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         return;
       }
 
-      // 2. Verify live distance against branch coordinates
-      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      // 2. Verify live distance against branch coordinates (dual geofence enabled)
+      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id, currentUser?.id);
       if (distRes.success) {
         setDistanceInfo({
           distanceMeters: distRes.distanceMeters,
           isWithinOffice: distRes.isWithinOffice,
+          activeBranchName: distRes.branch?.name,
+          isWorkMission: distRes.isWorkMission,
+          message: distRes.message,
           checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
         });
 
-        // 3. Block if outside the 150m radius and clearly tell the employee their distance!
+        // 3. Block if outside the allowed radius
         if (!distRes.isWithinOffice) {
           setErrorMsg(
-            `عذراً، لا يمكنك تسجيل الحضور لأنك بعيد عن مقر نادي وادي دجلة - فرع (${branch.name}) بمسافة ${distRes.distanceMeters} متر! (النطاق المسموح به ${branch.radiusMeters} متر فقط). يرجى التواجد داخل النادي والضغط مجدداً.`
+            distRes.message || `عذراً، لا يمكنك تسجيل الحضور لأنك بعيد عن مقر النادي المعتمد بمسافة ${distRes.distanceMeters} متر! (النطاق المسموح به ${branch.radiusMeters} متر فقط). يرجى التواجد داخل الفرع والمحاولة مجدداً.`
           );
           setLoading(false);
           return;
@@ -300,7 +308,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
       // 4. Send check-in request with verified real coordinates
       const res = await api.checkIn(currentUser.id, coords.lat, coords.lng);
       if (res.success) {
-        setSuccessMsg(res.message || `تم تسجيل حضورك بنجاح في فرع ${branch.name}`);
+        setSuccessMsg(res.message || `تم تسجيل حضورك بنجاح`);
         setCurrentAttendance(res.record);
         if (onAttendanceUpdated) onAttendanceUpdated();
         fetchAttendance();
@@ -332,19 +340,22 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         return;
       }
 
-      // 2. Verify live distance against branch coordinates
-      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id);
+      // 2. Verify live distance against branch coordinates (dual geofence enabled)
+      const distRes = await api.verifyDistance(coords.lat, coords.lng, branch.id, currentUser?.id);
       if (distRes.success) {
         setDistanceInfo({
           distanceMeters: distRes.distanceMeters,
           isWithinOffice: distRes.isWithinOffice,
+          activeBranchName: distRes.branch?.name,
+          isWorkMission: distRes.isWorkMission,
+          message: distRes.message,
           checkedAt: new Date().toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' })
         });
 
         // 3. STRICT GEOFENCE: Block check-out if outside the branch radius!
         if (!distRes.isWithinOffice) {
           setErrorMsg(
-            `عذراً، لا يمكنك تسجيل الانصراف لأنك خارج النطاق الجغرافي لنادي وادي دجلة - فرع (${branch.name}) بمسافة ${distRes.distanceMeters} متر! (الحد الأقصى المسموح به ${branch.radiusMeters} متر فقط). لا يُسمح بتسجيل الانصراف إلا وأنت متواجد داخل حدود الفرع.`
+            distRes.message || `عذراً، لا يمكنك تسجيل الانصراف لأنك خارج النطاق الجغرافي المسموح به بمسافة ${distRes.distanceMeters} متر! لا يُسمح بتسجيل الانصراف إلا وأنت متواجد داخل حدود الفرع.`
           );
           setLoading(false);
           return;
@@ -450,7 +461,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
             <span className="text-xs font-black">🎯 لديك مأمورية عمل معتمدة اليوم</span>
           </div>
           <p className="text-xs text-zinc-300 leading-relaxed font-bold">
-            تم تفعيل نطاق تسجيل الحضور والانصراف بفرع: <span className="text-amber-300 underline font-black">فرع {branch.name}</span>
+            متاح لك تسجيل الحضور والانصراف بحرية من أي من الموقعين: <span className="text-amber-300 font-black">فرعك الأساسي ({homeBranch.name})</span> أو <span className="text-amber-300 font-black">فرع المأمورية ({missionBranch?.name || todayMission.missionBranchName || 'فرع المأمورية'})</span>.
           </p>
         </div>
       )}
@@ -470,7 +481,7 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
                 : 'bg-rose-950/80 text-rose-400 border border-rose-700/60'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${distanceInfo.isWithinOffice ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'}`}></span>
-              {distanceInfo.isWithinOffice ? 'داخل نطاق النادي' : 'خارج نطاق النادي'}
+              {distanceInfo.isWithinOffice ? (distanceInfo.isWorkMission ? 'داخل نطاق المأمورية' : 'داخل نطاق الفرع') : 'خارج نطاق النادي'}
             </span>
           ) : (
             <span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1 shrink-0">
@@ -482,10 +493,11 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
 
         <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800/80 text-xs text-zinc-300 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-zinc-400 font-bold">فرعك المعتمد:</span>
-            <span className="font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+            <span className="text-zinc-400 font-bold">الفرع المعتمد:</span>
+            <span className="font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-lg flex items-center gap-1 text-right">
               <MapPin className="w-3 h-3 text-amber-500" />
-              <span>فرع {branch.name}</span>
+              <span>{distanceInfo.activeBranchName ? `فرع ${distanceInfo.activeBranchName}` : `فرع ${branch.name}`}</span>
+              {todayMission && <span className="text-[10px] text-amber-300 font-normal mr-1">(أو المأمورية)</span>}
             </span>
           </div>
 

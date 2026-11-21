@@ -30,8 +30,8 @@
       "code": "october1",
       "name": "اكتوبر ١",
       "city": "الجيزة",
-      "latitude": 29.9723,
-      "longitude": 30.9421,
+      "latitude": 29.9760767,
+      "longitude": 31.0076652,
       "radiusMeters": 100
     },
     {
@@ -195,6 +195,181 @@
         "view_all_branches": false,
         "override_early_checkout": false
       }
+    },
+    {
+      "id": "title_memberships_executive_director",
+      "code": "memberships_executive_director",
+      "name": "Memberships Executive Director (المدير التنفيذي للعضويات)",
+      "englishTitle": "Memberships Executive Director",
+      "arabicTitle": "المدير التنفيذي للعضويات",
+      "description": "صلاحيات تنفيذية عليا وشاملة لتعديل وتغيير أي شيء ولكافة الفروع والإدارات",
+      "color": "amber",
+      "order": 1,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "approve_early_checkout": true,
+        "manage_employees": true,
+        "manage_titles_permissions": true,
+        "manage_office_settings": true,
+        "view_reports": true,
+        "view_all_branches": true,
+        "override_early_checkout": true
+      }
+    },
+    {
+      "id": "title_memberships_area_manager",
+      "code": "memberships_area_manager",
+      "name": "Memberships Area Manager (مدير منطقة العضويات)",
+      "englishTitle": "Memberships Area Manager",
+      "arabicTitle": "مدير منطقة العضويات",
+      "description": "إدارة ومتابعة فروع القطاع التابع له فقط واعتماد كافة طلبات الإجازات والأذونات والانصراف والتقارير",
+      "color": "amber",
+      "order": 2,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "approve_early_checkout": true,
+        "manage_employees": true,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "view_all_branches": false,
+        "override_early_checkout": true
+      }
+    },
+    {
+      "id": "title_memberships_manager",
+      "code": "memberships_manager",
+      "name": "Memberships Manager (مدير العضويات)",
+      "englishTitle": "Memberships Manager",
+      "arabicTitle": "مدير العضويات",
+      "description": "الجهة المخولة حصرياً بالفرع باعتماد طلبات الانصراف الطارئ والإجازات والأذونات وإدارة الفريق لفرعه فقط",
+      "color": "amber",
+      "order": 3,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": true,
+        "approve_early_checkout": true,
+        "manage_employees": true,
+        "manage_titles_permissions": false,
+        "manage_office_settings": true,
+        "view_reports": true,
+        "view_all_branches": false,
+        "override_early_checkout": true
+      }
+    },
+    {
+      "id": "title_memberships_deputy_manager",
+      "code": "memberships_deputy_manager",
+      "name": "Memberships Deputy Manager (نائب مدير العضويات)",
+      "englishTitle": "Memberships Deputy Manager",
+      "arabicTitle": "نائب مدير العضويات",
+      "description": "متابعة فريق الفرع ومراجعة الطلبات والتقارير لفرعه فقط - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
+      "color": "amber",
+      "order": 4,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": false,
+        "approve_early_checkout": false,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "view_all_branches": false,
+        "override_early_checkout": false
+      }
+    },
+    {
+      "id": "title_memberships_section_head",
+      "code": "memberships_section_head",
+      "name": "Memberships Section Head (رئيس قسم العضويات)",
+      "englishTitle": "Memberships Section Head",
+      "arabicTitle": "رئيس قسم العضويات",
+      "description": "إدارة فريق القسم ومتابعة الحضور - الانصراف الطارئ والإجازات تتطلب موافقة مدير العضويات",
+      "color": "zinc",
+      "order": 5,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": false,
+        "approve_early_checkout": false,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "view_all_branches": false,
+        "override_early_checkout": false
+      }
+    },
+    {
+      "id": "title_memberships_senior_specialist",
+      "code": "memberships_senior_specialist",
+      "name": "Memberships Senior Specialist (أخصائي أول عضويات)",
+      "englishTitle": "Memberships Senior Specialist",
+      "arabicTitle": "أخصائي أول عضويات",
+      "description": "تسجيل الحضور والغياب بالـ GPS ومتابعة تقارير فرعه - الانصراف الطارئ يتطلب موافقة مدير العضويات",
+      "color": "zinc",
+      "order": 6,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": false,
+        "approve_early_checkout": false,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": true,
+        "view_all_branches": false,
+        "override_early_checkout": false
+      }
+    },
+    {
+      "id": "title_memberships_specialist",
+      "code": "memberships_specialist",
+      "name": "Memberships Specialist (أخصائي عضويات)",
+      "englishTitle": "Memberships Specialist",
+      "arabicTitle": "أخصائي عضويات",
+      "description": "تسجيل الحضور والانصراف بالـ GPS وتقديم طلبات الإجازات والأذونات",
+      "color": "zinc",
+      "order": 7,
+      "permissions": {
+        "check_in_out": true,
+        "view_own_attendance": true,
+        "view_office_presence": true,
+        "request_leave": true,
+        "request_permission": true,
+        "approve_leaves_permissions": false,
+        "approve_early_checkout": false,
+        "manage_employees": false,
+        "manage_titles_permissions": false,
+        "manage_office_settings": false,
+        "view_reports": false,
+        "view_all_branches": false,
+        "override_early_checkout": false
+      }
     }
   ],
   "employees": [
@@ -236,5 +411,6 @@
     }
   ],
   "attendanceRecords": [],
-  "requests": []
+  "requests": [],
+  "notifications": []
 }

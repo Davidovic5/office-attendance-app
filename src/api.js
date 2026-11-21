@@ -126,6 +126,21 @@ export const api = {
     return res.json();
   },
 
+  // In-App Notifications
+  async getNotifications(employeeId) {
+    const res = await fetch(`${BASE_URL}/notifications?employeeId=${encodeURIComponent(employeeId)}`);
+    return res.json();
+  },
+
+  async markNotificationsAsRead(employeeId, notificationIds = null) {
+    const res = await fetch(`${BASE_URL}/notifications/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, notificationIds })
+    });
+    return res.json();
+  },
+
   // Monthly Reports & Logs (سجل وتقارير الحضور والإجازات الشهرية)
   async getMonthlyReport(year, month, branchId = null, employeeId = null) {
     const params = new URLSearchParams();
@@ -152,11 +167,11 @@ export const api = {
     return res.json();
   },
 
-  async verifyDistance(latitude, longitude, branchId) {
+  async verifyDistance(latitude, longitude, branchId, employeeId = null) {
     const res = await fetch(`${BASE_URL}/settings/verify-distance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ latitude, longitude, branchId }),
+      body: JSON.stringify({ latitude, longitude, branchId, employeeId }),
     });
     return res.json();
   },

@@ -33,6 +33,17 @@ const DAY_MAP = {
   6: 'saturday'
 };
 
+function getCairoDateString(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+function getCairoHourMinute(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(d);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  return { hour, minute };
+}
+
 const DEFAULT_SECTORS = [
   {
     id: 'sector_west_cairo',
@@ -64,7 +75,7 @@ const DEFAULT_SECTORS = [
 const DEFAULT_BRANCHES = [
   // قطاع غرب القاهرة
   { id: 'branch_maadi', code: 'maadi', name: 'المعادي', city: 'القاهرة', latitude: 29.9602, longitude: 31.2568, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
-  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9723, longitude: 30.9421, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
+  { id: 'branch_october1', code: 'october1', name: 'اكتوبر ١', city: 'الجيزة', latitude: 29.9760767, longitude: 31.0076652, radiusMeters: 100, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
   { id: 'branch_october2', code: 'october2', name: 'اكتوبر ٢', city: 'الجيزة', latitude: 29.9652734, longitude: 30.9634410, radiusMeters: 150, sectorId: 'sector_west_cairo', sectorName: 'قطاع غرب القاهرة' },
 
   // قطاع شرق القاهرة
@@ -724,8 +735,107 @@ class Database {
     return this.getEmployeeById(employeeId);
   }
 
+  // In-App Notifications
+  createInAppNotification({ recipientId, title, body, type = 'system', relatedId = '', url = '/?tab=leaves' }) {
+    this.data.notifications = this.data.notifications || [];
+    const notif = {
+      id: "notif_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+      recipientId,
+      title,
+      body,
+      type,
+      relatedId,
+      url,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    this.data.notifications.push(notif);
+    this.save();
+    return notif;
+  }
+
+  getInAppNotifications(recipientId, limit = 40) {
+    this.data.notifications = this.data.notifications || [];
+    const userNotifs = this.data.notifications
+      .filter(n => n.recipientId === recipientId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+    const unreadCount = this.data.notifications.filter(n => n.recipientId === recipientId && !n.read).length;
+    return { notifications: userNotifs, unreadCount };
+  }
+
+  markInAppNotificationsAsRead(recipientId, notificationIds = null) {
+    this.data.notifications = this.data.notifications || [];
+    this.data.notifications.forEach(n => {
+      if (n.recipientId === recipientId) {
+        if (!notificationIds || notificationIds.includes(n.id)) {
+          n.read = true;
+        }
+      }
+    });
+    this.save();
+    return this.getInAppNotifications(recipientId);
+  }
+
+  // Active Work Mission for today
+  getActiveWorkMission(employeeId, dateStr = null) {
+    const today = dateStr || getCairoDateString();
+    return (this.data.requests || []).find(r =>
+      r.employeeId === employeeId &&
+      r.type === 'leave' &&
+      r.leaveType === 'work_mission' &&
+      r.status === 'approved' &&
+      (r.missionDate === today || r.date === today || (r.startDate <= today && r.endDate >= today))
+    ) || null;
+  }
+
+  // Auto Forced Check-out at 23:59
+  closeExpiredAttendanceRecords() {
+    this.data.attendanceRecords = this.data.attendanceRecords || [];
+    const today = getCairoDateString();
+    const { hour, minute } = getCairoHourMinute();
+
+    let closedCount = 0;
+    for (const rec of this.data.attendanceRecords) {
+      if (rec.checkOutTime) continue;
+
+      const isPastDay = rec.date < today;
+      const isTodayExpired = rec.date === today && hour === 23 && minute >= 59;
+
+      if (isPastDay || isTodayExpired) {
+        const autoOutTime = `${rec.date}T23:59:59.000Z`;
+        const inTime = new Date(rec.checkInTime).getTime();
+        const outTime = new Date(autoOutTime).getTime();
+        const durationMinutes = Math.max(0, Math.floor((outTime - inTime) / 60000));
+
+        rec.checkOutTime = autoOutTime;
+        rec.durationMinutes = durationMinutes;
+        rec.completed8Hours = false;
+        rec.autoCheckedOut = true;
+        rec.status = 'checked_out';
+        rec.checkOutNotes = 'انصراف تلقائي إجباري من السيستم (لم يسجل الموظف انصرافه من موقع الفرع قبل 11:59 مساءً)';
+        closedCount++;
+
+        this.createInAppNotification({
+          recipientId: rec.employeeId,
+          title: 'تنبيه انصراف تلقائي ⚠️',
+          body: `تم إغلاق سجل الحضور ليوم (${rec.date}) تلقائياً في 11:59 م لعدم تسجيل الانصراف من داخل الفرع، وتم توثيق عدم تسجيل الخروج يدوياً.`,
+          type: 'auto_checkout',
+          relatedId: rec.id,
+          url: '/?tab=attendance'
+        });
+      }
+    }
+
+    if (closedCount > 0) {
+      this.save();
+    }
+    return closedCount;
+  }
+
   getTodayAttendance(dateStr, branchId = null) {
-    const today = dateStr || new Date().toISOString().split('T')[0];
+    this.closeExpiredAttendanceRecords();
+    const today = dateStr || getCairoDateString();
     let records = this.data.attendanceRecords.filter(r => r.date === today);
     if (branchId && branchId !== 'all') {
       records = records.filter(r => r.branchId === branchId);
@@ -734,57 +844,81 @@ class Database {
   }
 
   checkIn(employeeId, latitude, longitude) {
-    const today = new Date().toISOString().split('T')[0];
+    this.closeExpiredAttendanceRecords();
+    const today = getCairoDateString();
     const emp = this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
 
-    const existing = this.data.attendanceRecords.find(r => r.employeeId === employeeId && r.date === today);
-    if (existing && !existing.checkOutTime) {
+    const existing = this.data.attendanceRecords.find(r => r.employeeId === employeeId && r.date === today && !r.checkOutTime);
+    if (existing) {
       throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
     }
 
     // Check if employee has an approved work_mission for today
-    const missionReq = this.data.requests.find(r => 
-      r.employeeId === employeeId &&
-      r.type === 'leave' &&
-      r.leaveType === 'work_mission' &&
-      r.status === 'approved' &&
-      (r.missionDate === today || r.date === today || (r.startDate <= today && r.endDate >= today))
-    );
+    const missionReq = this.getActiveWorkMission(employeeId, today);
+    const homeBranch = this.getBranchById(emp.branchId);
+    const missionBranch = (missionReq && missionReq.missionBranchId) ? this.getBranchById(missionReq.missionBranchId) : null;
 
-    const activeBranchId = (missionReq && missionReq.missionBranchId) ? missionReq.missionBranchId : emp.branchId;
-    const branch = this.getBranchById(activeBranchId);
-    if (!branch) {
-      throw new Error("الفرع المحدد غير موجود بالنظام.");
+    if (!homeBranch && !missionBranch) {
+      throw new Error("بيانات فرع الحضور غير متوفرة بالنظام.");
     }
 
-    const distanceMeters = calculateDistanceMeters(
-      latitude,
-      longitude,
-      branch.latitude,
-      branch.longitude
-    );
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
 
-    if (distanceMeters > branch.radiusMeters) {
-      const missionText = missionReq ? ` (مأمورية عمل معتمدة بفرع ${branch.name})` : '';
-      throw new Error(
-        `أنت خارج نطاق فرع (${branch.name})${missionText}! المسافة بينك وبين الفرع ${distanceMeters} متر (المسموح به ${branch.radiusMeters} متر فقط).`
-      );
+    let chosenBranch = null;
+    let chosenDistance = 0;
+    let isWorkMission = false;
+
+    // Check home branch
+    let distHome = 999999;
+    if (homeBranch) {
+      distHome = calculateDistanceMeters(lat, lon, homeBranch.latitude, homeBranch.longitude);
+      if (distHome <= homeBranch.radiusMeters) {
+        chosenBranch = homeBranch;
+        chosenDistance = distHome;
+      }
+    }
+
+    // Check mission branch (dual geofence enabled)
+    let distMission = 999999;
+    if (missionBranch) {
+      distMission = calculateDistanceMeters(lat, lon, missionBranch.latitude, missionBranch.longitude);
+      if (distMission <= missionBranch.radiusMeters) {
+        chosenBranch = missionBranch;
+        chosenDistance = distMission;
+        isWorkMission = true;
+      }
+    }
+
+    if (!chosenBranch) {
+      if (missionBranch && homeBranch) {
+        throw new Error(
+          `عذراً، أنت خارج النطاق الجغرافي! لديك مأمورية معتمدة: المسافة لفرعك الأساسي (${homeBranch.name}): ${distHome}م (المسموح ${homeBranch.radiusMeters}م)، ولفرع المأمورية (${missionBranch.name}): ${distMission}م (المسموح ${missionBranch.radiusMeters}م). يجب التواجد داخل أحد الفرعين لإثبات الحضور.`
+        );
+      } else {
+        const b = homeBranch || missionBranch;
+        throw new Error(
+          `أنت خارج نطاق فرع (${b.name})! المسافة بينك وبين الفرع ${distHome !== 999999 ? distHome : distMission} متر (المسموح به ${b.radiusMeters} متر فقط).`
+        );
+      }
     }
 
     const newRecord = {
       id: "att_" + Date.now(),
       employeeId,
-      branchId: branch.id,
+      branchId: chosenBranch.id,
       date: today,
       checkInTime: new Date().toISOString(),
       checkOutTime: null,
       status: "in_office",
-      latitude,
-      longitude,
-      distanceMeters,
+      latitude: lat,
+      longitude: lon,
+      distanceMeters: chosenDistance,
       durationMinutes: 0,
-      completed8Hours: false
+      completed8Hours: false,
+      autoCheckedOut: false,
+      isWorkMissionCheckIn: isWorkMission
     };
 
     this.data.attendanceRecords.push(newRecord);
@@ -793,7 +927,8 @@ class Database {
   }
 
   checkOut(employeeId, latitude, longitude, forceOverride = false, reason = "") {
-    const today = new Date().toISOString().split('T')[0];
+    this.closeExpiredAttendanceRecords();
+    const today = getCairoDateString();
     const record = this.data.attendanceRecords.find(
       r => r.employeeId === employeeId && r.date === today && !r.checkOutTime
     );
@@ -806,12 +941,44 @@ class Database {
       throw new Error("لا يمكن تسجيل الانصراف بدون إرسال إحداثيات موقعك الجغرافي الحقيقي (GPS).");
     }
 
-    const branch = this.data.branches.find(b => b.id === record.branchId) || this.data.branches[0];
-    const distanceMeters = calculateDistanceMeters(latitude, longitude, branch.latitude, branch.longitude);
-    if (distanceMeters > branch.radiusMeters) {
-      throw new Error(
-        `عذراً، أنت خارج النطاق الجغرافي لفرع (${branch.name}) بمسافة ${distanceMeters} متر! (الحد الأقصى المسموح به: ${branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`
-      );
+    const emp = this.getEmployeeById(employeeId);
+    const missionReq = this.getActiveWorkMission(employeeId, today);
+
+    // Eligible branches for checkout: Check-in branch, Home branch, and Mission branch
+    const eligibleBranchIds = new Set();
+    if (record.branchId) eligibleBranchIds.add(record.branchId);
+    if (emp && emp.branchId) eligibleBranchIds.add(emp.branchId);
+    if (missionReq && missionReq.missionBranchId) eligibleBranchIds.add(missionReq.missionBranchId);
+
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    let matchedBranch = null;
+    let matchedDistance = 0;
+    const branchesChecked = [];
+
+    for (const bId of eligibleBranchIds) {
+      const b = this.getBranchById(bId);
+      if (b) {
+        const d = calculateDistanceMeters(lat, lon, b.latitude, b.longitude);
+        branchesChecked.push({ branch: b, distance: d });
+        if (d <= b.radiusMeters && !matchedBranch) {
+          matchedBranch = b;
+          matchedDistance = d;
+        }
+      }
+    }
+
+    if (!matchedBranch) {
+      if (branchesChecked.length > 1) {
+        const details = branchesChecked.map(bc => `(${bc.branch.name}): ${bc.distance}م (المسموح ${bc.branch.radiusMeters}م)`).join('، ');
+        throw new Error(`عذراً، أنت خارج النطاق الجغرافي للفروع المسموحة لك بالانصراف! المسافات: ${details}. لا يُسمح بتسجيل الانصراف إلا من داخل حدود فرعك أو فرع المأمورية.`);
+      } else if (branchesChecked.length === 1) {
+        const bc = branchesChecked[0];
+        throw new Error(`عذراً، أنت خارج النطاق الجغرافي لفرع (${bc.branch.name}) بمسافة ${bc.distance} متر! (الحد الأقصى المسموح به: ${bc.branch.radiusMeters} متر). لا يُسمح بتسجيل الانصراف إطلاقاً إلا من داخل حدود الفرع.`);
+      } else {
+        throw new Error("تعذر التحقق من فرع الحضور.");
+      }
     }
 
     const checkInDate = new Date(record.checkInTime);
@@ -1000,6 +1167,61 @@ class Database {
   }
 
   createRequest(requestData) {
+    const emp = this.getEmployeeById(requestData.employeeId);
+    if (emp && emp.branchId) {
+      requestData.branchId = emp.branchId;
+    }
+
+    if (requestData.type === 'leave' && requestData.leaveType === 'work_mission') {
+      if (!requestData.missionBranchId) {
+        throw new Error("يرجى تحديد الفرع المتوجه إليه في مأمورية العمل.");
+      }
+      if (emp && emp.branchId && requestData.missionBranchId === emp.branchId) {
+        throw new Error("لا يمكن تقديم مأمورية عمل على نفس فرع العمل الأساسي الخاص بك.");
+      }
+    }
+
+    // Validation: Prevent taking leave on employee's weekly off days
+    if (requestData.type === 'leave' && !['work_mission', 'weekly_rest_compensation', 'holiday_compensation'].includes(requestData.leaveType)) {
+      const empOffDays = (emp && emp.weeklyOffDays) || ['friday', 'saturday'];
+      const startDateStr = requestData.startDate || requestData.date;
+      const endDateStr = requestData.endDate || startDateStr;
+
+      if (startDateStr) {
+        const DAY_INDEX_TO_ID = {
+          0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday'
+        };
+        const DAY_NAMES_AR = {
+          sunday: 'الأحد', monday: 'الإثنين', tuesday: 'الثلاثاء', wednesday: 'الأربعاء', thursday: 'الخميس', friday: 'الجمعة', saturday: 'السبت'
+        };
+
+        const parseDay = (dStr) => {
+          const parts = dStr.split('-').map(Number);
+          const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+          return DAY_INDEX_TO_ID[d.getDay()];
+        };
+
+        if (startDateStr === endDateStr) {
+          const dayId = parseDay(startDateStr);
+          if (empOffDays.includes(dayId)) {
+            const dayName = DAY_NAMES_AR[dayId] || dayId;
+            throw new Error(`عذراً، يوم (${dayName}) يوافق يوم إجازتك الأسبوعية بالفعل، لا يمكنك تقديم طلب إجازة فيه.`);
+          }
+        } else {
+          const startDayId = parseDay(startDateStr);
+          const endDayId = parseDay(endDateStr);
+          if (empOffDays.includes(startDayId)) {
+            const startName = DAY_NAMES_AR[startDayId] || startDayId;
+            throw new Error(`عذراً، تاريخ بداية الإجازة يوافق يوم إجازتك الأسبوعية (${startName}). يرجى تحديد البداية من يوم عمل فعلي.`);
+          }
+          if (empOffDays.includes(endDayId)) {
+            const endName = DAY_NAMES_AR[endDayId] || endDayId;
+            throw new Error(`عذراً، تاريخ نهاية الإجازة يوافق يوم إجازتك الأسبوعية (${endName}). يرجى تحديد النهاية بيوم عمل فعلي.`);
+          }
+        }
+      }
+    }
+
     if (requestData.type === 'early_checkout') {
       const today = requestData.date || new Date().toISOString().split('T')[0];
       requestData.date = today;
@@ -1019,6 +1241,64 @@ class Database {
       }
     }
 
+    // Validation: 2-Hour Permission cannot be taken on weekly off days or days with approved leaves
+    if (requestData.type === 'permission') {
+      const permDate = requestData.date;
+      if (!permDate) {
+        throw new Error("تاريخ الإذن مطلوب.");
+      }
+
+      // Check weekly off days
+      const empOffDays = (emp && emp.weeklyOffDays) || ['friday', 'saturday'];
+      const DAY_INDEX_TO_ID = {
+        0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday'
+      };
+      const DAY_NAMES_AR = {
+        sunday: 'الأحد', monday: 'الإثنين', tuesday: 'الثلاثاء', wednesday: 'الأربعاء', thursday: 'الخميس', friday: 'الجمعة', saturday: 'السبت'
+      };
+      const parts = permDate.split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+      const dayId = DAY_INDEX_TO_ID[d.getDay()];
+
+      if (empOffDays.includes(dayId)) {
+        const dayName = DAY_NAMES_AR[dayId] || dayId;
+        throw new Error(`عذراً، يوم (${dayName} ${permDate}) يوافق يوم إجازتك الأسبوعية. لا يمكن تقديم طلب إذن ساعتين في أيام الإجازات.`);
+      }
+
+      // Check approved leaves on this date
+      const existingLeave = this.data.requests.find(r =>
+        r.employeeId === requestData.employeeId &&
+        r.type === 'leave' &&
+        r.status === 'approved' &&
+        (r.date === permDate || r.missionDate === permDate || (r.startDate <= permDate && r.endDate >= permDate))
+      );
+
+      if (existingLeave) {
+        const leaveNames = {
+          annual: 'إجازة سنوية',
+          sick: 'إجازة مرضية',
+          casual: 'إجازة عارضة',
+          work_mission: 'مأمورية عمل',
+          weekly_rest_compensation: 'بدل راحة أسبوعية',
+          holiday_compensation: 'بدل إجازة عيد'
+        };
+        const lName = leaveNames[existingLeave.leaveType] || 'إجازة معتمدة';
+        throw new Error(`عذراً، لديك (${lName}) معتمدة بالفعل في هذا التاريخ (${permDate}). لا يمكن تقديم إذن ساعتين في أيام الإجازات.`);
+      }
+
+      // Check duplicate permission on this date
+      const existingPerm = this.data.requests.find(r =>
+        r.employeeId === requestData.employeeId &&
+        r.type === 'permission' &&
+        r.date === permDate &&
+        ['pending', 'approved'].includes(r.status)
+      );
+
+      if (existingPerm) {
+        throw new Error(`لديك بالفعل طلب إذن ساعتين (${existingPerm.status === 'approved' ? 'معتمد' : 'قيد المراجعة'}) لنفس هذا اليوم (${permDate}).`);
+      }
+    }
+
     const newReq = {
       id: "req_" + Date.now(),
       status: "pending",
@@ -1029,6 +1309,54 @@ class Database {
       ...requestData
     };
     this.data.requests.unshift(newReq);
+
+    // Notify managers via In-App Notification
+    try {
+      const empName = emp ? emp.name : 'موظف';
+      let title = `طلب جديد: ${empName}`;
+      let body = '';
+
+      if (requestData.type === 'early_checkout') {
+        body = `طلب انصراف طارئ جديد يحتاج إلى موافقة.`;
+      } else if (requestData.type === 'permission') {
+        const pType = requestData.permissionType === 'morning' ? 'إذن تأخير صباحي' : 'إذن انصراف مبكر';
+        body = `طلب ${pType} (${requestData.permissionHours || 2} س) - سبب: ${requestData.reason || ''}`;
+      } else {
+        const leaveNames = {
+          annual: 'إجازة سنوية',
+          sick: 'إجازة مرضية',
+          casual: 'إجازة عارضة',
+          work_mission: `مأمورية عمل بفرع ${requestData.missionBranchName || ''}`,
+          weekly_rest_compensation: 'بدل راحة أسبوعية',
+          holiday_compensation: `بدل إجازة عيد (${requestData.holidayName || ''})`
+        };
+        const lName = leaveNames[requestData.leaveType] || 'إجازة';
+        body = `طلب ${lName} - سبب: ${requestData.reason || ''}`;
+      }
+
+      const managerTargetIds = this.data.employees.filter(e =>
+        e.id !== requestData.employeeId && (
+          (e.branchId === emp?.branchId && ['memberships_section_head', 'memberships_manager'].includes(e.titleCode)) ||
+          (e.sectorId === emp?.sectorId && e.titleCode === 'memberships_area_manager') ||
+          e.titleCode === 'memberships_executive_director' ||
+          e.phone === '01010046078'
+        )
+      ).map(e => e.id);
+
+      for (const mgrId of managerTargetIds) {
+        this.createInAppNotification({
+          recipientId: mgrId,
+          title,
+          body,
+          type: 'request_created',
+          relatedId: newReq.id,
+          url: '/?tab=leaves'
+        });
+      }
+    } catch (e) {
+      console.warn("Notification error in db createRequest:", e);
+    }
+
     this.save();
     return newReq;
   }
@@ -1095,6 +1423,29 @@ class Database {
       }
     }
 
+    // In-App Notification for employee
+    try {
+      const isApproved = status === 'approved';
+      const statusTitle = isApproved ? 'تمت الموافقة على طلبك ✅' : 'تم رفض طلبك ❌';
+      let reqTypeText = 'الطلب';
+      if (req.type === 'early_checkout') reqTypeText = 'الانصراف الطارئ';
+      else if (req.type === 'permission') reqTypeText = 'إذن العمل';
+      else reqTypeText = 'الإجازة';
+
+      const bodyText = `تم الرد على طلب (${reqTypeText}) الخاص بك. ${reviewNote ? 'ملاحظة الإدارة: ' + reviewNote : ''}`;
+
+      this.createInAppNotification({
+        recipientId: req.employeeId,
+        title: statusTitle,
+        body: bodyText,
+        type: 'request_reviewed',
+        relatedId: req.id,
+        url: '/?tab=leaves'
+      });
+    } catch (e) {
+      console.warn("Notification error in db reviewRequest:", e);
+    }
+
     this.save();
     return req;
   }
@@ -1117,13 +1468,14 @@ class Database {
   }
 
   getMonthlyReport({ year, month, branchId = null, employeeId = null }) {
+    this.closeExpiredAttendanceRecords();
     const targetYear = parseInt(year, 10) || new Date().getFullYear();
     const targetMonth = parseInt(month, 10) || (new Date().getMonth() + 1);
     const monthStr = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
     
     // Days in this month
     const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getCairoDateString();
 
     // Filter employees
     let employees = this.getEmployees(branchId);
@@ -1230,10 +1582,15 @@ class Database {
         } else if (dayAtt) {
           status = 'present';
           const hrs = (dayAtt.durationMinutes ? (dayAtt.durationMinutes / 60).toFixed(1) : 0);
-          label = `حاضر (${hrs}س)`;
           const inTime = dayAtt.checkInTime ? new Date(dayAtt.checkInTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : '';
           const outTime = dayAtt.checkOutTime ? new Date(dayAtt.checkOutTime).toLocaleTimeString('ar-EG', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : 'في العمل';
-          detail = `${inTime} - ${outTime}`;
+          if (dayAtt.autoCheckedOut) {
+            label = `انصراف تلقائي (${hrs}س)`;
+            detail = `${inTime} - انصراف إجباري 11:59م (لم يبصم خروج)`;
+          } else {
+            label = `حاضر (${hrs}س)`;
+            detail = `${inTime} - ${outTime}`;
+          }
         } else if (dayLeave) {
           status = 'leave';
           label = dayLeave.leaveType === 'sick' ? 'مرضي' : (dayLeave.leaveType === 'travel' ? 'سفر' : (dayLeave.leaveType === 'annual' ? 'سنوي' : 'إجازة'));

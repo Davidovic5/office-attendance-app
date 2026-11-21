@@ -82,6 +82,7 @@ const AttendanceRecordSchema = new mongoose.Schema({
   checkOutDistanceMeters: { type: Number, default: 0 },
   durationMinutes: { type: Number, default: 0 },
   completed8Hours: { type: Boolean, default: false },
+  autoCheckedOut: { type: Boolean, default: false },
   checkOutNotes: { type: String, default: '' }
 });
 
@@ -156,6 +157,19 @@ const WebAuthnChallengeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, expires: 300 }
 });
 
+// 9. In-App Notification Schema
+const NotificationSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  recipientId: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  body: { type: String, required: true },
+  type: { type: String, enum: ['request_created', 'request_reviewed', 'auto_checkout', 'system'], default: 'system' },
+  relatedId: { type: String, default: '' },
+  read: { type: Boolean, default: false },
+  url: { type: String, default: '/?tab=leaves' },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+});
+
 const Branch = mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
 const Title = mongoose.models.Title || mongoose.model('Title', TitleSchema);
 const Employee = mongoose.models.Employee || mongoose.model('Employee', EmployeeSchema);
@@ -164,6 +178,7 @@ const Request = mongoose.models.Request || mongoose.model('Request', RequestSche
 const OfficeSettings = mongoose.models.OfficeSettings || mongoose.model('OfficeSettings', OfficeSettingsSchema);
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
 const WebAuthnChallenge = mongoose.models.WebAuthnChallenge || mongoose.model('WebAuthnChallenge', WebAuthnChallengeSchema);
+const InAppNotification = mongoose.models.InAppNotification || mongoose.model('InAppNotification', NotificationSchema);
 
 module.exports = {
   Branch,
@@ -173,5 +188,6 @@ module.exports = {
   Request,
   OfficeSettings,
   PushSubscription,
-  WebAuthnChallenge
+  WebAuthnChallenge,
+  InAppNotification
 };

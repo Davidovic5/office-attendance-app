@@ -3,8 +3,19 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const routes = require('./routes');
+const { db } = require('./db');
 
 const app = express();
+
+// Periodic background check to close expired attendance records at 23:59
+setInterval(() => {
+  try {
+    if (db && db.closeExpiredAttendanceRecords) {
+      const res = db.closeExpiredAttendanceRecords();
+      if (res && typeof res.catch === 'function') res.catch(() => {});
+    }
+  } catch (e) {}
+}, 5 * 60 * 1000);
 
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));

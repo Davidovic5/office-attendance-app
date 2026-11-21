@@ -444,32 +444,69 @@ router.post('/settings', async (req, res) => {
 // Verify Distance to Assigned Branch
 router.post('/settings/verify-distance', async (req, res) => {
   try {
-    const { latitude, longitude, branchId } = req.body;
+    const { latitude, longitude, branchId, employeeId } = req.body;
     if (latitude == null || longitude == null) {
       return res.status(400).json({ success: false, error: "إحداثيات الموقع مطلوبة" });
     }
 
-    const branch = await db.getBranchById(branchId);
-    if (!branch) {
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    let primaryBranch = branchId ? await db.getBranchById(branchId) : null;
+    let missionBranch = null;
+
+    if (employeeId && db.getActiveWorkMission) {
+      const activeMission = await db.getActiveWorkMission(employeeId);
+      if (activeMission && activeMission.missionBranchId) {
+        missionBranch = await db.getBranchById(activeMission.missionBranchId);
+      }
+    }
+
+    if (!primaryBranch && employeeId) {
+      const emp = await db.getEmployeeById(employeeId);
+      if (emp && emp.branchId) {
+        primaryBranch = await db.getBranchById(emp.branchId);
+      }
+    }
+
+    if (!primaryBranch && !missionBranch) {
       return res.status(404).json({ success: false, error: "الفرع المحدد غير موجود" });
     }
 
-    const distanceMeters = calculateDistanceMeters(
-      parseFloat(latitude),
-      parseFloat(longitude),
-      branch.latitude,
-      branch.longitude
-    );
-    const isWithinOffice = distanceMeters <= branch.radiusMeters;
+    let primaryDist = primaryBranch ? calculateDistanceMeters(lat, lon, primaryBranch.latitude, primaryBranch.longitude) : 999999;
+    let isWithinPrimary = primaryBranch ? primaryDist <= primaryBranch.radiusMeters : false;
+
+    let missionDist = missionBranch ? calculateDistanceMeters(lat, lon, missionBranch.latitude, missionBranch.longitude) : 999999;
+    let isWithinMission = missionBranch ? missionDist <= missionBranch.radiusMeters : false;
+
+    const isWithinOffice = isWithinPrimary || isWithinMission;
+    const activeBranch = isWithinMission ? missionBranch : (primaryBranch || missionBranch);
+    const distanceMeters = isWithinMission ? missionDist : primaryDist;
+
+    let message = '';
+    if (isWithinMission) {
+      message = `أنت داخل نطاق فرع المأمورية (${missionBranch.name}) - المسافة: ${missionDist} م`;
+    } else if (isWithinPrimary) {
+      message = `أنت داخل نطاق فرعك الأساسي (${primaryBranch.name}) - المسافة: ${primaryDist} م`;
+    } else {
+      if (missionBranch && primaryBranch) {
+        message = `أنت خارج النطاق! المسافة لفرعك (${primaryBranch.name}): ${primaryDist}م، ولفرع المأمورية (${missionBranch.name}): ${missionDist}م`;
+      } else {
+        message = `أنت خارج نطاق فرع (${activeBranch.name}) - المسافة: ${distanceMeters} م (المسموح به ${activeBranch.radiusMeters} م)`;
+      }
+    }
+
     res.json({
       success: true,
-      branch,
+      branch: activeBranch,
+      primaryBranch,
+      missionBranch,
+      hasWorkMission: Boolean(missionBranch),
+      isWorkMission: isWithinMission,
       distanceMeters,
-      allowedRadius: branch.radiusMeters,
+      allowedRadius: activeBranch.radiusMeters,
       isWithinOffice,
-      message: isWithinOffice
-        ? `أنت داخل نطاق فرع (${branch.name}) - المسافة: ${distanceMeters} م`
-        : `أنت خارج نطاق فرع (${branch.name}) - المسافة: ${distanceMeters} م (المسموح به ${branch.radiusMeters} م)`
+      message
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -735,6 +772,33 @@ router.post('/notifications/unsubscribe', async (req, res) => {
     res.json({ success: true, message: "تم إلغاء الاشتراك في الإشعارات" });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// 8. In-App Notifications
+router.get('/notifications', async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "employeeId is required" });
+    }
+    const data = await db.getInAppNotifications(employeeId);
+    res.json({ success: true, ...data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/notifications/read', async (req, res) => {
+  try {
+    const { employeeId, notificationIds } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "employeeId is required" });
+    }
+    const data = await db.markInAppNotificationsAsRead(employeeId, notificationIds);
+    res.json({ success: true, ...data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
