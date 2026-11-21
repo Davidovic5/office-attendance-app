@@ -1,9 +1,22 @@
 const mongoose = require('mongoose');
 
+// 0. Tenant Schema (Multi-Tenancy)
+const TenantSchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true },
+  timezone: { type: String, default: 'Africa/Cairo' },
+  branding: {
+    companyName: { type: String, default: 'أندية وادي دجلة - Wadi Degla Clubs' },
+    logoUrl: { type: String, default: '/logo.png?v=4.0' }
+  },
+  createdAt: { type: Date, default: Date.now }
+});
+
 // 1. Branch Schema
 const BranchSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  code: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
+  code: { type: String, required: true },
   name: { type: String, required: true },
   city: { type: String, required: true },
   latitude: { type: Number, required: true },
@@ -12,11 +25,13 @@ const BranchSchema = new mongoose.Schema({
   sectorId: { type: String, default: '' },
   sectorName: { type: String, default: '' }
 });
+BranchSchema.index({ tenantId: 1, code: 1 });
 
 // 2. Title & Permissions Schema
 const TitleSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  code: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
+  code: { type: String, required: true },
   name: { type: String, required: true },
   englishTitle: { type: String, required: true },
   arabicTitle: { type: String, required: true },
@@ -39,12 +54,14 @@ const TitleSchema = new mongoose.Schema({
     edit_employee_details: { type: Boolean, default: false }
   }
 });
+TitleSchema.index({ tenantId: 1, code: 1 });
 
 // 3. Employee Schema
 const EmployeeSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   name: { type: String, required: true },
-  phone: { type: String, required: true, unique: true, index: true },
+  phone: { type: String, required: true, index: true },
   sapNumber: { type: String, trim: true, default: '', index: true },
   password: { type: String, required: true },
   pin: { type: String, default: '' },
@@ -65,31 +82,42 @@ const EmployeeSchema = new mongoose.Schema({
   passkeys: { type: Array, default: [] },
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
+EmployeeSchema.index({ tenantId: 1, branchId: 1 });
+EmployeeSchema.index({ tenantId: 1, phone: 1 });
 
 // 4. Attendance Record Schema
 const AttendanceRecordSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   employeeId: { type: String, required: true, index: true },
+  userId: { type: String, index: true },
   branchId: { type: String, required: true },
   date: { type: String, required: true, index: true }, // Format: YYYY-MM-DD
+  workDate: { type: String, index: true }, // Normalized YYYY-MM-DD
   checkInTime: { type: String, required: true },
   checkOutTime: { type: String, default: null },
   status: { type: String, default: 'in_office' }, // 'in_office' | 'checked_out'
   latitude: { type: Number },
   longitude: { type: Number },
   distanceMeters: { type: Number, default: 0 },
+  accuracyMeters: { type: Number, default: 0 },
   checkOutLatitude: { type: Number },
   checkOutLongitude: { type: Number },
   checkOutDistanceMeters: { type: Number, default: 0 },
+  checkOutAccuracyMeters: { type: Number, default: 0 },
   durationMinutes: { type: Number, default: 0 },
   completed8Hours: { type: Boolean, default: false },
   autoCheckedOut: { type: Boolean, default: false },
   checkOutNotes: { type: String, default: '' }
 });
+AttendanceRecordSchema.index({ tenantId: 1, employeeId: 1, workDate: 1 }, { unique: true });
+AttendanceRecordSchema.index({ tenantId: 1, workDate: -1, branchId: 1 });
+AttendanceRecordSchema.index({ tenantId: 1, branchId: 1, status: 1 });
 
 // 5. Leave & Permission Request Schema
 const RequestSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   employeeId: { type: String, required: true, index: true },
   branchId: { type: String, default: null },
   type: { type: String, required: true, enum: ['leave', 'permission', 'early_checkout'] },
@@ -130,9 +158,11 @@ const RequestSchema = new mongoose.Schema({
   reviewedAt: { type: String, default: null },
   reviewNote: { type: String, default: null }
 });
+RequestSchema.index({ tenantId: 1, branchId: 1, status: 1, createdAt: -1 });
 
 // 6. Office Settings Schema
 const OfficeSettingsSchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   companyName: { type: String, default: 'أندية وادي دجلة - Wadi Degla Clubs' },
   shiftHours: { type: Number, default: 8 },
   graceMinutes: { type: Number, default: 15 },
@@ -142,6 +172,7 @@ const OfficeSettingsSchema = new mongoose.Schema({
 
 // 7. Push Notification Subscription Schema
 const PushSubscriptionSchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   employeeId: { type: String, required: true, index: true },
   endpoint: { type: String, required: true, unique: true },
   subscription: { type: Object, required: true },
@@ -151,6 +182,7 @@ const PushSubscriptionSchema = new mongoose.Schema({
 
 // 8. WebAuthn Challenge Schema (5-minute TTL for serverless passkey flows)
 const WebAuthnChallengeSchema = new mongoose.Schema({
+  tenantId: { type: String, default: 'wadi-degla' },
   challenge: { type: String, required: true, unique: true },
   userId: { type: String, default: '' },
   phone: { type: String, default: '' },
@@ -161,6 +193,7 @@ const WebAuthnChallengeSchema = new mongoose.Schema({
 // 9. In-App Notification Schema
 const NotificationSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true, default: 'wadi-degla', index: true },
   recipientId: { type: String, required: true, index: true },
   title: { type: String, required: true },
   body: { type: String, required: true },
@@ -171,6 +204,24 @@ const NotificationSchema = new mongoose.Schema({
   createdAt: { type: String, default: () => new Date().toISOString() }
 });
 
+// 10. Audit Log Schema
+const AuditLogSchema = new mongoose.Schema({
+  tenantId: { type: String, required: true, index: true },
+  actorId: { type: String, default: '' },
+  actorName: { type: String, default: '' },
+  action: { type: String, required: true },
+  targetId: { type: String, default: '' },
+  targetType: { type: String, default: '' },
+  oldValue: { type: mongoose.Schema.Types.Mixed, default: null },
+  newValue: { type: mongoose.Schema.Types.Mixed, default: null },
+  ipAddress: { type: String, default: '' },
+  userAgent: { type: String, default: '' },
+  timestamp: { type: Date, default: Date.now, index: true }
+});
+AuditLogSchema.index({ tenantId: 1, timestamp: -1 });
+AuditLogSchema.index({ tenantId: 1, targetId: 1, timestamp: -1 });
+
+const Tenant = mongoose.models.Tenant || mongoose.model('Tenant', TenantSchema);
 const Branch = mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
 const Title = mongoose.models.Title || mongoose.model('Title', TitleSchema);
 const Employee = mongoose.models.Employee || mongoose.model('Employee', EmployeeSchema);
@@ -180,8 +231,10 @@ const OfficeSettings = mongoose.models.OfficeSettings || mongoose.model('OfficeS
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model('PushSubscription', PushSubscriptionSchema);
 const WebAuthnChallenge = mongoose.models.WebAuthnChallenge || mongoose.model('WebAuthnChallenge', WebAuthnChallengeSchema);
 const InAppNotification = mongoose.models.InAppNotification || mongoose.model('InAppNotification', NotificationSchema);
+const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
 
 module.exports = {
+  Tenant,
   Branch,
   Title,
   Employee,
@@ -190,5 +243,6 @@ module.exports = {
   OfficeSettings,
   PushSubscription,
   WebAuthnChallenge,
-  InAppNotification
+  InAppNotification,
+  AuditLog
 };

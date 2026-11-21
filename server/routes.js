@@ -1,6 +1,14 @@
 const express = require('express');
 const { db, calculateDistanceMeters } = require('./db');
 const {
+  signUserToken,
+  authenticateUser,
+  requireAuth,
+  verifyDeviceLock,
+  requirePermission,
+  preventSelfLockout
+} = require('./middleware/auth');
+const {
   generateRegistrationOptions,
   verifyRegistrationResponse,
   generateAuthenticationOptions,
@@ -29,6 +37,9 @@ function getExpectedOrigins(req) {
 
 const router = express.Router();
 
+// Enforce Server-Side Multi-Tenant Isolation & Authentication on all routes
+router.use(authenticateUser);
+
 // 0. Branches & Sectors (الفروع والقطاعات)
 router.get('/sectors', async (req, res) => {
   try {
@@ -48,10 +59,10 @@ router.get('/branches', async (req, res) => {
   }
 });
 
-router.put('/branches/:id', async (req, res) => {
+router.put('/branches/:id', requireAuth, requirePermission('manage_office_settings'), async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await db.updateBranch(id, req.body);
+    const updated = await db.updateBranch(id, req.body, req.tenantId, req.user);
     if (!updated) {
       return res.status(404).json({ success: false, error: "الفرع غير موجود" });
     }
@@ -64,7 +75,7 @@ router.put('/branches/:id', async (req, res) => {
 // Authentication & Registration
 router.post('/auth/register', async (req, res) => {
   try {
-    const { name, phone, pin, password, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo } = req.body;
+    const { name, phone, sapNumber, pin, password, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ success: false, error: "الاسم ورقم الهاتف حقول إلزامية." });
     }
@@ -72,6 +83,7 @@ router.post('/auth/register', async (req, res) => {
     const employee = await db.registerEmployee({
       name,
       phone,
+      sapNumber: sapNumber || "",
       password: password || pin || "1234",
       pin: pin || password || "1234",
       titleCode: titleCode || "memberships_specialist",
@@ -83,12 +95,15 @@ router.post('/auth/register', async (req, res) => {
       avatar: avatar || null,
       deviceId: deviceId || null,
       deviceInfo: deviceInfo || null
-    });
+    }, req.tenantId);
+
+    const token = signUserToken(employee, req.tenantId);
 
     res.json({
       success: true,
       message: "تم إنشاء حساب الموظف بنجاح!",
-      employee
+      employee,
+      token
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -103,11 +118,14 @@ router.post('/auth/login', async (req, res) => {
       return res.status(400).json({ success: false, error: "يرجى إدخال رقم الهاتف أو كود SAP." });
     }
 
-    const employee = await db.loginEmployee(loginIdentifier, password || pin || "", { deviceId, deviceInfo });
+    const employee = await db.loginEmployee(loginIdentifier, password || pin || "", { deviceId, deviceInfo }, req.tenantId);
+    const token = signUserToken(employee, req.tenantId);
+
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${employee.name}`,
-      employee
+      employee,
+      token
     });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -307,10 +325,13 @@ router.post('/auth/webauthn/login-verify', async (req, res) => {
     // Complete login session
     const loggedInEmployee = await db.loginEmployeeByPasskey(emp, { deviceId, deviceInfo });
 
+    const token = signUserToken(loggedInEmployee, req.tenantId);
+
     res.json({
       success: true,
       message: `مرحباً بك مجدداً يا ${loggedInEmployee.name}`,
-      employee: loggedInEmployee
+      employee: loggedInEmployee,
+      token
     });
   } catch (err) {
     console.error("WebAuthn login-verify error:", err);
@@ -456,9 +477,9 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.post('/settings', async (req, res) => {
+router.post('/settings', requireAuth, requirePermission('manage_office_settings'), async (req, res) => {
   try {
-    const updated = await db.updateOfficeSettings(req.body);
+    const updated = await db.updateOfficeSettings(req.body, req.tenantId, req.user);
     res.json({ success: true, settings: updated, message: "تم تحديث إعدادات المكتب بنجاح" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -547,11 +568,11 @@ router.get('/titles', async (req, res) => {
   }
 });
 
-router.put('/titles/:code/permissions', async (req, res) => {
+router.put('/titles/:code/permissions', requireAuth, requirePermission('manage_titles_permissions'), preventSelfLockout, async (req, res) => {
   try {
     const { code } = req.params;
     const { permissions } = req.body;
-    const updated = await db.updateTitlePermissions(code, permissions);
+    const updated = await db.updateTitlePermissions(code, permissions, req.tenantId, req.user);
     if (!updated) {
       return res.status(404).json({ success: false, error: "المسمى الوظيفي غير موجود" });
     }
@@ -596,10 +617,10 @@ router.post('/employees', async (req, res) => {
 });
 
 // Reset Device Binding (فك ارتباط الجهاز لنقل الحساب لهاتف جديد)
-router.post('/employees/:id/reset-device', async (req, res) => {
+router.post('/employees/:id/reset-device', requireAuth, requirePermission('manage_employees'), async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.resetEmployeeDevice(id);
+    const result = await db.resetEmployeeDevice(id, req.tenantId, req.user);
     res.json(result);
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -607,11 +628,11 @@ router.post('/employees/:id/reset-device', async (req, res) => {
 });
 
 // Update Employee Balances (تعديل رصيد الإجازات والأذونات للموظف)
-router.put('/employees/:id/balances', async (req, res) => {
+router.put('/employees/:id/balances', requireAuth, requirePermission('manage_employees'), async (req, res) => {
   try {
     const { id } = req.params;
     const { leaveBalance, permissionsBalanceHours } = req.body;
-    const updated = await db.updateEmployeeBalances(id, { leaveBalance, permissionsBalanceHours });
+    const updated = await db.updateEmployeeBalances(id, { leaveBalance, permissionsBalanceHours }, req.tenantId, req.user);
     res.json({
       success: true,
       employee: updated,
@@ -623,10 +644,10 @@ router.put('/employees/:id/balances', async (req, res) => {
 });
 
 // Update Employee Full Details (تعديل بيانات ومسمى وفرع ورصيد الموظف)
-router.put('/employees/:id/details', async (req, res) => {
+router.put('/employees/:id/details', requireAuth, requirePermission('edit_employee_details'), async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await db.updateEmployeeDetails(id, req.body);
+    const updated = await db.updateEmployeeDetails(id, req.body, req.tenantId, req.user);
     res.json({
       success: true,
       employee: updated,
@@ -659,27 +680,40 @@ router.get('/attendance/today', async (req, res) => {
   }
 });
 
-router.post('/attendance/check-in', async (req, res) => {
+router.post('/attendance/check-in', verifyDeviceLock, async (req, res) => {
   try {
-    const { employeeId, latitude, longitude } = req.body;
+    const { employeeId, latitude, longitude, accuracy } = req.body;
     if (!employeeId || latitude == null || longitude == null) {
       return res.status(400).json({ success: false, error: "بيانات الموقع ورقم الموظف مطلوبة" });
     }
 
-    const record = await db.checkIn(employeeId, parseFloat(latitude), parseFloat(longitude));
+    const record = await db.checkIn(
+      employeeId,
+      parseFloat(latitude),
+      parseFloat(longitude),
+      accuracy != null ? parseFloat(accuracy) : null,
+      req.tenantId
+    );
+
     res.json({
       success: true,
       message: "تمام كدا انت دلوقتي في العمل! تم بدء وردية الـ 8 ساعات بنجاح.",
       record
     });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    if (err.statusCode === 409 || err.code === 11000 || err.message?.includes('E11000')) {
+      return res.status(409).json({
+        success: false,
+        error: err.message || "تم تسجيل حضورك اليوم بالفعل مسبقاً، ولا يمكن تكرار تسجيل الحضور في نفس اليوم."
+      });
+    }
+    res.status(err.statusCode || 400).json({ success: false, error: err.message });
   }
 });
 
-router.post('/attendance/check-out', async (req, res) => {
+router.post('/attendance/check-out', verifyDeviceLock, async (req, res) => {
   try {
-    const { employeeId, latitude, longitude, forceOverride, reason } = req.body;
+    const { employeeId, latitude, longitude, accuracy, forceOverride, reason } = req.body;
     if (!employeeId) {
       return res.status(400).json({ success: false, error: "رقم الموظف مطلوب" });
     }
@@ -692,7 +726,10 @@ router.post('/attendance/check-out', async (req, res) => {
       parseFloat(latitude),
       parseFloat(longitude),
       Boolean(forceOverride),
-      reason || ""
+      reason || "",
+      accuracy != null ? parseFloat(accuracy) : null,
+      req.tenantId,
+      req.user
     );
 
     res.json({
@@ -701,7 +738,7 @@ router.post('/attendance/check-out', async (req, res) => {
       record
     });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(err.statusCode || 400).json({ success: false, error: err.message });
   }
 });
 
@@ -743,7 +780,7 @@ router.post('/requests', async (req, res) => {
   }
 });
 
-router.post('/requests/:id/review', async (req, res) => {
+router.post('/requests/:id/review', requireAuth, requirePermission('approve_leaves_permissions'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reviewerId, status, reviewNote } = req.body;
@@ -751,7 +788,7 @@ router.post('/requests/:id/review', async (req, res) => {
       return res.status(400).json({ success: false, error: "حالة الاعتماد غير صالحة" });
     }
 
-    const reviewed = await db.reviewRequest(id, reviewerId || 'manager', status, reviewNote);
+    const reviewed = await db.reviewRequest(id, reviewerId || req.user?.userId || 'manager', status, reviewNote, req.user);
     if (!reviewed) {
       return res.status(404).json({ success: false, error: "الطلب غير موجود" });
     }

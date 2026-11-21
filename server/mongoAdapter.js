@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const { Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription, WebAuthnChallenge, InAppNotification } = require('./models');
+const { Tenant, Branch, Title, Employee, AttendanceRecord, Request, OfficeSettings, PushSubscription, WebAuthnChallenge, InAppNotification, AuditLog } = require('./models');
+const { logAudit } = require('./utils/auditLogger');
 
 // Configure VAPID for Web Push Notifications (Works even when app is closed on mobile)
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BKDfJ-gm-z4cJNeyTTBe3cD_bPcugExOm9yLKbZQZ68s0lQADHy-pGzkJ_Mbuf7IlZL0B5elp4MVu8Xy_3LXGSk";
@@ -315,45 +316,73 @@ const DEFAULT_TITLES = [
   }
 ];
 
-// Serverless Mongoose connection caching
-let cachedDb = global._mongoConnection || null;
-let connectingPromise = null;
+// Production-safe Serverless Mongoose connection caching (9:00 AM Peak Protection)
+if (!globalThis._mongooseConnectionCache) {
+  globalThis._mongooseConnectionCache = {
+    conn: null,
+    promise: null
+  };
+}
+const cache = globalThis._mongooseConnectionCache;
 let isSeeding = false;
 
 async function connectToMongo(uri) {
-  if (cachedDb && mongoose.connection.readyState === 1) {
-    return cachedDb;
-  }
-  if (connectingPromise) {
-    return connectingPromise;
+  if (cache.conn && mongoose.connection.readyState === 1) {
+    return cache.conn;
   }
 
-  connectingPromise = mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 8000,
-    maxPoolSize: 10,
-    minPoolSize: 1,
-    socketTimeoutMS: 20000,
-    connectTimeoutMS: 10000
-  }).then(conn => {
-    global._mongoConnection = conn;
-    cachedDb = conn;
-    connectingPromise = null;
+  if (!cache.promise) {
+    const opts = {
+      bufferCommands: false,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000
+    };
 
-    if (!global._mongoSeeded) {
-      global._mongoSeeded = true;
-      checkAndSeedIfEmpty().catch(err => {
-        console.error("Background seed check warning:", err.message);
-      });
-    }
+    cache.promise = mongoose.connect(uri, opts).then(conn => {
+      cache.conn = conn;
 
-    return conn;
-  }).catch(err => {
-    connectingPromise = null;
+      if (!globalThis._mongoSeeded) {
+        globalThis._mongoSeeded = true;
+        checkAndSeedIfEmpty().catch(err => {
+          console.error("Background seed check warning:", err.message);
+        });
+      }
+
+      return conn;
+    }).catch(err => {
+      // Reset cached promise and connection on failure so container recovers cleanly
+      cache.promise = null;
+      cache.conn = null;
+      throw err;
+    });
+  }
+
+  try {
+    cache.conn = await cache.promise;
+  } catch (err) {
+    cache.promise = null;
+    cache.conn = null;
     throw err;
-  });
+  }
 
-  return connectingPromise;
+  return cache.conn;
 }
+
+// Reset cache on disconnect/error
+mongoose.connection.on('disconnected', () => {
+  if (globalThis._mongooseConnectionCache) {
+    globalThis._mongooseConnectionCache.conn = null;
+    globalThis._mongooseConnectionCache.promise = null;
+  }
+});
+mongoose.connection.on('error', () => {
+  if (globalThis._mongooseConnectionCache) {
+    globalThis._mongooseConnectionCache.conn = null;
+    globalThis._mongooseConnectionCache.promise = null;
+  }
+});
 
 async function checkAndSeedIfEmpty() {
   if (isSeeding) return;
@@ -451,11 +480,25 @@ class MongoDatabaseAdapter {
     return true;
   }
 
-  async getOfficeSettings() {
+  async getTenant(tenantId = 'wadi-degla') {
     await this.ensureConnected();
-    let s = await OfficeSettings.findOne().lean();
+    let tenant = await Tenant.findOne({ tenantId }).lean();
+    if (!tenant) {
+      tenant = await Tenant.create({
+        tenantId,
+        name: tenantId === 'wadi-degla' ? 'أندية وادي دجلة' : tenantId,
+        timezone: 'Africa/Cairo'
+      });
+    }
+    return tenant;
+  }
+
+  async getOfficeSettings(tenantId = 'wadi-degla') {
+    await this.ensureConnected();
+    let s = await OfficeSettings.findOne({ tenantId }).lean();
     if (!s) {
       s = await OfficeSettings.create({
+        tenantId,
         companyName: "أندية وادي دجلة - Wadi Degla Clubs",
         shiftHours: 8,
         graceMinutes: 15,
@@ -466,40 +509,70 @@ class MongoDatabaseAdapter {
     return s;
   }
 
-  async updateOfficeSettings(newSettings) {
+  async updateOfficeSettings(newSettings, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
+    const oldSettings = await OfficeSettings.findOne({ tenantId }).lean();
     const updated = await OfficeSettings.findOneAndUpdate(
-      {},
+      { tenantId },
       { $set: newSettings },
       { new: true, upsert: true }
     ).lean();
+
+    logAudit({
+      tenantId,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'update_office_settings',
+      targetId: tenantId,
+      targetType: 'settings',
+      oldValue: oldSettings,
+      newValue: updated
+    });
+
     return updated;
   }
 
-  async getBranches() {
+  async getBranches(tenantId = 'wadi-degla') {
     await this.ensureConnected();
-    return Branch.find().lean();
+    return Branch.find({ tenantId }).lean();
   }
 
-  async getBranchById(id) {
+  async getBranchById(id, tenantId = 'wadi-degla') {
     await this.ensureConnected();
-    const b = await Branch.findOne({ $or: [{ id }, { code: id }] }).lean();
+    const b = await Branch.findOne({ tenantId, $or: [{ id }, { code: id }] }).lean();
     return b || DEFAULT_BRANCHES[0];
   }
 
-  async updateBranch(id, branchData) {
+  async updateBranch(id, branchData, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
+    const oldBranch = await Branch.findOne({ tenantId, $or: [{ id }, { code: id }] }).lean();
     const updated = await Branch.findOneAndUpdate(
-      { $or: [{ id }, { code: id }] },
+      { tenantId, $or: [{ id }, { code: id }] },
       { $set: branchData },
       { new: true }
     ).lean();
+
+    if (updated && oldBranch) {
+      logAudit({
+        tenantId,
+        actorId: actorContext?.userId,
+        actorName: actorContext?.name,
+        action: 'update_branch_gps',
+        targetId: id,
+        targetType: 'branch',
+        oldValue: { latitude: oldBranch.latitude, longitude: oldBranch.longitude, radiusMeters: oldBranch.radiusMeters },
+        newValue: { latitude: updated.latitude, longitude: updated.longitude, radiusMeters: updated.radiusMeters }
+      });
+    }
+
     return updated;
   }
 
-  async getTitles(includeHidden = false) {
+  async getTitles(includeHidden = false, tenantId = 'wadi-degla') {
     await this.ensureConnected();
-    const query = includeHidden ? {} : { isHidden: { $ne: true }, code: { $ne: 'he_who_remains' } };
+    const query = includeHidden
+      ? { tenantId }
+      : { tenantId, isHidden: { $ne: true }, code: { $ne: 'he_who_remains' } };
     const titles = await Title.find(query).lean();
     return titles.map(t => {
       const defaultTitle = DEFAULT_TITLES.find(dt => dt.code === t.code);
@@ -514,14 +587,27 @@ class MongoDatabaseAdapter {
     }).sort((a, b) => (a.order || 99) - (b.order || 99));
   }
 
-  async updateTitlePermissions(code, permissions) {
+  async updateTitlePermissions(code, permissions, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
-    const doc = await Title.findOne({ code });
+    const doc = await Title.findOne({ tenantId, code });
     if (!doc) return null;
     const currentPerms = doc.permissions ? (doc.permissions.toObject ? doc.permissions.toObject() : doc.permissions) : {};
-    doc.permissions = { ...currentPerms, ...permissions };
+    const updatedPerms = { ...currentPerms, ...permissions };
+    doc.permissions = updatedPerms;
     doc.markModified('permissions');
     await doc.save();
+
+    logAudit({
+      tenantId,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'update_role_permissions',
+      targetId: code,
+      targetType: 'title',
+      oldValue: currentPerms,
+      newValue: updatedPerms
+    });
+
     return doc.toObject ? doc.toObject() : doc;
   }
 
@@ -529,9 +615,9 @@ class MongoDatabaseAdapter {
     return DEFAULT_SECTORS;
   }
 
-  async getEmployees(branchId = null, includeGhost = false) {
+  async getEmployees(branchId = null, includeGhost = false, tenantId = 'wadi-degla') {
     await this.ensureConnected();
-    let query = {};
+    let query = { tenantId };
     if (!includeGhost) {
       query.phone = { $ne: "01010046078" };
       query.isGhost = { $ne: true };
@@ -548,8 +634,8 @@ class MongoDatabaseAdapter {
     }
     const [employees, titles, branches] = await Promise.all([
       Employee.find(query).lean(),
-      Title.find().lean(),
-      Branch.find().lean()
+      Title.find({ tenantId }).lean(),
+      Branch.find({ tenantId }).lean()
     ]);
 
     return employees.map(emp => {
@@ -827,31 +913,79 @@ class MongoDatabaseAdapter {
     return await this._enrichEmployee(emp, deviceContext);
   }
 
-  async resetEmployeeDevice(employeeId) {
+  async resetEmployeeDevice(employeeId, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
-    const emp = await Employee.findOne({ id: employeeId });
+    const resolvedTenant = tenantId || 'wadi-degla';
+    const emp = await Employee.findOne({ tenantId: resolvedTenant, id: employeeId });
     if (!emp) throw new Error("الموظف غير موجود.");
+    const oldBound = emp.boundDeviceId;
     emp.boundDeviceId = null;
     emp.deviceInfo = null;
     emp.deviceBoundAt = null;
     await emp.save();
+
+    logAudit({
+      tenantId: resolvedTenant,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'unbind_employee_device',
+      targetId: employeeId,
+      targetType: 'employee',
+      oldValue: { boundDeviceId: oldBound },
+      newValue: { boundDeviceId: null }
+    });
+
     return { success: true, message: `تم فك ارتباط الجهاز للموظف (${emp.name}) بنجاح. يمكنه الآن تسجيل الدخول من جهازه الجديد وسيتم اعتماده تلقائياً.` };
   }
 
-  async updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }) {
+  async updateEmployeeBalances(employeeId, { leaveBalance, permissionsBalanceHours }, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
-    const emp = await Employee.findOne({ id: employeeId });
+    const resolvedTenant = tenantId || 'wadi-degla';
+    const emp = await Employee.findOne({ tenantId: resolvedTenant, id: employeeId });
     if (!emp) throw new Error("الموظف غير موجود.");
+
+    const oldBalances = {
+      leaveBalance: emp.leaveBalance,
+      permissionsBalanceHours: emp.permissionsBalanceHours
+    };
+
     if (leaveBalance !== undefined && leaveBalance !== null) emp.leaveBalance = Number(leaveBalance);
     if (permissionsBalanceHours !== undefined && permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(permissionsBalanceHours);
     await emp.save();
-    return this.getEmployeeById(employeeId);
+
+    logAudit({
+      tenantId: resolvedTenant,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'update_employee_balances',
+      targetId: employeeId,
+      targetType: 'employee',
+      oldValue: oldBalances,
+      newValue: {
+        leaveBalance: emp.leaveBalance,
+        permissionsBalanceHours: emp.permissionsBalanceHours
+      }
+    });
+
+    return this.getEmployeeById(employeeId, resolvedTenant);
   }
 
-  async updateEmployeeDetails(employeeId, data) {
+  async updateEmployeeDetails(employeeId, data, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
-    const emp = await Employee.findOne({ id: employeeId });
+    const resolvedTenant = tenantId || 'wadi-degla';
+    const emp = await Employee.findOne({ tenantId: resolvedTenant, id: employeeId });
     if (!emp) throw new Error("الموظف غير موجود.");
+
+    const oldDetails = {
+      name: emp.name,
+      phone: emp.phone,
+      sapNumber: emp.sapNumber,
+      titleCode: emp.titleCode,
+      branchId: emp.branchId,
+      weeklyOffDays: emp.weeklyOffDays,
+      leaveBalance: emp.leaveBalance,
+      permissionsBalanceHours: emp.permissionsBalanceHours
+    };
 
     // Ghost Super Admin Protection
     if (emp.phone === "01010046078" || emp.isSuperAdmin) {
@@ -863,7 +997,7 @@ class MongoDatabaseAdapter {
     }
     if (data.phone && data.phone.trim()) {
       const cleanPhone = data.phone.trim();
-      const existing = await Employee.findOne({ phone: cleanPhone, id: { $ne: employeeId } });
+      const existing = await Employee.findOne({ tenantId: resolvedTenant, phone: cleanPhone, id: { $ne: employeeId } });
       if (existing) {
         throw new Error(`رقم الهاتف (${cleanPhone}) مسجل بالفعل لموظف آخر.`);
       }
@@ -872,7 +1006,7 @@ class MongoDatabaseAdapter {
     if (data.sapNumber !== undefined) {
       const cleanSap = String(data.sapNumber || '').trim();
       if (cleanSap) {
-        const existingSap = await Employee.findOne({ sapNumber: cleanSap, id: { $ne: employeeId } });
+        const existingSap = await Employee.findOne({ tenantId: resolvedTenant, sapNumber: cleanSap, id: { $ne: employeeId } });
         if (existingSap) {
           throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existingSap.name}).`);
         }
@@ -886,14 +1020,14 @@ class MongoDatabaseAdapter {
           throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
         }
       }
-      const titleObj = await Title.findOne({ code: data.titleCode }).lean();
+      const titleObj = await Title.findOne({ tenantId: resolvedTenant, code: data.titleCode }).lean();
       if (titleObj) {
         emp.titleCode = titleObj.code;
         emp.jobTitle = titleObj.englishTitle || titleObj.name;
       }
     }
     if (data.branchId) {
-      const branchObj = await Branch.findOne({ id: data.branchId }).lean();
+      const branchObj = await Branch.findOne({ tenantId: resolvedTenant, id: data.branchId }).lean();
       if (branchObj) {
         emp.branchId = branchObj.id;
       }
@@ -913,7 +1047,28 @@ class MongoDatabaseAdapter {
     }
 
     await emp.save();
-    return this.getEmployeeById(employeeId);
+
+    logAudit({
+      tenantId: resolvedTenant,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'update_employee_details',
+      targetId: employeeId,
+      targetType: 'employee',
+      oldValue: oldDetails,
+      newValue: {
+        name: emp.name,
+        phone: emp.phone,
+        sapNumber: emp.sapNumber,
+        titleCode: emp.titleCode,
+        branchId: emp.branchId,
+        weeklyOffDays: emp.weeklyOffDays,
+        leaveBalance: emp.leaveBalance,
+        permissionsBalanceHours: emp.permissionsBalanceHours
+      }
+    });
+
+    return this.getEmployeeById(employeeId, resolvedTenant);
   }
 
   async setEmployeeSapNumber(employeeId, sapNumber) {
@@ -1170,12 +1325,20 @@ class MongoDatabaseAdapter {
     return AttendanceRecord.find(query).lean();
   }
 
-  async checkIn(employeeId, latitude, longitude) {
+  async checkIn(employeeId, latitude, longitude, accuracy = null, tenantId = 'wadi-degla') {
     await this.ensureConnected();
     await this.closeExpiredAttendanceRecords();
 
+    // 1. Anti-Cheat: Reject poor GPS accuracy (> 150m)
+    if (accuracy != null && !isNaN(Number(accuracy)) && Number(accuracy) > 150) {
+      const err = new Error(`دقة إشارة الـ GPS غير مقبولة (${Math.round(accuracy)} متر). يرجى التواجد في مكان مفتوح والتأكد من تفعيل دقة الموقع العالية (أقل من 150 م).`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const resolvedTenant = tenantId || 'wadi-degla';
     const today = getCairoDateString();
-    const emp = await this.getEmployeeById(employeeId);
+    const emp = await this.getEmployeeById(employeeId, resolvedTenant);
     if (!emp) throw new Error("الموظف غير موجود.");
 
     // Mandatory SAP enforcement: regular employees cannot check in without SAP number
@@ -1184,18 +1347,20 @@ class MongoDatabaseAdapter {
       throw new Error("عذراً، يجب تسجيل كود الـ SAP الخاص بك أولاً لتتمكن من تسجيل الحضور والانصراف.");
     }
 
-    const existing = await AttendanceRecord.findOne({ employeeId, date: today, checkOutTime: null });
+    const existing = await AttendanceRecord.findOne({ tenantId: resolvedTenant, employeeId, date: today, checkOutTime: null });
     if (existing) {
-      throw new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
+      const conflictErr = new Error("الموظف مسجل حضور بالفعل وموجود في العمل حالياً.");
+      conflictErr.statusCode = 409;
+      throw conflictErr;
     }
 
     // Check if employee has an approved work_mission for today
-    const missionReq = await this.getActiveWorkMission(employeeId, today);
+    const missionReq = await this.getActiveWorkMission(employeeId, today, resolvedTenant);
 
-    const homeBranch = await this.getBranchById(emp.branchId);
+    const homeBranch = await this.getBranchById(emp.branchId, resolvedTenant);
     let missionBranch = null;
     if (missionReq && missionReq.missionBranchId) {
-      missionBranch = await this.getBranchById(missionReq.missionBranchId);
+      missionBranch = await this.getBranchById(missionReq.missionBranchId, resolvedTenant);
     }
 
     if (!homeBranch && !missionBranch) {
@@ -1209,7 +1374,7 @@ class MongoDatabaseAdapter {
     let chosenDistance = 0;
     let isWorkMission = false;
 
-    // Check distance to home branch
+    // Check distance to home branch strictly via server Haversine
     let distHome = 999999;
     if (homeBranch) {
       distHome = calculateDistanceMeters(lat, lon, homeBranch.latitude, homeBranch.longitude);
@@ -1245,31 +1410,46 @@ class MongoDatabaseAdapter {
 
     const newRecord = new AttendanceRecord({
       id: "att_" + Date.now(),
+      tenantId: resolvedTenant,
       employeeId,
+      userId: employeeId,
       branchId: chosenBranch.id,
       date: today,
+      workDate: today,
       checkInTime: new Date().toISOString(),
       checkOutTime: null,
       status: "in_office",
       latitude: lat,
       longitude: lon,
       distanceMeters: chosenDistance,
+      accuracyMeters: accuracy != null ? Number(accuracy) : 0,
       durationMinutes: 0,
       completed8Hours: false,
       autoCheckedOut: false,
       isWorkMissionCheckIn: isWorkMission
     });
 
-    await newRecord.save();
+    try {
+      await newRecord.save();
+    } catch (saveErr) {
+      if (saveErr.code === 11000 || saveErr.message?.includes('E11000')) {
+        const conflictErr = new Error("تم تسجيل حضورك اليوم بالفعل مسبقاً، ولا يمكن تكرار تسجيل الحضور في نفس اليوم.");
+        conflictErr.statusCode = 409;
+        throw conflictErr;
+      }
+      throw saveErr;
+    }
+
     return newRecord.toObject();
   }
 
-  async checkOut(employeeId, latitude, longitude, forceOverride = false, reason = "") {
+  async checkOut(employeeId, latitude, longitude, forceOverride = false, reason = "", accuracy = null, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
     await this.closeExpiredAttendanceRecords();
 
+    const resolvedTenant = tenantId || 'wadi-degla';
     const today = getCairoDateString();
-    const record = await AttendanceRecord.findOne({ employeeId, date: today, checkOutTime: null });
+    const record = await AttendanceRecord.findOne({ tenantId: resolvedTenant, employeeId, date: today, checkOutTime: null });
     if (!record) {
       throw new Error("لا يوجد تسجيل حضور نشط لهذا الموظف اليوم.");
     }
@@ -1278,8 +1458,8 @@ class MongoDatabaseAdapter {
       throw new Error("لا يمكن تسجيل الانصراف بدون إرسال إحداثيات موقعك الجغرافي الحقيقي (GPS).");
     }
 
-    const emp = await this.getEmployeeById(employeeId);
-    const missionReq = await this.getActiveWorkMission(employeeId, today);
+    const emp = await this.getEmployeeById(employeeId, resolvedTenant);
+    const missionReq = await this.getActiveWorkMission(employeeId, today, resolvedTenant);
 
     // Eligible branches for checkout: Check-in branch, Home branch, and Mission branch
     const eligibleBranchIds = new Set();
@@ -1295,7 +1475,7 @@ class MongoDatabaseAdapter {
     const branchesChecked = [];
 
     for (const bId of eligibleBranchIds) {
-      const b = await this.getBranchById(bId);
+      const b = await this.getBranchById(bId, resolvedTenant);
       if (b) {
         const d = calculateDistanceMeters(lat, lon, b.latitude, b.longitude);
         branchesChecked.push({ branch: b, distance: d });
@@ -1323,10 +1503,11 @@ class MongoDatabaseAdapter {
     const durationMinutes = Math.max(0, Math.floor((now - checkInTime) / 60000));
     const durationHours = durationMinutes / 60;
 
-    const settings = await this.getOfficeSettings();
+    const settings = await this.getOfficeSettings(resolvedTenant);
     const requiredHours = settings.shiftHours || 8;
 
     const hasPermission = await Request.findOne({
+      tenantId: resolvedTenant,
       employeeId,
       type: "permission",
       date: today,
@@ -1336,11 +1517,11 @@ class MongoDatabaseAdapter {
     const effectiveRequiredHours = hasPermission ? Math.max(requiredHours - 2, 0) : requiredHours;
 
     if (durationHours < effectiveRequiredHours) {
-      const emp = await Employee.findOne({ id: employeeId }).lean();
-      const isExecutiveOrManager = ['memberships_executive_director', 'memberships_area_manager', 'memberships_manager'].includes(emp?.titleCode);
+      const isExecutiveOrManager = ['memberships_executive_director', 'memberships_area_manager', 'memberships_manager', 'he_who_remains'].includes(emp?.titleCode);
 
       // Check if employee has an approved early checkout request from Memberships Manager
       const approvedEarlyReq = await Request.findOne({
+        tenantId: resolvedTenant,
         employeeId,
         type: "early_checkout",
         date: today,
@@ -1368,13 +1549,28 @@ class MongoDatabaseAdapter {
     record.status = "checked_out";
     record.checkOutLatitude = latitude;
     record.checkOutLongitude = longitude;
-    record.checkOutDistanceMeters = distanceMeters;
+    record.checkOutDistanceMeters = matchedDistance;
+    record.checkOutAccuracyMeters = accuracy != null ? Number(accuracy) : 0;
     record.checkOutNotes = forceOverride ? `انصراف استثنائي / مبكر: ${reason}` : "انصراف نظامي بعد إتمام ساعات العمل";
     if (forceOverride && reason) {
       record.earlyCheckoutReason = reason;
     }
 
     await record.save();
+
+    if (forceOverride) {
+      logAudit({
+        tenantId: resolvedTenant,
+        actorId: actorContext?.userId || employeeId,
+        actorName: actorContext?.name || emp?.name || '',
+        action: 'early_checkout_override',
+        targetId: employeeId,
+        targetType: 'attendance',
+        oldValue: null,
+        newValue: { reason, durationMinutes, completed8Hours: record.completed8Hours }
+      });
+    }
+
     return record.toObject();
   }
 
@@ -1803,7 +1999,7 @@ class MongoDatabaseAdapter {
     return newReq.toObject();
   }
 
-  async reviewRequest(requestId, reviewerId, status, reviewNote) {
+  async reviewRequest(requestId, reviewerId, status, reviewNote, actorContext = null) {
     await this.ensureConnected();
     const req = await Request.findOne({ id: requestId });
     if (!req) return null;
@@ -1871,6 +2067,17 @@ class MongoDatabaseAdapter {
     }
 
     await req.save();
+
+    logAudit({
+      tenantId: req.tenantId || 'wadi-degla',
+      actorId: reviewerId,
+      actorName: actorContext?.name || '',
+      action: status === 'approved' ? 'approve_request' : 'reject_request',
+      targetId: requestId,
+      targetType: 'request',
+      oldValue: { status: 'pending' },
+      newValue: { status, reviewNote: req.reviewNote }
+    });
 
     // Send background push notification & in-app notification to the employee
     try {

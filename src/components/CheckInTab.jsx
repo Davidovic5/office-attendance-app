@@ -314,8 +314,8 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         }
       }
 
-      // 4. Send check-in request with verified real coordinates
-      const res = await api.checkIn(currentUser.id, coords.lat, coords.lng);
+      // 4. Send check-in request with verified real coordinates and accuracy
+      const res = await api.checkIn(currentUser.id, coords.lat, coords.lng, coords.accuracy);
       if (res.success) {
         setSuccessMsg(res.message || `تم تسجيل حضورك بنجاح`);
         setCurrentAttendance(res.record);
@@ -376,7 +376,8 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
         coords.lat,
         coords.lng,
         forceOverride,
-        reason
+        reason,
+        coords.accuracy
       );
       if (res.success) {
         setSuccessMsg(res.message);
