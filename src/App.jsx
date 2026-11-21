@@ -39,6 +39,7 @@ import { LeavesPermissionsTab } from './components/LeavesPermissionsTab';
 import { RolesPermissionsTab } from './components/RolesPermissionsTab';
 import { OfficeSettingsTab } from './components/OfficeSettingsTab';
 import { MonthlyReportTab } from './components/MonthlyReportTab';
+import { ImageCropperModal } from './components/ImageCropperModal';
 import { compressImage } from './utils/imageCompressor';
 import { checkIsInstalledApp } from './utils/appEnvironment';
 import { formatArabicDateWithDay } from './utils/dateHelpers';
@@ -110,6 +111,7 @@ export default function App() {
   // Modals
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [rawAvatarForCropping, setRawAvatarForCropping] = useState(null);
   const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled] = useState(() => checkIsInstalledApp());
@@ -453,24 +455,37 @@ export default function App() {
     }
   };
 
-  // Change Profile Photo
-  const handleAvatarChange = async (e) => {
+  // Change Profile Photo via Interactive Cropper
+  const handleAvatarChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
+    setProfileErrorMsg('');
+    setProfileSuccessMsg('');
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      setRawAvatarForCropping(loadEvt.target.result);
+    };
+    reader.onerror = () => {
+      setProfileErrorMsg('تعذر قراءة ملف الصورة المختارة.');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropAvatarComplete = async (croppedDataUrl) => {
+    setRawAvatarForCropping(null);
     setAvatarLoading(true);
     setProfileErrorMsg('');
     setProfileSuccessMsg('');
-
     try {
-      const compressedData = await compressImage(file, 400, 0.85);
-      const res = await api.updateProfile(currentUser.id, { avatar: compressedData });
+      const res = await api.updateProfile(currentUser.id, { avatar: croppedDataUrl });
       if (res.success) {
-        setProfileAvatar(compressedData);
-        const updated = { ...currentUser, avatar: compressedData };
+        setProfileAvatar(croppedDataUrl);
+        const updated = { ...currentUser, avatar: croppedDataUrl };
         setCurrentUser(updated);
         localStorage.setItem('office_auth_user', JSON.stringify(updated));
-        setProfileSuccessMsg('تم تحديث الصورة الشخصية بنجاح!');
+        setProfileSuccessMsg('تم تحديث الصورة الشخصية وقصها بنجاح!');
       } else {
         setProfileErrorMsg(res.error || 'فشل تحديث الصورة');
       }
@@ -479,6 +494,10 @@ export default function App() {
     } finally {
       setAvatarLoading(false);
     }
+  };
+
+  const handleCropAvatarCancel = () => {
+    setRawAvatarForCropping(null);
   };
 
   // Lock status of weekly off days for current user
@@ -1460,22 +1479,24 @@ export default function App() {
             </div>
 
             {/* 7. Delete Account Danger Section */}
-            <div className="bg-zinc-950 p-4 rounded-2xl border border-rose-950/80 mt-4 text-center">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-black text-rose-400 block text-right">منطقة الخطر: حذف الحساب</span>
-                  <span className="text-[10px] text-zinc-500 block text-right mt-0.5">مسح حسابك وبياناتك نهائياً من النظام</span>
+            {!isSuperAdmin && (
+              <div className="bg-zinc-950 p-4 rounded-2xl border border-rose-950/80 mt-4 text-center">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-black text-rose-400 block text-right">منطقة الخطر: حذف الحساب</span>
+                    <span className="text-[10px] text-zinc-500 block text-right mt-0.5">مسح حسابك وبياناتك نهائياً من النظام</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="py-2 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>حذف الحساب</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="py-2 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs transition-colors flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  <span>حذف الحساب</span>
-                </button>
               </div>
-            </div>
+            )}
 
             {/* Close Button */}
             <button
@@ -1527,6 +1548,15 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Interactive Avatar Cropper Modal */}
+      {rawAvatarForCropping && (
+        <ImageCropperModal
+          imageSrc={rawAvatarForCropping}
+          onCropComplete={handleCropAvatarComplete}
+          onCancel={handleCropAvatarCancel}
+        />
       )}
 
       {/* ================= INSTALL APP MODAL ================= */}

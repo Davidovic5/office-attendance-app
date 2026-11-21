@@ -1341,22 +1341,48 @@ class MongoDatabaseAdapter {
     return { success: true, message: "تم تغيير كلمة المرور بنجاح!" };
   }
 
-  async deleteEmployee(employeeId) {
+  async deleteEmployee(employeeId, tenantId = 'wadi-degla', actorContext = null) {
     await this.ensureConnected();
-    if (employeeId === "emp_admin") {
-      throw new Error("لا يمكن حذف حساب الإدارة الرئيسي للنظام.");
-    }
+    const resolvedTenant = tenantId || 'wadi-degla';
 
     const emp = await Employee.findOne({ id: employeeId });
     if (!emp) {
       throw new Error("الموظف غير موجود.");
     }
 
+    const isProtected = emp.phone === '01010046078' || emp.isSuperAdmin || emp.titleCode === 'he_who_remains' || employeeId === 'emp_admin';
+    if (isProtected) {
+      throw new Error("غير مصرح: لا يمكن حذف حساب الإدارة الرئيسي للنظام (Super Admin).");
+    }
+
+    const empName = emp.name;
+    const oldDetails = {
+      name: emp.name,
+      phone: emp.phone,
+      sapNumber: emp.sapNumber,
+      titleCode: emp.titleCode,
+      branchId: emp.branchId
+    };
+
     await Employee.deleteOne({ id: employeeId });
     await AttendanceRecord.deleteMany({ employeeId });
     await Request.deleteMany({ employeeId });
+    try {
+      await PushSubscription.deleteMany({ employeeId });
+    } catch (e) {}
 
-    return { success: true, message: `تم حذف حساب "${emp.name}" نهائياً بنجاح.` };
+    logAudit({
+      tenantId: resolvedTenant,
+      actorId: actorContext?.userId,
+      actorName: actorContext?.name,
+      action: 'delete_employee',
+      targetId: employeeId,
+      targetType: 'employee',
+      oldValue: oldDetails,
+      newValue: null
+    });
+
+    return { success: true, message: `تم حذف حساب الموظف "${empName}" وسجلاته نهائياً بنجاح.` };
   }
 
   async getTodayAttendance(dateStr = null, branchId = null) {

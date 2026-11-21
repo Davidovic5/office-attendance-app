@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import { compressImage } from '../utils/imageCompressor';
+import { ImageCropperModal } from './ImageCropperModal';
 import { checkIsInstalledApp } from '../utils/appEnvironment';
 import { DEFAULT_SECTORS } from '../utils/userScope';
 import { getInitialTheme, applyTheme } from '../utils/themeHelper';
@@ -135,24 +136,33 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
   const [regWeeklyOff, setRegWeeklyOff] = useState(['friday', 'saturday']);
   const [regAvatar, setRegAvatar] = useState('');
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [rawCropperImage, setRawCropperImage] = useState(null);
 
-  // Handle Photo Picker & Compression
-  const handlePhotoUpload = async (e) => {
+  // Handle Photo Picker & Open Interactive Cropper
+  const handlePhotoUpload = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
     setErrorMsg('');
-    setPhotoCompressing(true);
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      setRawCropperImage(loadEvent.target.result);
+    };
+    reader.onerror = () => {
+      setErrorMsg('تعذر قراءة ملف الصورة المختارة.');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
-    try {
-      const compressedDataUrl = await compressImage(file, 400, 0.85);
-      setRegAvatar(compressedDataUrl);
-      setAvatarPreview(compressedDataUrl);
-    } catch (err) {
-      setErrorMsg('تعذر معالجة الصورة، يرجى المحاولة بصورة أخرى: ' + err.message);
-    } finally {
-      setPhotoCompressing(false);
-    }
+  const handleCropComplete = (croppedDataUrl) => {
+    setRegAvatar(croppedDataUrl);
+    setAvatarPreview(croppedDataUrl);
+    setRawCropperImage(null);
+  };
+
+  const handleCropCancel = () => {
+    setRawCropperImage(null);
   };
 
   const toggleWeeklyOffDay = (dayId) => {
@@ -1003,6 +1013,15 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
             </button>
           </div>
         </div>
+      )}
+
+      {/* Interactive Avatar Cropper Modal */}
+      {rawCropperImage && (
+        <ImageCropperModal
+          imageSrc={rawCropperImage}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
       )}
     </div>
   );

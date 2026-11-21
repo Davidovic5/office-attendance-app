@@ -690,6 +690,17 @@ router.put('/employees/:id/details', requireAuth, requirePermission(['edit_emplo
   }
 });
 
+// Delete Employee by Admin/Authorized Manager (حذف حساب الموظف بصلاحية الحذف)
+router.delete('/employees/:id', requireAuth, requirePermission('delete_employee'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.deleteEmployee(id, req.tenantId, req.user);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // 4. Live Office Presence Dashboard (Filtered by Branch)
 router.get('/status/live', async (req, res) => {
   try {

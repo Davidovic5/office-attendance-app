@@ -20,7 +20,8 @@ import {
   Building2,
   Edit2,
   RotateCcw,
-  UserPlus
+  UserPlus,
+  Trash2
 } from 'lucide-react';
 import { api } from '../api';
 import { getUserAllowedBranches, DEFAULT_SECTORS } from '../utils/userScope';
@@ -55,8 +56,11 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
   const canManageTitles = Boolean(isSuperAdmin || currentUser?.permissions?.manage_titles_permissions);
   const canManageEmployees = Boolean(isSuperAdmin || currentUser?.permissions?.manage_employees);
   const canEditEmployeeDetails = Boolean(isSuperAdmin || currentUser?.permissions?.edit_employee_details || currentUser?.permissions?.manage_employees);
+  const canDeleteEmployee = Boolean(isSuperAdmin || currentUser?.permissions?.delete_employee);
 
   const [activeSubTab, setActiveSubTab] = useState(canManageTitles ? 'roles' : 'employees');
+  const [deletingEmp, setDeletingEmp] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Roles & Titles state
   const [titles, setTitles] = useState([]);
@@ -192,6 +196,12 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       label: 'التحكم في صلاحيات المسميات (هذه الشاشة)',
       description: 'تعديل وتحديد ما يراه ويصل إليه كل مسمى وظيفي',
       category: 'الإدارة والإعدادات'
+    },
+    {
+      key: 'delete_employee',
+      label: 'حذف حسابات الموظفين',
+      description: 'صلاحية حذف حساب موظف نهائياً مع كافة سجلاته من النظام وقاعدة البيانات',
+      category: 'الإدارة والإعدادات'
     }
   ];
 
@@ -311,6 +321,32 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
       setEmpErrorMsg(err.message || 'فشل الاتصال بالخادم.');
     } finally {
       setEmpActionLoading(false);
+    }
+  };
+
+  // Delete Employee Confirmation Handler
+  const handleConfirmDeleteEmployee = async () => {
+    if (!deletingEmp) return;
+    setDeleteLoading(true);
+    setEmpErrorMsg('');
+    setEmpSuccessMsg('');
+    try {
+      const res = await api.deleteEmployee(deletingEmp.id);
+      if (res.success) {
+        setEmpSuccessMsg(res.message || `تم حذف حساب ${deletingEmp.name} نهائياً بنجاح.`);
+        const deletedId = deletingEmp.id;
+        setDeletingEmp(null);
+        if (editingEmp && editingEmp.id === deletedId) {
+          setEditingEmp(null);
+        }
+        await fetchEmployeesData();
+      } else {
+        setEmpErrorMsg(res.error || 'تعذر حذف الحساب.');
+      }
+    } catch (err) {
+      setEmpErrorMsg(err.message || 'حدث خطأ أثناء محاولة حذف الحساب.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -590,6 +626,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
             ) : (
               visibleEmployees.map(emp => {
                 const isBound = Boolean(emp.boundDeviceId);
+                const isProtectedEmp = emp.phone === '01010046078' || emp.isSuperAdmin || emp.titleCode === 'he_who_remains' || emp.id === 'emp_admin' || emp.id === currentUser?.id;
 
                 return (
                   <div
@@ -675,17 +712,30 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                             <Calendar className="w-3 h-3 text-amber-400" />
                             <span>الأرصدة والبيانات:</span>
                           </span>
-                          {canEditEmployeeDetails && (
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(emp)}
-                              className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
-                              title="تعديل المسمى الوظيفي والفرع وأيام الراحة والرصيد"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                              <span>تعديل البيانات ✏️</span>
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {canEditEmployeeDetails && (
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(emp)}
+                                className="text-[10px] font-black text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="تعديل المسمى الوظيفي والفرع وأيام الراحة والرصيد"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>تعديل ✏️</span>
+                              </button>
+                            )}
+                            {canDeleteEmployee && !isProtectedEmp && (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingEmp(emp)}
+                                className="text-[10px] font-black text-rose-400 hover:text-rose-300 bg-rose-950/70 hover:bg-rose-900 border border-rose-800/60 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="حذف حساب الموظف نهائياً من النظام"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>حذف 🗑️</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="text-amber-300 font-black text-[11px] flex items-center gap-2">
                           <span>إجازات: <b>{emp.leaveBalance !== undefined ? emp.leaveBalance : 30} يوم</b></span>
@@ -1111,20 +1161,76 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                     <button
                       type="submit"
                       disabled={empActionLoading}
-                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Save className="w-4 h-4" />
                       <span>{empActionLoading ? 'جاري الحفظ...' : 'حفظ البيانات المعتمدة'}</span>
                     </button>
+                    {canDeleteEmployee && !(editingEmp.phone === '01010046078' || editingEmp.isSuperAdmin || editingEmp.titleCode === 'he_who_remains' || editingEmp.id === 'emp_admin' || editingEmp.id === currentUser?.id) && (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingEmp(editingEmp)}
+                        className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-800/60 text-rose-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                        title="حذف هذا الموظف نهائياً"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>حذف</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditingEmp(null)}
-                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs"
+                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs cursor-pointer"
                     >
                       إلغاء
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Employee Confirmation Modal */}
+          {deletingEmp && (
+            <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+              <div className="w-full max-w-sm bg-zinc-900 border border-rose-500/50 rounded-3xl p-5 shadow-2xl space-y-4 text-right">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-100">تأكيد حذف الحساب نهائياً</h3>
+                    <span className="text-xs text-rose-400 font-bold block">{deletingEmp.name}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-zinc-300 leading-relaxed bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+                  هل أنت متأكد من رغبتك في حذف حساب الموظف <b>"{deletingEmp.name}"</b> ({deletingEmp.phone})؟
+                  <br />
+                  <span className="text-rose-400 font-bold mt-1.5 block">
+                    ⚠️ سيتم حذف الحساب وكافة سجلات الحضور والأذونات والارتباط بالأجهزة نهائياً من قاعدة البيانات ولا يمكن التراجع.
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteEmployee}
+                    disabled={deleteLoading}
+                    className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{deleteLoading ? 'جاري الحذف...' : 'نعم، احذف الحساب الآن'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingEmp(null)}
+                    disabled={deleteLoading}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                </div>
               </div>
             </div>
           )}

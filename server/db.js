@@ -1665,8 +1665,9 @@ class Database {
       throw new Error("الموظف غير موجود.");
     }
     const emp = this.data.employees[idx];
-    if (emp.id === "emp_admin") {
-      throw new Error("لا يمكن حذف حساب الإدارة الرئيسي للنظام.");
+    const isProtected = emp.phone === '01010046078' || emp.isSuperAdmin || emp.titleCode === 'he_who_remains' || emp.id === "emp_admin";
+    if (isProtected) {
+      throw new Error("غير مصرح: لا يمكن حذف حساب الإدارة الرئيسي للنظام (Super Admin).");
     }
 
     this.data.employees.splice(idx, 1);

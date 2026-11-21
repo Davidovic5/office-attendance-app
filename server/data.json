@@ -101,7 +101,8 @@
         "manage_office_settings": true,
         "view_reports": true,
         "view_all_branches": true,
-        "override_early_checkout": true
+        "override_early_checkout": true,
+        "delete_employee": true
       }
     },
     {
@@ -124,7 +125,8 @@
         "manage_office_settings": true,
         "view_reports": true,
         "view_all_branches": true,
-        "override_early_checkout": true
+        "override_early_checkout": true,
+        "delete_employee": true
       }
     },
     {
@@ -218,7 +220,8 @@
         "manage_office_settings": true,
         "view_reports": true,
         "view_all_branches": true,
-        "override_early_checkout": true
+        "override_early_checkout": true,
+        "delete_employee": true
       }
     },
     {

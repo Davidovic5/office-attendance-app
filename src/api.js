@@ -143,6 +143,14 @@ export const api = {
     return res.json();
   },
 
+  async deleteEmployee(employeeId) {
+    const res = await fetch(`${BASE_URL}/employees/${employeeId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
   // Device Management (فك ارتباط الجهاز)
   async resetEmployeeDevice(employeeId) {
     const res = await fetch(`${BASE_URL}/employees/${employeeId}/reset-device`, {
