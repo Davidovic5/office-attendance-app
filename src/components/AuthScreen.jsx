@@ -440,6 +440,18 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
             </p>
           </div>
 
+          {/* Quick Install Banner for Web Browser visitors */}
+          {!isInstalledApp && (
+            <button
+              type="button"
+              onClick={() => setShowInstallModal(true)}
+              className="w-full mb-4 py-2.5 px-3 bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 hover:from-amber-500/25 hover:to-amber-500/25 border border-amber-500/40 rounded-2xl text-amber-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+            >
+              <Download className="w-4 h-4 text-amber-400 animate-bounce" />
+              <span>📲 اضغط هنا لتثبيت التطبيق على شاشة الهاتف</span>
+            </button>
+          )}
+
           {/* Tab Switcher (Login vs Register) */}
           <div className="flex bg-zinc-950 p-1.5 rounded-2xl mb-5 border border-zinc-800">
             <button
@@ -870,15 +882,22 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
           </form>
         )}
 
-        {/* Back to download portal if opened via web bypass */}
-        {webBypass && (
+        {/* Link to full download & install portal */}
+        {!isInstalledApp && (
           <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
             <button
               type="button"
-              onClick={() => setWebBypass(false)}
-              className="text-[11px] text-zinc-400 hover:text-amber-400 transition-colors font-bold"
+              onClick={() => {
+                setWebBypass(false);
+                setIsInstalledApp(false);
+                try {
+                  localStorage.removeItem('wd_is_installed_app');
+                } catch (e) {}
+              }}
+              className="text-[11px] text-zinc-400 hover:text-amber-400 transition-colors font-bold inline-flex items-center gap-1.5 cursor-pointer"
             >
-              ← العودة لصفحة تنزيل التطبيق للهاتف
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>صفحة تنزيل وتثبيت التطبيق على الهاتف (Android / iPhone)</span>
             </button>
           </div>
         )}
