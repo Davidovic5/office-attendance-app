@@ -316,7 +316,7 @@ const DEFAULT_TITLES = [
   }
 ];
 
-// Production-safe Serverless Mongoose connection caching (9:00 AM Peak Protection)
+// Production-safe Serverless Mongoose connection caching (Peak Traffic Protection ~ 12:00 - 12:30 PM)
 if (!globalThis._mongooseConnectionCache) {
   globalThis._mongooseConnectionCache = {
     conn: null,
