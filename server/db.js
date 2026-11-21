@@ -572,7 +572,14 @@ class Database {
   registerEmployee(data) {
     const { name, phone, password, pin, titleCode, jobTitle, branchId, sectorId, sectorName, weeklyOffDays, avatar, deviceId, deviceInfo, leaveBalance, permissionsBalanceHours } = data;
     
-    const existing = this.data.employees.find(e => e.phone === phone.trim());
+    const cleanPhone = phone.trim();
+    if (titleCode === 'he_who_remains' || (jobTitle && jobTitle.toUpperCase().includes('HE WHO REMAINS'))) {
+      if (cleanPhone !== '01010046078') {
+        throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
+      }
+    }
+
+    const existing = this.data.employees.find(e => e.phone === cleanPhone);
     if (existing) {
       throw new Error("رقم الهاتف مسجل بالفعل لموظف آخر.");
     }
@@ -759,8 +766,58 @@ class Database {
     if (profileData.name) emp.name = profileData.name.trim();
     if (profileData.avatar) emp.avatar = profileData.avatar;
     if (profileData.weeklyOffDays) emp.weeklyOffDays = profileData.weeklyOffDays;
-    if (profileData.jobTitle) emp.jobTitle = profileData.jobTitle.trim();
+    if (profileData.jobTitle) {
+      if (profileData.jobTitle.toUpperCase().includes('HE WHO REMAINS')) {
+        const isDavid = emp.phone === '01010046078' || emp.id === 'emp_1792955351678';
+        if (!isDavid) {
+          throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط.");
+        }
+      }
+      emp.jobTitle = profileData.jobTitle.trim();
+    }
     if (profileData.branchId) emp.branchId = profileData.branchId;
+
+    this.save();
+    return this.getEmployeeById(employeeId);
+  }
+
+  updateEmployeeDetails(employeeId, data) {
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) throw new Error("الموظف غير موجود.");
+
+    // Ghost Super Admin Protection
+    if (emp.phone === "01010046078" || emp.isSuperAdmin) {
+      throw new Error("لا يمكن تعديل بيانات مدير النظام العام.");
+    }
+
+    if (data.name && data.name.trim()) emp.name = data.name.trim();
+    if (data.phone && data.phone.trim()) {
+      const cleanPhone = data.phone.trim();
+      const existing = this.data.employees.find(e => e.phone === cleanPhone && e.id !== employeeId);
+      if (existing) throw new Error(`رقم الهاتف (${cleanPhone}) مسجل بالفعل لموظف آخر.`);
+      emp.phone = cleanPhone;
+    }
+    if (data.titleCode) {
+      if (data.titleCode === 'he_who_remains') {
+        const isDavid = emp.phone === '01010046078' || emp.id === 'emp_1792955351678';
+        if (!isDavid) {
+          throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
+        }
+      }
+      const titleObj = this.data.titles.find(t => t.code === data.titleCode);
+      if (titleObj) {
+        emp.titleCode = titleObj.code;
+        emp.jobTitle = titleObj.englishTitle || titleObj.name;
+      }
+    }
+    if (data.branchId) emp.branchId = data.branchId;
+    if (data.sectorId !== undefined) {
+      emp.sectorId = data.sectorId || '';
+      emp.sectorName = data.sectorName || '';
+    }
+    if (data.weeklyOffDays && Array.isArray(data.weeklyOffDays)) emp.weeklyOffDays = data.weeklyOffDays;
+    if (data.leaveBalance !== undefined && data.leaveBalance !== null) emp.leaveBalance = Number(data.leaveBalance);
+    if (data.permissionsBalanceHours !== undefined && data.permissionsBalanceHours !== null) emp.permissionsBalanceHours = Number(data.permissionsBalanceHours);
 
     this.save();
     return this.getEmployeeById(employeeId);

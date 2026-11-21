@@ -622,7 +622,13 @@ class MongoDatabaseAdapter {
 
   async registerEmployee(empData) {
     await this.ensureConnected();
-    const existing = await Employee.findOne({ phone: empData.phone.trim() });
+    const cleanPhone = empData.phone.trim();
+    if (empData.titleCode === 'he_who_remains' || (empData.jobTitle && empData.jobTitle.toUpperCase().includes('HE WHO REMAINS'))) {
+      if (cleanPhone !== '01010046078') {
+        throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
+      }
+    }
+    const existing = await Employee.findOne({ phone: cleanPhone });
     if (existing) {
       throw new Error(`رقم الهاتف (${empData.phone}) مسجل بالفعل لموظف آخر.`);
     }
@@ -854,6 +860,12 @@ class MongoDatabaseAdapter {
       emp.phone = cleanPhone;
     }
     if (data.titleCode) {
+      if (data.titleCode === 'he_who_remains') {
+        const isTargetDavid = emp.phone === '01010046078' || emp.id === 'emp_1792955351678';
+        if (!isTargetDavid) {
+          throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط ولا يمكن منحه لأي شخص آخر.");
+        }
+      }
       const titleObj = await Title.findOne({ code: data.titleCode }).lean();
       if (titleObj) {
         emp.titleCode = titleObj.code;
@@ -1053,7 +1065,16 @@ class MongoDatabaseAdapter {
     if (name) updates.name = name.trim();
     if (avatar) updates.avatar = avatar;
     if (weeklyOffDays && Array.isArray(weeklyOffDays)) updates.weeklyOffDays = weeklyOffDays;
-    if (jobTitle) updates.jobTitle = jobTitle;
+    if (jobTitle) {
+      if (jobTitle.toUpperCase().includes('HE WHO REMAINS')) {
+        const targetEmp = await Employee.findOne({ id: employeeId }).lean();
+        const isTargetDavid = targetEmp && (targetEmp.phone === '01010046078' || targetEmp.id === 'emp_1792955351678');
+        if (!isTargetDavid) {
+          throw new Error("غير مصرح: هذا المسمى الوظيفي (HE WHO REMAINS) حصري ومخصص لديفيد جان فقط.");
+        }
+      }
+      updates.jobTitle = jobTitle;
+    }
     if (branchId) updates.branchId = branchId;
 
     await Employee.updateOne({ id: employeeId }, { $set: updates });
