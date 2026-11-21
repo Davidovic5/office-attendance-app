@@ -272,6 +272,14 @@ export function CheckInTab({ currentUser, officeSettings, onAttendanceUpdated })
     setErrorMsg('');
     setSuccessMsg('');
 
+    // Mandatory SAP enforcement: regular employees cannot check in without SAP code
+    const isSuper = Boolean(currentUser?.isSuperAdmin || currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains');
+    if (!isSuper && (!currentUser?.sapNumber || !String(currentUser.sapNumber).trim())) {
+      setErrorMsg('عذراً، يجب تسجيل كود الـ SAP الخاص بك أولاً لتتمكن من تسجيل الحضور.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // 1. Read fresh real GPS from phone hardware
       let coords = null;

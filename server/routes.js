@@ -377,6 +377,29 @@ router.put('/auth/profile', async (req, res) => {
   }
 });
 
+// Mandatory SAP Number Registration
+router.post('/auth/set-sap-number', async (req, res) => {
+  try {
+    const { employeeId, sapNumber } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: "معرف الموظف مطلوب." });
+    }
+    const cleanSap = String(sapNumber || "").trim();
+    if (!cleanSap) {
+      return res.status(400).json({ success: false, error: "يرجى كتابة كود الـ SAP الخاص بك." });
+    }
+
+    const updated = await db.setEmployeeSapNumber(employeeId, cleanSap);
+    res.json({
+      success: true,
+      message: "تم حفظ وتأكيد كود الـ SAP بنجاح!",
+      employee: updated
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Change Password
 router.put('/auth/change-password', async (req, res) => {
   try {

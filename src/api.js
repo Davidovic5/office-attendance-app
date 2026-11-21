@@ -56,6 +56,15 @@ export const api = {
     return res.json();
   },
 
+  async setSapNumber(employeeId, sapNumber) {
+    const res = await fetch(`${BASE_URL}/auth/set-sap-number`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, sapNumber }),
+    });
+    return res.json();
+  },
+
   async changePassword(employeeId, oldPassword, newPassword) {
     const res = await fetch(`${BASE_URL}/auth/change-password`, {
       method: 'PUT',

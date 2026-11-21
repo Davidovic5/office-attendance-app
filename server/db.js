@@ -839,6 +839,25 @@ class Database {
     return this.getEmployeeById(employeeId);
   }
 
+  setEmployeeSapNumber(employeeId, sapNumber) {
+    const cleanSap = String(sapNumber || "").trim();
+    if (!cleanSap) {
+      throw new Error("كود الـ SAP مطلوب ولا يمكن أن يكون فارغاً.");
+    }
+    const existing = this.data.employees.find(e => e.sapNumber === cleanSap && e.id !== employeeId);
+    if (existing) {
+      throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existing.name}). يرجى التأكد من الكود.`);
+    }
+
+    const emp = this.data.employees.find(e => e.id === employeeId);
+    if (!emp) {
+      throw new Error("الموظف غير موجود بالنظام.");
+    }
+    emp.sapNumber = cleanSap;
+    this.save();
+    return this.getEmployeeById(employeeId);
+  }
+
   // In-App Notifications
   createInAppNotification({ recipientId, title, body, type = 'system', relatedId = '', url = '/?tab=leaves' }) {
     this.data.notifications = this.data.notifications || [];
@@ -952,6 +971,12 @@ class Database {
     const today = getCairoDateString();
     const emp = this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
+
+    // Mandatory SAP enforcement: regular employees cannot check in without SAP number
+    const isSuper = Boolean(emp.phone === '01010046078' || emp.isSuperAdmin || emp.titleCode === 'he_who_remains');
+    if (!isSuper && (!emp.sapNumber || !String(emp.sapNumber).trim())) {
+      throw new Error("عذراً، يجب تسجيل كود الـ SAP الخاص بك أولاً لتتمكن من تسجيل الحضور والانصراف.");
+    }
 
     const existing = this.data.attendanceRecords.find(r => r.employeeId === employeeId && r.date === today && !r.checkOutTime);
     if (existing) {

@@ -113,6 +113,11 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled] = useState(() => checkIsInstalledApp());
 
+  // Mandatory SAP Number Registration state
+  const [mandatorySapInput, setMandatorySapInput] = useState('');
+  const [mandatorySapLoading, setMandatorySapLoading] = useState(false);
+  const [mandatorySapError, setMandatorySapError] = useState('');
+
   // Theme state: 'dark' | 'light'
   const [theme, setTheme] = useState(() => getInitialTheme());
 
@@ -590,6 +595,42 @@ export default function App() {
     permissions 
   } : null;
 
+  // Mandatory SAP Check: regular employees must have sapNumber registered to use the app
+  const requiresSapNumber = Boolean(
+    currentUser &&
+    !isSuperAdmin &&
+    !isDavid &&
+    (!currentUser.sapNumber || !String(currentUser.sapNumber).trim())
+  );
+
+  const handleSaveMandatorySap = async (e) => {
+    e.preventDefault();
+    const clean = mandatorySapInput.trim();
+    if (!clean) {
+      setMandatorySapError('يرجى إدخال كود الـ SAP الخاص بك.');
+      return;
+    }
+
+    setMandatorySapLoading(true);
+    setMandatorySapError('');
+
+    try {
+      const res = await api.setSapNumber(currentUser.id, clean);
+      if (res.success && res.employee) {
+        setCurrentUser(res.employee);
+        localStorage.setItem('office_auth_user', JSON.stringify(res.employee));
+        setMandatorySapInput('');
+        loadInitialData(true);
+      } else {
+        setMandatorySapError(res.error || 'تعذر حفظ كود الـ SAP.');
+      }
+    } catch (err) {
+      setMandatorySapError(err.message || 'فشل الاتصال بالخادم.');
+    } finally {
+      setMandatorySapLoading(false);
+    }
+  };
+
   // Tabs configuration strictly based on permissions without hardcoded role bypasses!
   const tabs = [
     {
@@ -899,6 +940,78 @@ export default function App() {
         </div>
       </nav>
 
+      {/* ================= MANDATORY SAP MODAL (BLOCKS EVERYTHING UNTIL ENTERED) ================= */}
+      {requiresSapNumber && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in font-['Cairo',sans-serif]">
+          <div className="w-full max-w-md bg-zinc-900 border-2 border-amber-500/70 rounded-3xl p-6 shadow-2xl shadow-amber-500/20 text-right space-y-4 relative">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+                <Shield className="w-8 h-8" />
+              </div>
+              <h2 className="text-base font-black text-amber-400">مطلوب: تسجيل كود الـ SAP الخاص بك</h2>
+              <p className="text-xs text-zinc-300 leading-relaxed font-bold">
+                أهلاً بك يا <span className="text-amber-300 font-black">{liveUser?.name}</span>!
+              </p>
+              <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3 text-start">
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  ⚠️ <b>تنبيه إجباري:</b> تم ربط نظام تسجيل الحضور والانصراف بمنظومة <b>SAP</b> الرسمية. لن تتمكن من تسجيل الحضور أو استخدام أي خاصية في التطبيق إلا بعد إدخال وتأكيد كود الـ SAP الخاص بك.
+                </p>
+              </div>
+            </div>
+
+            {mandatorySapError && (
+              <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-600/70 text-rose-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{mandatorySapError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveMandatorySap} className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-zinc-200 mb-1.5 flex items-center justify-between">
+                  <span>كود الـ SAP (الرقم الوظيفي في SAP):</span>
+                  <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    إجباري
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={mandatorySapInput}
+                  onChange={e => setMandatorySapInput(e.target.value)}
+                  placeholder="أدخل كود الـ SAP الخاص بك"
+                  dir="ltr"
+                  required
+                  autoFocus
+                  className="w-full p-3.5 text-sm font-black text-left rounded-2xl bg-zinc-950 border-2 border-zinc-800 text-amber-400 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-mono tracking-wider"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={mandatorySapLoading || !mandatorySapInput.trim()}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 disabled:opacity-50 text-black font-black text-xs shadow-lg shadow-amber-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                {mandatorySapLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>جاري التحقق والحفظ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-black" />
+                    <span>حفظ وتفعيل استخدام التطبيق</span>
+                  </>
+                )}
+              </button>
+
+              <p className="text-[10px] text-zinc-500 text-center leading-normal pt-1">
+                في حال عدم معرفتك بكود الـ SAP الخاص بك، يرجى مراجعة إدارة النادي أو مدير الفرع.
+              </p>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ================= USER PROFILE & SETTINGS MODAL ================= */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fade-in">
@@ -912,7 +1025,14 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-amber-400">إعدادات الحساب والملف الشخصي</h3>
-                  <span className="text-[11px] text-zinc-400">{currentUser.name} ({currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains' ? 'HE WHO REMAINS' : currentUser.jobTitle})</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] text-zinc-400">{currentUser.name} ({currentUser?.phone === '01010046078' || currentUser?.titleCode === 'he_who_remains' ? 'HE WHO REMAINS' : currentUser.jobTitle})</span>
+                    {currentUser?.sapNumber && (
+                      <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono font-bold" dir="ltr">
+                        SAP: {currentUser.sapNumber}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button

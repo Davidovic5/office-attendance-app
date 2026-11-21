@@ -916,6 +916,26 @@ class MongoDatabaseAdapter {
     return this.getEmployeeById(employeeId);
   }
 
+  async setEmployeeSapNumber(employeeId, sapNumber) {
+    await this.ensureConnected();
+    const cleanSap = String(sapNumber || "").trim();
+    if (!cleanSap) {
+      throw new Error("كود الـ SAP مطلوب ولا يمكن أن يكون فارغاً.");
+    }
+    const existing = await Employee.findOne({ sapNumber: cleanSap, id: { $ne: employeeId } });
+    if (existing) {
+      throw new Error(`كود الـ SAP (${cleanSap}) مسجل بالفعل لموظف آخر (${existing.name}). يرجى التأكد من الكود.`);
+    }
+
+    const emp = await Employee.findOne({ id: employeeId });
+    if (!emp) {
+      throw new Error("الموظف غير موجود بالنظام.");
+    }
+    emp.sapNumber = cleanSap;
+    await emp.save();
+    return await this._enrichEmployee(emp);
+  }
+
   // Push Notifications Management
   async savePushSubscription(employeeId, subscription, userAgent = '') {
     await this.ensureConnected();
@@ -1157,6 +1177,12 @@ class MongoDatabaseAdapter {
     const today = getCairoDateString();
     const emp = await this.getEmployeeById(employeeId);
     if (!emp) throw new Error("الموظف غير موجود.");
+
+    // Mandatory SAP enforcement: regular employees cannot check in without SAP number
+    const isSuper = Boolean(emp.phone === '01010046078' || emp.isSuperAdmin || emp.titleCode === 'he_who_remains');
+    if (!isSuper && (!emp.sapNumber || !String(emp.sapNumber).trim())) {
+      throw new Error("عذراً، يجب تسجيل كود الـ SAP الخاص بك أولاً لتتمكن من تسجيل الحضور والانصراف.");
+    }
 
     const existing = await AttendanceRecord.findOne({ employeeId, date: today, checkOutTime: null });
     if (existing) {
