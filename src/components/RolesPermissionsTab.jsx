@@ -750,7 +750,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                         type="text"
                         value={newSapNumber}
                         onChange={e => setNewSapNumber(e.target.value)}
-                        placeholder="مثال: 4547"
+                        placeholder="أدخل كود الـ SAP"
                         required
                         className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-mono text-left"
                         dir="ltr"
@@ -959,7 +959,7 @@ export function RolesPermissionsTab({ currentUser, onTitlesUpdated }) {
                       type="text"
                       value={editSapNumber}
                       onChange={e => setEditSapNumber(e.target.value)}
-                      placeholder="أدخل كود الـ SAP (مثال: 4547)"
+                      placeholder="أدخل كود الـ SAP"
                       className="w-full p-2.5 text-xs font-bold rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 focus:outline-none focus:border-amber-500 font-mono text-left"
                       dir="ltr"
                     />

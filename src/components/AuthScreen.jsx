@@ -496,7 +496,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                 type="text"
                 value={loginPhone}
                 onChange={e => setLoginPhone(e.target.value)}
-                placeholder="أدخل رقم الموبايل أو كود الـ SAP (مثال: 4547)"
+                placeholder="أدخل رقم الموبايل أو كود الـ SAP"
                 autoComplete="username webauthn"
                 dir="ltr"
                 required
@@ -680,7 +680,7 @@ export function AuthScreen({ titles, branches, officeSettings, onAuthSuccess }) 
                 type="text"
                 value={regSapNumber}
                 onChange={e => setRegSapNumber(e.target.value)}
-                placeholder="أدخل كود الـ SAP الخاص بالموظف (مثال: 4547)"
+                placeholder="أدخل كود الـ SAP الخاص بالموظف"
                 dir="ltr"
                 required
                 className="w-full p-2.5 text-xs font-bold text-left rounded-xl bg-zinc-950 border border-zinc-800 text-amber-400 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 font-mono"
